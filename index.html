@@ -454,7 +454,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
 <!-- HERO -->
 <section class="hero">
   <div class="embers" id="embers"></div>
-  <div class="hero-mtn"><svg class="hero-mtn-svg" viewBox="0 224 1536 530" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><defs><linearGradient id="mtnFade" x1="0" y1="0" x2="0" y2="1"><stop offset="80%" stop-color="#0c1f14" stop-opacity="0"/><stop offset="100%" stop-color="#0a1a10"/></linearGradient></defs><image href="assets/img/montagne.png" x="0" y="0" width="1536" height="1024"/><rect x="0" y="224" width="1536" height="530" fill="url(#mtnFade)"/></svg></div>
+  <div class="hero-mtn"><svg class="hero-mtn-svg" viewBox="0 224 1536 530" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><defs><linearGradient id="mtnFade" x1="0" y1="0" x2="0" y2="1"><stop offset="80%" stop-color="#0c1f14" stop-opacity="0"/><stop offset="100%" stop-color="#0a1a10"/></linearGradient></defs><image href="assets/img/montagne.PNG" x="0" y="0" width="1536" height="1024"/><rect x="0" y="224" width="1536" height="530" fill="url(#mtnFade)"/></svg></div>
   <div class="hero-in">
     <div>
       <div class="hero-kicker">2ª Skyrace · <b>Domenica 18 Ottobre 2026</b> · Comune di Magliano de' Marsi</div>
@@ -587,7 +587,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
       <p class="lead">Il gruppo del Velino è il terzo per altezza di tutto l'Appennino, dopo Gran Sasso e Maiella. Per la sua forma convessa sul versante marsicano lo si vede intero da un solo paese: Magliano de' Marsi. Da qui parte la Skyrace del Maglio, e verso queste creste sale.</p>
     </div>
     <div class="skyline-wrap reveal">
-      <div class="skyline-real"><svg class="sk-ov2" viewBox="0 140 1536 614" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Profilo di Sevice, Velino e Cafornia"><defs><linearGradient id="mtnFade2" x1="0" y1="0" x2="0" y2="1"><stop offset="82%" stop-color="#0c1f14" stop-opacity="0"/><stop offset="100%" stop-color="#0a1a10"/></linearGradient></defs><image href="assets/img/montagne.png" x="0" y="0" width="1536" height="1024"/><rect x="0" y="140" width="1536" height="614" fill="url(#mtnFade2)"/><g class="pkg2"><line x1="447" y1="304" x2="447" y2="286" class="pkl"/><circle cx="447" cy="306" r="4.5" class="pkc"/><text x="447" y="280" text-anchor="middle" class="pkt">M. Sevice<tspan class="q"> 2.355</tspan></text><line x1="923" y1="224" x2="923" y2="206" class="pkl"/><circle cx="923" cy="226" r="4.5" class="pkc"/><text x="923" y="200" text-anchor="middle" class="pkt">M. Velino<tspan class="q"> 2.487</tspan></text><line x1="1331" y1="300" x2="1331" y2="282" class="pkl"/><circle cx="1331" cy="302" r="4.5" class="pkc"/><text x="1331" y="276" text-anchor="middle" class="pkt">M. Cafornia<tspan class="q"> 2.424</tspan></text></g></svg></div>
+      <div class="skyline-real"><svg class="sk-ov2" viewBox="0 140 1536 614" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Profilo di Sevice, Velino e Cafornia"><defs><linearGradient id="mtnFade2" x1="0" y1="0" x2="0" y2="1"><stop offset="82%" stop-color="#0c1f14" stop-opacity="0"/><stop offset="100%" stop-color="#0a1a10"/></linearGradient></defs><image href="assets/img/montagne.PNG" x="0" y="0" width="1536" height="1024"/><rect x="0" y="140" width="1536" height="614" fill="url(#mtnFade2)"/><g class="pkg2"><line x1="447" y1="304" x2="447" y2="286" class="pkl"/><circle cx="447" cy="306" r="4.5" class="pkc"/><text x="447" y="280" text-anchor="middle" class="pkt">M. Sevice<tspan class="q"> 2.355</tspan></text><line x1="923" y1="224" x2="923" y2="206" class="pkl"/><circle cx="923" cy="226" r="4.5" class="pkc"/><text x="923" y="200" text-anchor="middle" class="pkt">M. Velino<tspan class="q"> 2.487</tspan></text><line x1="1331" y1="300" x2="1331" y2="282" class="pkl"/><circle cx="1331" cy="302" r="4.5" class="pkc"/><text x="1331" y="276" text-anchor="middle" class="pkt">M. Cafornia<tspan class="q"> 2.424</tspan></text></g></svg></div>
       </div>
     <div class="grid g3" style="margin-top:30px">
       <div class="card reveal"><div class="k">La cima</div><h3>Monte Velino · 2.487 m</h3><p>“Il Signore del Lago”, terza vetta dell'Appennino: una piramide a doppia punta che domina la piana del Fucino, affiancata dal Sevice a ovest e dal Cafornia a est.</p></div>
@@ -910,6 +910,11 @@ window.GPX = {"total_km": 31.2, "dplus": 1986, "dminus": 1987, "minele": 729, "m
 
 const GPX = window.GPX;
 
+/* ---- always start at top on (re)load ---- */
+if('scrollRestoration'in history)history.scrollRestoration='manual';
+window.scrollTo(0,0);
+addEventListener('load',()=>scrollTo(0,0));
+
 /* ---- mobile nav ---- */
 const burger=document.getElementById('burger'),nav=document.getElementById('navlinks');
 burger.addEventListener('click',()=>nav.classList.toggle('open'));
@@ -1033,7 +1038,7 @@ tick();setInterval(tick,1000);
   const track=GPX.track, M=GPX.markers;
   const el=document.getElementById('mapLeaflet'); if(!el) return;
   const latlngs=track.map(p=>[p[0],p[1]]);
-  const map=L.map(el,{scrollWheelZoom:false, zoomControl:true, attributionControl:true});
+  const map=L.map(el,{scrollWheelZoom:false, zoomControl:true, attributionControl:true, keyboard:false});
   const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'});
   const topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenTopoMap (CC-BY-SA)'});
   const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery © Esri'});
