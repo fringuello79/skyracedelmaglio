@@ -101,14 +101,18 @@ header.nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);
   100%{transform:translateY(-78vh) translateX(var(--dx,14px));opacity:0}}
 .hero-in{position:relative;z-index:3;max-width:var(--maxw);margin:0 auto;padding:0 22px;width:100%;
   display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center}
-.hero-kicker{font-family:'JetBrains Mono';font-size:13px;letter-spacing:.26em;text-transform:uppercase;
-  color:var(--brace);font-weight:700;margin-bottom:22px}
-.hero-kicker b{color:var(--avorio)}
+.hero-kicker{text-transform:uppercase;margin-bottom:20px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.hero-kicker .ed{font-family:'JetBrains Mono';font-size:13px;letter-spacing:.26em;font-weight:700;color:var(--brace)}
+.hero-kicker .date{font-family:'Oswald';font-weight:700;font-size:clamp(22px,3.6vw,32px);letter-spacing:.05em;line-height:1;color:var(--avorio)}
+.hero-kicker .place{font-family:'JetBrains Mono';font-size:12px;letter-spacing:.22em;font-weight:600;color:var(--brace)}
 .hero h1{font-family:'Anton';font-weight:400;text-transform:uppercase;
   font-size:clamp(48px,8.4vw,108px);letter-spacing:.005em;line-height:.92;margin:0 0 6px;
   paint-order:stroke fill;-webkit-text-stroke:0.7px rgba(8,18,11,.42);
   text-shadow:0 1px 0 rgba(6,14,9,.5), 0 3px 7px rgba(0,0,0,.42), 0 -1px 0 rgba(255,251,242,.22)}
 .hero h1 .li{color:var(--brace);position:relative}
+.hero h1.hero-title-img{margin:0 0 10px;line-height:0;-webkit-text-stroke:0;text-shadow:none}
+.hero h1.hero-title-img img{display:block;width:100%;max-width:600px;height:auto;filter:drop-shadow(0 6px 18px rgba(0,0,0,.45))}
+@media(max-width:880px){.hero h1.hero-title-img img{max-width:none}}
 .hero .sub{font-family:'Oswald';font-weight:500;text-transform:uppercase;letter-spacing:.05em;
   font-size:clamp(16px,2.4vw,22px);color:var(--avorio-2);margin:14px 0 26px}
 .hero .sub b{color:var(--avorio);font-weight:600}
@@ -458,8 +462,12 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
   <div class="embers" id="embers"></div>
   <div class="hero-in">
     <div>
-      <div class="hero-kicker">2ª Skyrace · <b>Domenica 18 Ottobre 2026</b> · Comune di Magliano de' Marsi</div>
-      <h1>Skyrace<br>del <span class="li">Maglio</span></h1>
+      <div class="hero-kicker">
+        <span class="ed">2ª edizione</span>
+        <span class="date">18 Ottobre 2026</span>
+        <span class="place">Comune di Magliano de' Marsi</span>
+      </div>
+      <h1 class="hero-title-img"><img src="assets/img/titolo.png" width="1493" height="725" alt="Skyrace del Maglio" fetchpriority="high"></h1>
       <p class="sub">31 km e <b>1.920 m di dislivello</b> tra mulattiere, single track e creste — partenza e arrivo davanti al <b>Municipio di Magliano de' Marsi</b>.</p>
       <div class="hero-cta-row">
         <a class="cta big" href="#iscrizioni">Iscriviti alla gara</a>
