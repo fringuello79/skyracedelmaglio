@@ -107,6 +107,17 @@ header.nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);
     linear-gradient(180deg,#0d2316 0%,#0a1a10 100%);}
 .hero-mtn{position:absolute;left:0;right:0;bottom:0;width:100%;z-index:1;pointer-events:none}
 .hero-mtn-svg{width:100%;height:auto;display:block}
+/* sfondo montagne a tutta larghezza pagina (solo desktop): backdrop comune a titolo + incudine */
+.hero-mtn-bg{display:none}
+@media(min-width:901px){
+  .hero-mtn-bg{display:block;position:absolute;left:0;right:0;bottom:7%;width:100%;aspect-ratio:1536/1024;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(9,18,12,.12) 0%,rgba(9,18,12,.32) 46%,rgba(9,18,12,.66) 74%,rgba(9,18,12,.94) 100%),url(assets/img/montagne.PNG) center top / 100% auto no-repeat;
+    filter:saturate(.72) brightness(.92);
+    -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.60) 0%,rgba(0,0,0,.50) 32%,rgba(0,0,0,.30) 58%,rgba(0,0,0,.10) 82%,transparent 100%);
+    mask-image:linear-gradient(180deg,rgba(0,0,0,.60) 0%,rgba(0,0,0,.50) 32%,rgba(0,0,0,.30) 58%,rgba(0,0,0,.10) 82%,transparent 100%)}
+  .hero .forge-mtn{display:none}
+  .hero .embers{z-index:2}
+}
 .embers{position:absolute;inset:0;z-index:1;pointer-events:none}
 .ember{position:absolute;bottom:-12px;width:4px;height:4px;border-radius:50%;
   background:var(--brace);opacity:0;filter:blur(.3px);
@@ -231,6 +242,7 @@ section.block.alt{background:linear-gradient(180deg,var(--bosco2),#0b1d12)}
 .profile-top .lbl{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ferro)}
 .profile-top .lbl b{color:var(--avorio)}
 #profileSvg{width:100%;height:auto;display:block;touch-action:none}
+.prof-legend{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);justify-content:center;row-gap:6px}
 .prof-tip{position:absolute;pointer-events:none;background:var(--forgia);border:1px solid var(--brace);
   border-radius:8px;padding:7px 10px;font-family:'JetBrains Mono';font-size:12px;opacity:0;transform:translate(-50%,-115%);
   white-space:nowrap;z-index:5;transition:opacity .1s}
@@ -539,6 +551,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
 <!-- HERO -->
 <section class="hero">
   <div class="embers" id="embers"></div>
+  <div class="hero-mtn-bg" aria-hidden="true"></div>
   <div class="hero-in">
     <div>
       <div class="hero-kicker">
@@ -720,6 +733,13 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
         <div class="lbl">D+ <b>1.920 m</b> &nbsp;·&nbsp; D− <b>1.920 m</b> &nbsp;·&nbsp; min <b>729 m</b> &nbsp;·&nbsp; max <b>2.326 m</b></div>
       </div>
       <svg id="profileSvg" viewBox="0 0 1000 300" preserveAspectRatio="none"></svg>
+      <div class="map-legend prof-legend">
+        <span><i class="dot" style="background:var(--brace)"></i> Partenza/Arrivo</span>
+        <span><i class="dot" style="background:#5cc0ff"></i> Punto acqua</span>
+        <span><i class="dot" style="background:var(--felce)"></i> Cancello orario</span>
+        <span><i class="dot" style="background:#fff"></i> Ristoro completo</span>
+        <span><i class="dot" style="background:#ff6a3d"></i> Punto più alto</span>
+      </div>
       <div class="prof-tip" id="tip"></div>
     </div>
 
@@ -1123,6 +1143,8 @@ tick();setInterval(tick,1000);
   const eLo=Math.floor(minE/100)*100, eHi=Math.ceil(maxE/100)*100;
   const X=k=>padL+(k/maxKm)*(W-padL-padR);
   const Y=e=>padT+(1-(e-eLo)/(eHi-eLo))*(H-padT-padB);
+  // km reale -> indice del punto profilo piu vicino (i punti NON sono equispaziati in km)
+  const kmToIdx=t=>{const n=prof.length;if(t<=km[0])return 0;if(t>=km[n-1])return n-1;let lo=0,hi=n-1;while(lo<hi){const mid=(lo+hi)>>1;if(km[mid]<t)lo=mid+1;else hi=mid;}return (lo>0&&(t-km[lo-1])<(km[lo]-t))?lo-1:lo;};
   let area='M'+X(km[0])+' '+Y(el[0]); let line='M'+X(km[0])+' '+Y(el[0]);
   for(let i=1;i<prof.length;i++){area+=' L'+X(km[i]).toFixed(1)+' '+Y(el[i]).toFixed(1);line+=' L'+X(km[i]).toFixed(1)+' '+Y(el[i]).toFixed(1);}
   area+=' L'+X(maxKm)+' '+(H-padB)+' L'+X(0)+' '+(H-padB)+' Z';
@@ -1132,11 +1154,12 @@ tick();setInterval(tick,1000);
   for(let k=0;k<=Math.floor(maxKm);k+=5){xl+=`<line x1="${X(k)}" y1="${padT}" x2="${X(k)}" y2="${H-padB}" stroke="rgba(243,239,226,.05)"/><text x="${X(k)}" y="${H-8}" text-anchor="middle" fill="#9aa6a0" font-size="13" font-family="JetBrains Mono">${k}</text>`;}
   // markers from GPX.markers (use km in name where present)
   const mk=[
+    {km:0,c:'#f4951f'},
     {km:8.2,c:'#5cc0ff'},{km:10,c:'#4f9239'},{km:14.8,c:'#ffffff'},
     {km:GPX.markers['Punto più alto'][3]||16,c:'#ff6a3d'},{km:21.7,c:'#5cc0ff'}
   ];
   let mkSvg='';
-  mk.forEach(m=>{const i=Math.min(prof.length-1,Math.round(m.km/maxKm*(prof.length-1)));
+  mk.forEach(m=>{const i=kmToIdx(m.km);
     mkSvg+=`<circle cx="${X(prof[i][0]).toFixed(1)}" cy="${Y(prof[i][1]).toFixed(1)}" r="4.5" fill="${m.c}" stroke="#0c1f14" stroke-width="2"/>`;});
   svg.innerHTML=`
     <defs>
@@ -1159,7 +1182,7 @@ tick();setInterval(tick,1000);
     let px=(clientX-r.left)/r.width*W;
     px=Math.max(padL,Math.min(W-padR,px));
     const k=(px-padL)/(W-padL-padR)*maxKm;
-    const i=Math.min(prof.length-1,Math.max(0,Math.round(k/maxKm*(prof.length-1))));
+    const i=kmToIdx(k);
     const x=X(prof[i][0]),y=Y(prof[i][1]);
     cursor.setAttribute('x1',x);cursor.setAttribute('x2',x);cursor.setAttribute('opacity','.5');
     cdot.setAttribute('cx',x);cdot.setAttribute('cy',y);cdot.setAttribute('opacity','1');
@@ -1191,6 +1214,11 @@ function __bootCourseMap(){
   const CENTER=[(b.minlon+b.maxlon)/2,(b.minlat+b.maxlat)/2];
   const HOME={center:CENTER,zoom:12.3,pitch:62,bearing:14};
   const trackLngLat=GPX.track.map(p=>[p[1],p[0]]);
+  // distanza cumulata lungo il track (haversine) -> runner allineato al km del profilo
+  const __hav=(a,b)=>{const R=6371,d=Math.PI/180,la1=a[1]*d,la2=b[1]*d,dla=(b[1]-a[1])*d,dlo=(b[0]-a[0])*d,h=Math.sin(dla/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dlo/2)**2;return 2*R*Math.asin(Math.sqrt(h));};
+  const __cum=[0];for(let i=1;i<trackLngLat.length;i++)__cum.push(__cum[i-1]+__hav(trackLngLat[i-1],trackLngLat[i]));
+  const __cumTot=__cum[__cum.length-1]||1;
+  const __cumToIdx=dd=>{if(dd<=0)return 0;const n=__cum.length;if(dd>=__cum[n-1])return n-1;let lo=0,hi=n-1;while(lo<hi){const mid=(lo+hi)>>1;if(__cum[mid]<dd)lo=mid+1;else hi=mid;}return (lo>0&&(dd-__cum[lo-1])<(__cum[lo]-dd))?lo-1:lo;};
   let exag=1.4, rendered=false, errs=0;
 
   const map=new maplibregl.Map({
@@ -1227,7 +1255,7 @@ function __bootCourseMap(){
     const rel=document.createElement('div'); rel.className='runner';
     const runner=new maplibregl.Marker({element:rel,anchor:'center'}).setLngLat(trackLngLat[0]); let on=false;
     window.__setMapDot=function(frac){ if(frac<0){ if(on){runner.remove();on=false;} return; }
-      const i=Math.min(trackLngLat.length-1,Math.max(0,Math.round(frac*(trackLngLat.length-1))));
+      const i=__cumToIdx(frac*__cumTot);
       runner.setLngLat(trackLngLat[i]); if(!on){runner.addTo(map);on=true;} };
   });
 
