@@ -84,7 +84,17 @@ header.nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);
 .nav-links a.nav-live{color:var(--brace);display:inline-flex;align-items:center;gap:7px}
 .live-dot{width:8px;height:8px;border-radius:50%;background:#e5322d;box-shadow:0 0 0 0 rgba(229,50,45,.6);animation:livePulse 1.8s infinite}
 @keyframes livePulse{70%{box-shadow:0 0 0 7px rgba(229,50,45,0)}100%{box-shadow:0 0 0 0 rgba(229,50,45,0)}}
+.nav-links a.nav-explorer{color:var(--avorio);display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(244,149,31,.45)}
+.nav-links a.nav-explorer:hover{border-color:var(--brace)}
+.explorer-ico{width:9px;height:9px;border:1.5px solid var(--brace);transform:rotate(45deg);border-radius:1px}
+@media(min-width:981px){.nav-in{max-width:1360px}.nav-links{flex-wrap:nowrap}.nav-links a{white-space:nowrap}}
 @media(min-width:981px) and (max-width:1400px){.nav-links a{padding:9px 8px}}
+@media(min-width:981px) and (max-width:1600px){
+  .nav-in{gap:10px;padding:11px 14px}.nav-links{gap:0}
+  .nav-links a{font-size:12px;letter-spacing:.04em;padding:8px 6px}
+  .nav-desktop-cta{padding:9px 14px;font-size:13px}}
+@media(min-width:981px) and (max-width:1320px){.brand div{display:none}}
+@media(min-width:1601px){.nav-in{max-width:1560px}}
 .cta{font-family:'Oswald';font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:14px;
   background:var(--brace);color:#241200;padding:10px 18px;border-radius:8px;border:0;cursor:pointer;
   transition:.18s;white-space:nowrap;box-shadow:0 6px 22px -8px rgba(244,149,31,.7)}
@@ -555,15 +565,16 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
     </a>
     <button class="burger" id="burger" aria-label="Menu">☰</button>
     <nav class="nav-links" id="navlinks">
-      <a href="#gara">La Gara</a>
-      <a href="#massiccio">Il Massiccio</a>
+      <a href="#gara">Gara</a>
+      <a href="#massiccio">Massiccio</a>
       <a href="#ambiente">Ambiente</a>
       <a href="#percorso">Percorso</a>
-      <a href="#medaglia">La Medaglia</a>
+      <a href="#medaglia">Medaglia</a>
       <a href="#iscrizioni">Iscrizioni</a>
-      <a href="#circuito">Circuito ATR</a>
+      <a href="#circuito">ATRS</a>
       <a href="#partner">Partner</a>
-      <a href="#info">Info &amp; Logistica</a>
+      <a href="#info">Info</a>
+      <a class="nav-explorer" href="explorer.html"><span class="explorer-ico" aria-hidden="true"></span>SRM Explorer</a>
       <a class="nav-live" href="live.html"><span class="live-dot"></span>Live</a>
       <a class="cta" href="#iscrizioni">Iscriviti</a>
     </nav>
@@ -843,6 +854,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
         <a class="btn-ghost" style="margin-top:18px" href="assets/doc/guida-naturalistica-srm-2026.pdf" target="_blank" rel="noopener">&darr; Guida naturalistica del percorso (PDF)</a>
         <a class="btn-ghost" style="margin-top:18px" href="https://loc.wiki/t/281221104?wa=share&amp;og=JzFsGY63NQ8" target="_blank" rel="noopener">↗ Traccia 2026 su Wikiloc</a>
         <a class="btn-ghost" style="margin-top:18px" href="https://www.strava.com/routes/3525925866103106096" target="_blank" rel="noopener">↗ Percorso su Strava</a>
+        <a class="btn-ghost" style="margin-top:18px;border-color:var(--brace);color:var(--brace)" href="explorer.html">◆ Apri SRM Explorer</a>
         <a href="https://loc.wiki/t/281221104?wa=share&amp;og=JzFsGY63NQ8" target="_blank" rel="noopener" title="Apri la traccia su Wikiloc" style="display:inline-flex;align-items:center;gap:10px;margin-top:16px;background:var(--avorio);border-radius:12px;padding:9px 16px;text-decoration:none;box-shadow:0 10px 26px -16px rgba(0,0,0,.6)"><img src="assets/img/Wikiloc-M-C-RGB.svg" alt="Wikiloc" style="height:32px;width:auto;display:block"></a>
         <!-- MAPPA WIKILOC INCORPORATA (opzionale, attualmente SPENTA): per mostrarla nella pagina, elimina questa riga di apertura del commento e la riga finale del commento qui sotto.
         <div style="margin-top:18px">
