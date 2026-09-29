@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>SRM Explorer — Skyrace del Maglio 2026</title>
+<meta name="description" content="Esplora in 3D il percorso della Skyrace del Maglio 2026: 29,7 km sulla rete sentieristica del Parco Sirente Velino.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;600&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verde:#0c1f14; --verde2:#14301f; --avorio:#f3efe2; --arancio:#f4951f;
+  --ambra:#ffae3d; --rosso:#c8102e; --grigio:#8d99a6;
+  --veil:rgba(12,31,20,.78);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--verde);color:var(--avorio);
+  font-family:Oswald,sans-serif;overscroll-behavior:none;touch-action:none}
+#gl{position:fixed;inset:0;display:block}
+.anton{font-family:Anton,sans-serif;letter-spacing:.03em}
+.mono{font-family:"JetBrains Mono",monospace}
+
+/* ---------- barra info ---------- */
+#bar{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:stretch;
+  background:var(--veil);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border-bottom:2px solid rgba(243,239,226,.35);
+  padding-top:env(safe-area-inset-top)}
+.slot{padding:7px 14px 8px;border-left:1px solid rgba(243,239,226,.22);display:flex;
+  flex-direction:column;justify-content:center;min-width:0}
+.slot:first-child{border-left:none;flex:1 1 auto}
+.lab{font-size:11px;letter-spacing:.2em;color:var(--grigio);text-transform:uppercase;white-space:nowrap}
+#zona-n{font-family:Anton,sans-serif;font-size:19px;line-height:1.15;color:var(--avorio);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#zona-s{font-size:12px;color:var(--ambra);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.val{font-family:"JetBrains Mono",monospace;font-size:24px;font-weight:600;line-height:1.2}
+.unit{font-size:11px;color:var(--grigio)}
+#slot-sent{align-items:center;flex-direction:row;gap:9px}
+#chip{width:42px;height:42px;border-radius:50%;background:var(--avorio);display:flex;
+  align-items:center;justify-content:center;font-family:Anton,sans-serif;
+  font-size:19px;color:var(--rosso);flex:0 0 auto}
+#sent-lab{font-size:11px;letter-spacing:.16em;color:var(--grigio);text-transform:uppercase;
+  max-width:74px;line-height:1.3;max-height:42px;overflow:hidden}
+#via-lab{display:block;font-size:9px;letter-spacing:.2em;color:var(--grigio)}
+#via-n{display:block;color:var(--avorio);letter-spacing:.02em}
+
+/* ---------- banner POI ---------- */
+#poi-banner{position:fixed;left:50%;transform:translateX(-50%) translateY(-8px);top:calc(64px + env(safe-area-inset-top));
+  z-index:9;background:var(--arancio);color:#1d1206;border-radius:6px;
+  padding:7px 16px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.35);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:92vw;cursor:pointer}
+#poi-banner.on{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+#poi-n{font-family:Anton,sans-serif;font-size:16px;line-height:1.2}
+#poi-s{font-size:12px;font-weight:600}
+
+/* ---------- profilo ---------- */
+#profilo{position:fixed;left:0;right:0;bottom:0;z-index:10;height:calc(96px + env(safe-area-inset-bottom));
+  background:var(--veil);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border-top:2px solid rgba(243,239,226,.35);cursor:crosshair;touch-action:none}
+#prof-cv{width:100%;height:96px;display:block}
+
+/* ---------- comandi ---------- */
+#ctrls{position:fixed;right:12px;bottom:calc(108px + env(safe-area-inset-bottom));z-index:11;
+  display:flex;flex-direction:column;gap:9px;align-items:flex-end}
+.btnrow{display:flex;gap:9px}
+.btn{border:none;border-radius:10px;background:var(--veil);color:var(--avorio);
+  backdrop-filter:blur(6px);border:1px solid rgba(243,239,226,.3);
+  font-family:Oswald,sans-serif;font-size:14px;font-weight:600;letter-spacing:.06em;
+  padding:0 14px;height:44px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.btn:active{background:var(--arancio);color:#1d1206}
+.btn.big{width:64px;height:56px;font-size:24px}
+.btn.on{background:var(--arancio);color:#1d1206;border-color:var(--arancio)}
+#nav-hint{font-size:11px;color:var(--grigio);text-align:right;letter-spacing:.05em;
+  background:var(--veil);padding:3px 8px;border-radius:5px}
+
+#minimap{position:fixed;left:12px;bottom:calc(108px + env(safe-area-inset-bottom));z-index:9;
+  width:132px;height:132px;background:var(--veil);border:1px solid rgba(243,239,226,.3);
+  border-radius:10px;backdrop-filter:blur(6px)}
+#sito{position:fixed;left:14px;top:calc(70px + env(safe-area-inset-top));z-index:8;font-size:11px;
+  letter-spacing:.1em;color:rgba(243,239,226,.75);text-decoration:none}
+
+/* ---------- loader / errori / modali ---------- */
+.cover{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;background:var(--verde);text-align:center;padding:24px}
+#load-t{font-family:Anton,sans-serif;font-size:34px;color:var(--avorio)}
+#load-t span{color:var(--arancio)}
+#load-sub{font-size:13px;color:var(--grigio);margin:6px 0 26px;letter-spacing:.15em;text-transform:uppercase}
+#load-barw{width:min(320px,70vw);height:6px;background:var(--verde2);border-radius:3px;overflow:hidden}
+#load-bar{height:100%;width:0%;background:var(--arancio);transition:width .2s}
+#load-step{margin-top:12px;font-size:13px;color:var(--grigio)}
+#go-btn{display:none;margin-top:16px;height:46px;padding:0 36px;border:none;border-radius:8px;
+  background:var(--arancio);color:#1d1206;font-family:Oswald,sans-serif;font-size:16px;
+  font-weight:600;letter-spacing:.1em;cursor:pointer}
+#go-btn:hover{filter:brightness(1.08)}
+#err{display:none;z-index:60}
+#errmsg{color:#ffb3a7;font-size:14px;max-width:480px;margin:14px 0 20px;font-family:"JetBrains Mono",monospace}
+#modal{display:none;position:fixed;inset:0;z-index:40;background:rgba(5,12,8,.72);
+  align-items:center;justify-content:center;padding:20px}
+#modal.on{display:flex}
+#card{background:var(--verde);border:1px solid rgba(243,239,226,.28);border-radius:12px;
+  max-width:520px;width:100%;max-height:82vh;overflow:auto;padding:22px 24px;
+  box-shadow:0 12px 48px rgba(0,0,0,.5)}
+#card h2{font-family:Anton,sans-serif;font-size:24px;color:var(--arancio);line-height:1.15}
+#card h3{font-size:13px;color:var(--ambra);margin:2px 0 12px;font-weight:600;letter-spacing:.05em}
+#card p{font-size:15px;line-height:1.55;color:var(--avorio)}
+#card table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
+#card td,#card th{padding:6px 8px;border-bottom:1px solid rgba(243,239,226,.15);text-align:left}
+#card th{color:var(--grigio);font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.kchip{display:inline-flex;width:30px;height:30px;border-radius:50%;background:var(--avorio);
+  color:var(--rosso);font-family:Anton,sans-serif;font-size:13px;align-items:center;justify-content:center;margin-right:6px}
+#card .close{margin-top:18px;width:100%;height:44px;border-radius:8px;border:none;
+  background:var(--arancio);color:#1d1206;font-family:Oswald,sans-serif;font-size:15px;
+  font-weight:600;letter-spacing:.08em;cursor:pointer}
+#card ul{margin:8px 0 0 18px;font-size:14px;line-height:1.7}
+#lino-nome{display:block;margin:16px auto -6px;width:150px;max-width:62vw;
+  filter:drop-shadow(0 3px 8px rgba(0,0,0,.5))}
+#logo-top{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.45))}
+#logo-top img{height:48px;display:block}
+@media (max-width:1280px){#logo-top{display:none}}
+#spinbox{position:relative;width:470px;height:330px;margin:10px auto 0;max-width:94vw}
+#spin-img{position:absolute;left:50%;top:0;transform:translateX(-50%);width:240px;height:320px;
+  background-repeat:no-repeat;display:none;filter:drop-shadow(0 10px 16px rgba(0,0,0,.45))}
+#spin-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+#spin-chip{position:absolute;max-width:170px;padding:6px 9px;border:1px solid rgba(243,239,226,.45);
+  border-radius:7px;background:rgba(12,31,20,.88);font-family:"JetBrains Mono",monospace;
+  font-size:10px;line-height:1.5;letter-spacing:.03em;color:var(--avorio);text-transform:uppercase;
+  text-align:left;opacity:0;transition:opacity .45s}
+#spin-chip b{color:var(--arancio)}
+@media (max-width:900px){
+  #slot-gate{display:none}
+}
+@media (max-width:700px){
+  .lab{font-size:8px;letter-spacing:.1em}
+  .val{font-size:14px}
+  .unit{font-size:9px}
+  #zona-n{font-size:13px}
+  #zona-s{font-size:10px}
+  .slot{padding:4px 6px 5px}
+  #slot-sent{gap:5px}
+  #chip{width:28px;height:28px;font-size:13px}
+  #sent-lab{font-size:8px;letter-spacing:.08em;max-width:52px;max-height:27px}
+  #via-lab{font-size:7px;letter-spacing:.12em}
+  #slot-dp{display:none}
+  #minimap{width:88px;height:88px}
+  #sito{display:none}
+  #poi-banner{top:calc(50px + env(safe-area-inset-top));max-width:96vw;padding:4px 12px;border-radius:5px}
+  #poi-n{font-size:13px;line-height:1.15}
+  #poi-s{font-size:10px;line-height:1.3}
+  #ctrls{right:8px;gap:6px}
+  .btn{height:34px;font-size:11px;padding:0 9px;border-radius:8px}
+  .btn.big{width:46px;height:38px;font-size:17px}
+  #nav-hint{display:none}
+}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<header id="bar">
+  <div class="slot">
+    <div class="lab">Zona</div>
+    <div id="zona-n">—</div>
+    <div id="zona-s"></div>
+  </div>
+  <div class="slot">
+    <div class="lab">Km</div>
+    <div class="val" id="v-km">0,0</div>
+  </div>
+  <div class="slot">
+    <div class="lab">Quota</div>
+    <div class="val" id="v-q">729<span class="unit"> m</span></div>
+  </div>
+  <div class="slot" id="slot-pend">
+    <div class="lab">Pendenza</div>
+    <div class="val" id="v-p">0<span class="unit"> %</span></div>
+  </div>
+  <div class="slot" id="slot-dp">
+    <div class="lab">D+ fatto</div>
+    <div class="val" id="v-dp">0<span class="unit"> m</span></div>
+  </div>
+  <div class="slot" id="slot-gate">
+    <div class="lab" id="g-lab">Cancello</div>
+    <div class="val" id="v-g">&mdash;</div>
+  </div>
+  <div id="logo-top"><img src="assets/srm_logo.png?v=59" alt="Skyrace del Maglio"></div>
+  <div class="slot" id="slot-sent">
+    <div id="chip">E1</div>
+    <div id="sent-lab">SENTIERO</div>
+  </div>
+</header>
+
+<div id="poi-banner"><div id="poi-n"></div><div id="poi-s"></div></div>
+<a id="sito" href="https://www.skyracedelmaglio.it" target="_blank" rel="noopener">WWW.SKYRACEDELMAGLIO.IT</a>
+<canvas id="minimap" width="264" height="264"></canvas>
+
+<div id="ctrls">
+  <div id="nav-hint">◀ ▶ oppure frecce della tastiera</div>
+  <div class="btnrow">
+    <button class="btn big" id="b-ind" aria-label="indietro">◀</button>
+    <button class="btn big" id="b-avt" aria-label="avanti">▶</button>
+  </div>
+  <div class="btnrow">
+    <button class="btn on" id="b-seg">SEGUI LINO</button>
+    <button class="btn" id="b-pov">1ª PERSONA</button>
+    <button class="btn" id="b-gara">LA GARA</button>
+    <button class="btn" id="b-help">?</button>
+  </div>
+</div>
+
+<footer id="profilo"><canvas id="prof-cv"></canvas></footer>
+
+<div class="cover" id="loader">
+  <div id="load-t">SRM <span>EXPLORER</span></div>
+  <div id="load-sub">Skyrace del Maglio 2026 · percorso in 3D</div>
+  <img id="lino-nome" src="assets/lino_nome.png?v=59" alt="LINO">
+  <div id="spinbox">
+    <div id="spin-img"></div>
+    <svg id="spin-svg"></svg>
+    <div id="spin-chip"></div>
+  </div>
+  <div id="load-barw"><div id="load-bar"></div></div>
+  <div id="load-step">avvio…</div>
+  <button id="go-btn">VAI AL PERCORSO</button>
+</div>
+
+<div class="cover" id="err">
+  <div id="load-t">SRM <span>EXPLORER</span></div>
+  <div id="errmsg"></div>
+  <button class="btn" onclick="location.reload()">RIPROVA</button>
+</div>
+
+<div id="modal"><div id="card"></div></div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+}}
+</script>
+<script type="module" src="app.js?v=59"></script>
+</body>
+</html>
