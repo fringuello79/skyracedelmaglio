@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0c1f14"><title>SRM Explorer · Skyrace del Maglio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Fraunces:ital,wght@1,500&display=swap" rel="stylesheet">
+<style>
+
+:root{--forgia:#0c1f14;--bosco:#11301f;--felce:#4f9239;--brace:#f4951f;--ferro:#9aa6a0;--avorio:#f3efe2;--cuoio:#a9612f;--line:rgba(243,239,226,.16);--lens:min(55vw,54vh,570px);}
+*{box-sizing:border-box}html{background:var(--forgia)}body{margin:0;color:var(--avorio);font:16px/1.5 Inter,Arial,sans-serif;overflow-x:hidden}button{font:inherit}a{color:inherit;text-decoration:none}.mono{font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.14em}.topbar{height:72px;position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(20px,4vw,64px);border-bottom:1px solid var(--line);background:rgba(12,31,20,.94)}.brand{display:flex;gap:13px;align-items:center}.brand img{height:43px;width:43px;object-fit:contain;border-radius:50%}.brand strong{display:block;font:700 18px Oswald,sans-serif;line-height:1;letter-spacing:.07em}.brand em{display:block;font:italic 12px Fraunces,serif;color:var(--ferro);margin-top:3px}.back{font:500 13px Oswald,sans-serif;text-transform:uppercase;letter-spacing:.12em;border:1px solid var(--line);padding:10px 16px;border-radius:6px}.back:hover{border-color:var(--brace)}
+.lower{position:relative;z-index:5;background:#0c1f14;border-top:1px solid var(--line);padding:28px max(24px,calc((100vw - 1100px)/2));display:flex;justify-content:space-between;gap:24px;align-items:center}.lower strong{display:block;font:600 20px Oswald,sans-serif;text-transform:uppercase}.lower small{font-size:11px;color:var(--ferro)}.lower img{height:44px;max-width:90px;object-fit:contain;opacity:.8}.lower .icons{display:flex;gap:13px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.partner-logo{display:grid;place-items:center;background:#f8f6ee;border-radius:7px;padding:4px;width:60px;height:60px}.partner-logo img{max-width:52px;max-height:52px;width:auto;height:auto;object-fit:contain;opacity:1}.partner-label{font:500 9px JetBrains Mono,monospace;color:var(--ferro);letter-spacing:.12em;text-transform:uppercase;margin-right:8px}
+.stage{position:relative;min-height:calc(100svh - 72px);isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:85px 20px 90px;background:radial-gradient(ellipse at 50% 50%,rgba(34,74,42,.23),transparent 58%),#09170e}
+.mountain{position:absolute;inset:0;z-index:-3;background:linear-gradient(180deg,rgba(7,20,12,.55) 0%,rgba(7,20,12,.72) 42%,#08170e 97%),url('assets/img/montagne.PNG') center 36%/cover no-repeat;filter:saturate(.7)}
+.stage:after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;opacity:.14;background-image:repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.15) 4px)}
+.stage-head{position:absolute;top:25px;left:50%;transform:translateX(-50%);width:min(1180px,92%);display:flex;justify-content:space-between;align-items:start;gap:12px}
+.kicker{font-size:10px;color:var(--brace)}.coordinates{text-align:right;font-size:10px;color:#bec7ba}
+.title{position:relative;text-align:center;z-index:3;margin-bottom:26px}
+.title small{color:var(--brace);font:500 13px Fraunces,serif;font-style:italic}
+.title h1{font:400 clamp(40px,7.3vw,106px)/.9 Anton,Impact,sans-serif;margin:5px 0 0;letter-spacing:.025em;text-shadow:0 10px 30px #071009;text-transform:uppercase}
+.title h1 span{color:var(--brace)}
+.title p{font:500 11px 'JetBrains Mono',monospace;letter-spacing:.17em;text-transform:uppercase;color:#d7dfd2;margin:16px 0 0}
+/* schermo dell'explorer */
+.screen-wrap{position:relative;z-index:2;width:min(1100px,100%);padding:14px;border-radius:14px;background:linear-gradient(135deg,#27342c,#6f7d70 18%,#17251b 40%,#687567 70%,#1e2c22);box-shadow:0 0 0 2px #08110b,0 0 0 4px rgba(244,149,31,.5),0 18px 80px #020803}
+.screen{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:radial-gradient(ellipse at 50% 45%,#16301f,#060e09);box-shadow:inset 0 0 0 5px #08120d,inset 0 0 60px 20px rgba(0,0,0,.6)}
+.screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;z-index:2}
+.contours{position:absolute;inset:0;opacity:.5}
+.grid{position:absolute;inset:0;opacity:.35;background-image:linear-gradient(rgba(243,239,226,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(243,239,226,.08) 1px,transparent 1px);background-size:48px 48px}
+.route{position:absolute;inset:0;width:100%;height:100%}
+.route path{fill:none;stroke:var(--brace);stroke-width:3;stroke-linecap:round;stroke-dasharray:8 10;animation:march 1.6s linear infinite;filter:drop-shadow(0 0 6px rgba(244,149,31,.6))}
+@keyframes march{to{stroke-dashoffset:-36}}
+.route circle{fill:var(--avorio);stroke:var(--brace);stroke-width:2}
+.wip{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:24px}
+.wip-badge{display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(244,149,31,.5);background:rgba(12,31,20,.85);padding:9px 14px;border-radius:100px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.11em;text-transform:uppercase}
+.wip-badge i{width:8px;height:8px;border-radius:50%;background:var(--brace);box-shadow:0 0 12px var(--brace);animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+.wip strong{font:600 clamp(18px,2.6vw,28px) Oswald,sans-serif;text-transform:uppercase;letter-spacing:.08em;text-shadow:0 4px 18px #020803}
+.wip span{max-width:460px;color:#c6d0c4;font-size:14px;background:rgba(6,14,9,.55);padding:6px 12px;border-radius:6px}
+.bar{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;justify-content:space-between;gap:10px;padding:8px 14px;background:rgba(4,12,7,.78);border-top:1px solid rgba(255,255,255,.12);font:500 10px 'JetBrains Mono',monospace;letter-spacing:.13em;text-transform:uppercase;color:#e7ecdc}
+.bar b{color:var(--brace);font-weight:700}
+.features{position:relative;z-index:3;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:min(1100px,100%);margin-top:22px}
+.feat{border:1px solid var(--line);background:rgba(12,31,20,.8);border-radius:8px;padding:14px 16px}
+.feat b{display:block;color:var(--brace);font:600 11px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;margin-bottom:5px}
+.feat span{font-size:13px;color:#c6d0c4}
+.actions{position:relative;z-index:3;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px}
+.actions a{font:500 12px Oswald,sans-serif;text-transform:uppercase;letter-spacing:.12em;border:1px solid var(--line);background:rgba(17,48,31,.85);padding:10px 16px;border-radius:6px}
+.actions a:hover{border-color:var(--brace)}
+@media(max-width:860px){.features{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:750px){.topbar{height:64px}.back{font-size:11px;padding:7px}.stage{min-height:calc(100svh - 64px);padding:95px 12px 60px}.stage-head{top:20px}.coordinates{display:none}.title p{font-size:9px}
+  .screen-wrap{padding:8px}.screen{aspect-ratio:auto;height:clamp(380px,62vh,560px)}.bar span:last-child{display:none}
+  .lower{padding:24px;flex-direction:column;align-items:flex-start}.lower .icons{justify-content:flex-start}.partner-label{width:100%;margin-bottom:2px}}
+@media(max-width:480px){.features{grid-template-columns:1fr}}
+</style></head><body><header class="topbar"><a href="index.html" class="brand"><img src="assets/Srm%20logo.png" alt=""><div><strong>Skyrace del Maglio</strong><em>Dove il ferro incontra il cielo</em></div></a><a class="back" href="index.html">← Torna al sito</a></header>
+<main><section class="stage"><div class="mountain"></div>
+<div class="stage-head"><span class="kicker mono">SRM / Explorer 01</span><span class="coordinates mono">Magliano de' Marsi · 729 m → 2.385 m</span></div>
+<div class="title"><small>Il percorso, metro per metro</small><h1>SRM <span>Explorer</span></h1><p>30 km · 2.079 m D+ · Sevice · Velino · Cafornia</p></div>
+
+<div class="screen-wrap"><div class="screen">
+  <!-- QUANDO L'EXPLORER È PRONTO: carica l'app in assets/explorer/ (con il suo index.html),
+       togli il commento alla riga qui sotto e, se vuoi, elimina il blocco "wip". -->
+  <!-- <iframe src="assets/explorer/index.html" title="SRM Explorer" allowfullscreen></iframe> -->
+  <div class="grid"></div>
+  <svg class="contours" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g fill="none" stroke="rgba(243,239,226,.14)" stroke-width="1.2">
+      <ellipse cx="820" cy="360" rx="130" ry="80"/><ellipse cx="820" cy="365" rx="230" ry="145"/>
+      <ellipse cx="830" cy="375" rx="340" ry="215"/><ellipse cx="840" cy="390" rx="460" ry="290"/>
+      <ellipse cx="850" cy="410" rx="590" ry="370"/><ellipse cx="860" cy="430" rx="730" ry="455"/>
+      <ellipse cx="560" cy="330" rx="70" ry="45"/><ellipse cx="560" cy="335" rx="140" ry="90"/>
+      <ellipse cx="1110" cy="400" rx="80" ry="50"/><ellipse cx="1110" cy="405" rx="160" ry="100"/>
+    </g>
+  </svg>
+  <svg class="route" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <path d="M250 760 C330 700 360 640 430 600 S520 500 560 420 S640 340 700 330 S790 300 820 310 S960 330 1040 360 S1120 400 1110 460 S1060 560 980 610 S780 700 620 720 S360 780 250 760"/>
+    <circle cx="250" cy="760" r="8"/><circle cx="820" cy="310" r="7"/>
+  </svg>
+  <div class="wip">
+    <span class="wip-badge"><i></i>Lavori in corso</span>
+    <strong>L'esploratore del percorso sta arrivando</strong>
+    <span>Stiamo costruendo lo strumento interattivo per percorrere la Skyrace del Maglio chilometro per chilometro, prima ancora di mettere piede sul sentiero.</span>
+  </div>
+  <div class="bar"><span>Stato · <b>In sviluppo</b></span><span>SRM 2026 · Traccia ufficiale di gara</span></div>
+</div></div>
+
+<div class="features">
+  <div class="feat"><b>01 / Tracciato</b><span>Il percorso completo sulla mappa del Massiccio del Velino.</span></div>
+  <div class="feat"><b>02 / Quote</b><span>Altimetria, pendenze e dislivelli tratto per tratto.</span></div>
+  <div class="feat"><b>03 / Sentieri</b><span>E1 · 3B · 3 · 1 · 7 · E1, nell'ordine di percorrenza.</span></div>
+  <div class="feat"><b>04 / Ristori</b><span>Punti acqua, ristoro e cancelli orari lungo la gara.</span></div>
+</div>
+<div class="actions">
+  <a href="index.html#percorso">Intanto guarda il percorso</a>
+  <a href="assets/gpx/skyrace-del-maglio-2026.gpx" download>↓ Traccia GPX 2026</a>
+</div>
+</section><section class="lower"><div><strong>Tre vette. Un solo orizzonte.</strong><small>Sevice · Velino · Cafornia — Skyrace del Maglio 2026</small></div><div class="icons"><span class="partner-label">Il territorio</span><span class="partner-logo"><img src="assets/logo%20Comune%20Magliano%20de%20Marsi.jpg" alt="Comune di Magliano de’ Marsi"></span><span class="partner-logo"><img src="assets/logo%20Comune%20di%20Massa.jpg" alt="Comune di Massa d’Albe"></span><span class="partner-logo"><img src="assets/Logo%20Parco%20regionale%20Sirente%20Velino.JPG" alt="Parco Regionale Sirente Velino"></span></div></section></main>
+</body></html>
