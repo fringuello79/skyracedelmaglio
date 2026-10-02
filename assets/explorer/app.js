@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v67';
+const VER = 'v68';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -616,16 +616,21 @@ function campionaTrattoArco(){
 function buildTappeto(){
   if (TAPPETO) { TAPPETO.removeFromParent(); TAPPETO.geometry.dispose(); TAPPETO = null; }
   if (!YEXT) return;
-  const W = 5.0, n = YEXT.length - 1;
-  const sx = -ARCO.dz, sz = ARCO.dx;             // lato
+  // largo quanto la luce fra i piloni dell'arco (ARCO.W), da 3 m dietro l'arco fino a 10 m oltre
+  // l'inizio del tracciato (dove si sovrappone al nastro di gara), poi si stringe in 6 m
+  const W = ARCO.W || 12, SOPRA = 10, CODA = 6;
   const pos = [], uv = [], idx = [];
-  for (let k = 0; k <= n; k++) {
-    const s = Math.min(S0_ARCO + k, 0);
-    posAt(s, tmpA);
-    const y = YEXT[Math.min(k, n)] + 0.035;
-    pos.push(tmpA.x - sx * W / 2, y, tmpA.z - sz * W / 2, tmpA.x + sx * W / 2, y, tmpA.z + sz * W / 2);
+  let k = 0;
+  for (let s = S0_ARCO - 3; s <= SOPRA + CODA + 0.01; s += 1) {
+    posAt(s, tmpA); tanAt(Math.max(s, S0_ARCO), tmpB);
+    let sx = -tmpB.z, sz = tmpB.x; const sl = Math.hypot(sx, sz) || 1; sx /= sl; sz /= sl;
+    if (s <= 0) { sx = -ARCO.dz; sz = ARCO.dx; }                      // sul tratto dell'arco: lato dell'arco
+    const w = s <= SOPRA ? W : W * Math.max(0.15, 1 - (s - SOPRA) / CODA);
+    const y = tmpA.y + (s > -2 ? 0.14 : 0.035);   // sul nastro di gara sta sopra il nastro
+    pos.push(tmpA.x - sx * w / 2, y, tmpA.z - sz * w / 2, tmpA.x + sx * w / 2, y, tmpA.z + sz * w / 2);
     uv.push(0, k, 1, k);
-    if (k < n) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    if (s + 1 <= SOPRA + CODA + 0.01) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    k++;
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -640,7 +645,7 @@ function buildTappeto(){
   diffuseColor.rgb = mix(diffuseColor.rgb * grana, vec3(0.93, 0.92, 0.88), riga); }`);
   };
   m.defines = { USE_UV: '' };
-  TAPPETO = new THREE.Mesh(g, m); TAPPETO.name = 'Tappeto'; TAPPETO.receiveShadow = true; TAPPETO.renderOrder = 1;
+  TAPPETO = new THREE.Mesh(g, m); TAPPETO.name = 'Tappeto'; TAPPETO.receiveShadow = true; TAPPETO.renderOrder = 2;
   scene.add(TAPPETO);
 }
 // legge il centro dell'arco dai piloni del glb e rifa' tratto, suolo e tappeto
@@ -649,6 +654,7 @@ function aggiornaArco(root){
   root.traverse(o => { if (o.isMesh && /^Arch_Pillar/.test(o.name || '')) { const b = new THREE.Box3().setFromObject(o); p.push(b.getCenter(new THREE.Vector3())); } });
   if (p.length < 2) return;
   const cx = (p[0].x + p[1].x) / 2, cz = (p[0].z + p[1].z) / 2;
+  ARCO.W = Math.max(6, p[0].distanceTo(p[1]) - 2.2);     // luce fra i piloni (centro a centro meno lo spessore)
   const era = st.s <= S0_ARCO + 0.01;
   setArco(cx, cz);
   campionaTrattoArco();
