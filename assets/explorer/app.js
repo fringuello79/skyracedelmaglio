@@ -287,7 +287,7 @@ async function boot(){
     try { arredaCase(g.scene); } catch (e) { console.warn('facciate maglianoC:', e); }
     // arco di partenza: i piloni erano 0,3-0,9 m sopra l'asfalto; si annega di 1 m
     { const arco = g.scene.getObjectByName('ArcoSRM'); if (arco) arco.position.y -= 1.0; }
-    try { arredaPartenza(); } catch (e) { console.warn('partenza:', e); }
+    try { arredaPartenza(g.scene); } catch (e) { console.warn('partenza:', e); }
     // tigli davanti al Comune (oggetti Tiglio* del blend di Ale): chioma con vento e tinta d'autunno
     g.scene.traverse(o => { if (o.isMesh && /^Tiglio/.test(o.name || '')) vestiTiglio(o); });
     try { buildTigli(); } catch (e) { console.warn('tigli:', e); }
@@ -720,100 +720,33 @@ function buildComignoli(tetti, nome){
   im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; im.name = 'Comignoli_' + nome;
   scene.add(im);
 }
-// ---------- zona partenza: linea a scacchi, transenne e festoni di bandierine ----------
-function suoloPartenza(x, z){
-  // suolo vero (terreno o piazza) con un raggio, come per l'arco
-  const bers = [];
-  scene.traverse(o => { if (o.isMesh && (o.name === 'Terrain' || /^Piazza/.test(o.name || ''))) bers.push(o); });
-  const rc = new THREE.Raycaster(new THREE.Vector3(x, 400, z), new THREE.Vector3(0, -1, 0), 0, 900);
-  const h = rc.intersectObjects(bers, false)[0];
-  return h ? h.point.y : (typeof Y0_ARCO === 'number' ? Y0_ARCO : route.z[0]);
-}
-function mergeBoxes(spec){
-  // unisce scatole [w,h,d,x,y,z] in una sola geometria non indicizzata
-  const parts = spec.map(([w, h, d, x, y, z]) => { const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); g.translate(x, y, z); return g; });
-  let n = 0; for (const g of parts) n += g.getAttribute('position').count;
-  const pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3), uv = new Float32Array(n * 2);
-  let o = 0;
-  for (const g of parts) {
-    pos.set(g.getAttribute('position').array, o * 3); nrm.set(g.getAttribute('normal').array, o * 3); uv.set(g.getAttribute('uv').array, o * 2);
-    o += g.getAttribute('position').count;
-  }
-  const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3)); out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  return out;
-}
-function arredaPartenza(){
-  const A = new THREE.Vector3(), T = new THREE.Vector3(), SD = new THREE.Vector3();
-  // 1. linea di partenza/arrivo a scacchi, sotto l'arco
-  posAt(S0_ARCO + 1.2, A); tanAt(S0_ARCO + 1.2, T);
-  {
-    const c = document.createElement('canvas'); c.width = 256; c.height = 64;
-    const x = c.getContext('2d');
-    for (let i = 0; i < 16; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? '#f3efe2' : '#161616'; x.fillRect(i * 16, j * 16, 16, 16); }
-    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(8.2, 1.1), new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
-    m.rotation.x = -Math.PI / 2; m.rotation.z = -Math.atan2(T.x, T.z) + Math.PI / 2;
-    m.position.set(A.x, suoloPartenza(A.x, A.z) + 0.04, A.z);
-    m.renderOrder = 1; m.receiveShadow = true; m.name = 'LineaPartenza';
-    scene.add(m);
-  }
-  // 2. transenne: dai -22 ai +48 m, su entrambi i lati della strada (3,6 m dall'asse), ogni 2,5 m
-  const trans = mergeBoxes([
-    [0.06, 1.1, 0.06, -1.2, 0.55, 0], [0.06, 1.1, 0.06, 1.2, 0.55, 0],      // montanti
-    [2.5, 0.05, 0.05, 0, 1.08, 0], [2.5, 0.04, 0.04, 0, 0.72, 0], [2.5, 0.04, 0.04, 0, 0.36, 0],   // traverse
-    [0.5, 0.05, 0.06, -1.2, 0.03, 0], [0.5, 0.05, 0.06, 1.2, 0.03, 0]        // piedi
-  ]);
-  const posti = [];
-  for (let s = -22; s <= 48; s += 2.5) {
-    posAt(s, A); tanAt(s, T); SD.set(T.z, 0, -T.x);
-    const yaw = Math.atan2(T.x, T.z) + Math.PI / 2;
-    for (const k of [-1, 1]) {
-      const x = A.x + SD.x * 3.6 * k, z = A.z + SD.z * 3.6 * k;
-      posti.push([x, suoloPartenza(x, z), z, yaw]);
-    }
-  }
-  const im = new THREE.InstancedMesh(trans, new THREE.MeshStandardMaterial({ color: 0xc9ccd1, roughness: 0.5, metalness: 0.6 }), posti.length);
-  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3();
-  posti.forEach((p, i) => { P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); M.compose(P, Q, S); im.setMatrixAt(i, M); });
-  im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.frustumCulled = false; im.name = 'Transenne';
-  scene.add(im);
-  // 3. festoni: file di bandierine triangolari a catenaria sopra la strada, ogni 12 m
-  const tri = new THREE.BufferGeometry();
-  tri.setAttribute('position', new THREE.Float32BufferAttribute([-0.22, 0, 0, 0.22, 0, 0, 0, -0.42, 0], 3));
-  tri.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
-  tri.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 0.5, 0], 2));
-  const fl = [];
-  const tinte = [0xf4951f, 0xf3efe2, 0x2e6b3a, 0xf4951f, 0xc8102e];
-  for (let s = 8; s <= 46; s += 12) {
-    posAt(s, A); tanAt(s, T); SD.set(T.z, 0, -T.x);
-    const yaw = Math.atan2(T.x, T.z);
-    const y0 = suoloPartenza(A.x, A.z) + 4.6;
-    const n = 14;
-    for (let i = 0; i < n; i++) {
-      const u = (i + 0.5) / n, k = (u - 0.5) * 2;
-      const x = A.x + SD.x * 3.6 * k, z = A.z + SD.z * 3.6 * k;
-      const sag = 0.55 * (1 - k * k);          // catenaria: piu' bassa al centro
-      fl.push([x, y0 - sag, z, yaw, tinte[i % tinte.length]]);
-    }
-  }
-  const fm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
-  fm.onBeforeCompile = sh => {
+// ---------- partenza e piazza: transenne e festoni arrivano da maglianoC.glb (posizionati da Ale in
+// magliano_centro.blend: oggetti Transenna_* e Festone_*); qui solo materiali e vento ----------
+function vestiFestone(o){
+  // bandierine: la punta (z locale negativo rispetto al filo) sventola, il filo resta fermo
+  const m = o.material = o.material.clone();
+  m.side = THREE.DoubleSide; m.metalness = 0; m.roughness = 0.9;
+  m.customProgramCacheKey = () => 'festone';
+  m.onBeforeCompile = sh => {
     sh.uniforms.uT = { value: 0 }; VENTO_SH.push(sh);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-{ vec4 wp = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-  float w = clamp(-position.y / 0.42, 0.0, 1.0);          // la punta sventola, la base sta sul filo
-  transformed.z += sin(uT * 4.0 + wp.x * 0.7 + wp.z * 0.5) * 0.09 * w;
-  transformed.x += sin(uT * 2.6 + wp.z * 0.9) * 0.03 * w; }`);
+{ vec4 wp = modelMatrix * vec4(position, 1.0);
+  float w = clamp(-position.z / 0.42, 0.0, 1.0);          // 0 sul filo, 1 sulla punta
+  transformed.y += sin(uT * 4.0 + wp.x * 0.7 + wp.z * 0.5 + position.x * 2.0) * 0.09 * w;
+  transformed.x += sin(uT * 2.6 + wp.z * 0.9 + position.x) * 0.03 * w; }`);
   };
-  const fim = new THREE.InstancedMesh(tri, fm, fl.length);
-  const col = new THREE.Color();
-  fl.forEach((p, i) => { P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); M.compose(P, Q, S); fim.setMatrixAt(i, M); col.setHex(p[4]); fim.setColorAt(i, col); });
-  fim.instanceMatrix.needsUpdate = true; if (fim.instanceColor) fim.instanceColor.needsUpdate = true;
-  fim.frustumCulled = false; fim.name = 'Festoni';
-  scene.add(fim);
-  console.log('partenza: transenne', posti.length, 'bandierine', fl.length);
+  o.castShadow = false;
+}
+function arredaPartenza(root){
+  let nt = 0, nf = 0;
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const nm = o.name || '';
+    if (/^Transenna/.test(nm)) { o.castShadow = true; o.receiveShadow = true; if (o.material) { o.material.metalness = 0.6; o.material.roughness = 0.45; } nt++; }
+    else if (/^Festone/.test(nm)) { vestiFestone(o); nf++; }
+  });
+  if (nt || nf) console.log('partenza: transenne', nt, 'festoni', nf);
 }
 
 // ---------- cumuli a billboard, con deriva lenta e ombra sul terreno ----------
