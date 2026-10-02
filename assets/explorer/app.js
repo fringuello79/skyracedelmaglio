@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v65';
+const VER = 'v66';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -323,7 +323,7 @@ async function boot(){
   window.SRMX = { st, scene: () => scene, route: () => route, vista: setView, terra: groundAt, cam: () => camera, ctrl: () => controls, lino: () => lino, terraV: (x, z, y) => terraVera(x, z, y),
                   look: (p, t) => { camera.position.set(p[0], p[1], p[2]); camTgt.set(t[0], t[1], t[2]); controls.target.copy(camTgt); controls.update(); },
                   y0arco: () => Y0_ARCO, pos: s => { posAt(s, tmpC); return [tmpC.x, tmpC.y, tmpC.z]; }, goto: km => { st.sTarget = clamp(km, 0, route.total_km) * 1000; },
-                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, cer: () => CER, rb: (n, ax, a) => rotBone(n, AX[ax], a), vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
+                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, cer: () => CER, sent: () => ({ SENT, SENT_ON, sentT }), tickS: dt => tickSentieri(dt), rb: (n, ax, a) => rotBone(n, AX[ax], a), vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
                   anim: () => action ? { t: +action.time.toFixed(3), ts: +mixer.timeScale.toFixed(2),
                                          dur: +action.getClip().duration.toFixed(2) } : null,
                   tracks: () => action ? action.getClip().tracks.map(t => t.name) : [],
@@ -970,6 +970,11 @@ function buildPins(){
     if ($('modal').classList.contains('on')) { closeModal(); return; }
     const hit = ray.intersectObjects(pinGroup.children, false)[0];
     if (hit) { openPoi(hit.object.userData.poi); return; }
+    // targhette dei sentieri
+    if (SENT && SENT_ON) {
+      const hs = ray.intersectObjects(SENT.sprites.filter(sp => sp.visible && sp.material.opacity > 0.1), false)[0];
+      if (hs) { openSentiero(hs.object.userData.sent); return; }
+    }
     // vette: si tocca l'etichetta o la bandierina...
     const cand = [];
     for (const g of peakItems) if (g.visible && g.userData.lbl.material.opacity > 0.05) cand.push(g.userData.lbl, g.userData.flag, g.userData.asta);
@@ -1200,6 +1205,7 @@ function bindUI(){
   const bp = $('b-pov'); if (bp) bp.onclick = () => setView(st.view === 'fpv' ? 'follow' : 'fpv');
   $('b-help').onclick = showHelp;
   $('b-gara').onclick = showGara;
+  { const bs = $('b-sent'); if (bs) bs.onclick = () => toggleSentieri(); let pref = null; try { pref = localStorage.getItem('srm-sentieri'); } catch (e) {} if (pref === '1') setTimeout(() => toggleSentieri(true), 1500); }
   $('b-grif').onclick = () => { if (FLY.on) flyStop(); else flyStart(); };
   $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
   const key = (e, down) => {
@@ -2018,6 +2024,125 @@ float nz2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
     };
   });
   try { buildComignoli(tetti, root.name || ('r' + tetti.length)); } catch (e) { console.warn('comignoli:', e); }
+}
+
+// ---------- sentieri CAI della zona (OSM, relazioni route=hiking) ----------
+// Pulsante SENTIERI: nastri bianco/rosso a tratti sul terreno (1,3 m, leggermente trasparenti) e
+// targhette rosso-bianco-rosso con il numero. Dove il sentiero coincide col percorso di gara non si
+// disegna (resta il nastro arancione e l'indicazione in alto a destra). Costruiti alla prima accensione.
+let SENT = null, SENT_ON = false, sentT = 0;
+const SENT_TEX = {};
+function targhettaSentiero(txt){
+  if (SENT_TEX[txt]) return SENT_TEX[txt];
+  const c = document.createElement('canvas'); c.width = 256; c.height = 112;
+  const x = c.getContext('2d');
+  x.fillStyle = '#d7212b'; x.fillRect(0, 0, 256, 112);
+  x.fillStyle = '#f6f3ea'; x.fillRect(0, 36, 256, 40);
+  x.fillStyle = '#111'; x.font = '700 ' + (txt.length > 4 ? 26 : 32) + 'px Oswald, Arial'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(txt, 128, 57);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  SENT_TEX[txt] = t; return t;
+}
+function buildSentieri(data){
+  const grp = new THREE.Group(); grp.name = 'Sentieri';
+  const W = 1.8, PASSO = 6, TRATTO = 3.5;
+  const pos = [], col = [], idx = [];
+  const targhette = [];
+  const rosso = [0.84, 0.13, 0.15], bianco = [0.96, 0.95, 0.90];
+  const quota = (x, z) => { let g = terraVera(x, z, groundAt(x, z) + 30); if (g < -1e3) g = groundAt(x, z); return g; };
+  for (const L of data.linee) {
+    const P = L.p;
+    // ricampiona la polilinea ogni PASSO metri (segue il terreno), con lunghezza cumulata
+    const pts = []; let acc = 0;
+    for (let i = 0; i < P.length - 1; i++) {
+      const ax = P[i][0], az = -P[i][1], bx = P[i + 1][0], bz = -P[i + 1][1];
+      const d = Math.hypot(bx - ax, bz - az); if (d < 0.01) continue;
+      const n = Math.max(1, Math.ceil(d / PASSO));
+      for (let k = 0; k < n; k++) { const t = k / n; pts.push([ax + (bx - ax) * t, az + (bz - az) * t, acc + d * t]); }
+      acc += d;
+      if (i === P.length - 2) pts.push([bx, bz, acc]);
+    }
+    if (pts.length < 2) continue;
+    const base = pos.length / 3;
+    for (let i = 0; i < pts.length; i++) {
+      const [x, z, s] = pts[i];
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(pts.length - 1, i + 1)];
+      let tx = p1[0] - p0[0], tz = p1[1] - p0[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+      const nx = tz, nz = -tx;
+      const y = quota(x, z) + 0.5;
+      pos.push(x - nx * W / 2, y, z - nz * W / 2, x + nx * W / 2, y, z + nz * W / 2);
+      const cc = Math.floor(s / TRATTO) % 2 ? bianco : rosso;
+      col.push(cc[0], cc[1], cc[2], cc[0], cc[1], cc[2]);
+      if (i < pts.length - 1) { const a = base + i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    }
+    // targhette: a meta' delle linee lunghe e poi ogni 700 m
+    const refTxt = L.r.join(' · ');
+    if (acc > 120) {
+      const passi = [acc / 2]; for (let s = 700; s < acc - 300; s += 700) passi.push(s);
+      for (const sS of passi) {
+        const k = pts.findIndex(q => q[2] >= sS); if (k < 0) continue;
+        const [x, z] = pts[k];
+        targhette.push({ x, y: quota(x, z) + 4.2, z, txt: refTxt, refs: L.r });
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  const m = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.78, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  const nastro = new THREE.Mesh(g, m); nastro.name = 'SentieriNastro'; nastro.renderOrder = 1; nastro.frustumCulled = false;
+  grp.add(nastro);
+  const sprites = [];
+  for (const t of targhette) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: targhettaSentiero(t.txt), transparent: true, depthTest: false, opacity: 0 }));
+    sp.position.set(t.x, t.y, t.z); sp.scale.set(6.4, 2.8, 1); sp.userData = { sent: t, vis: 0 };
+    sp.renderOrder = 3; grp.add(sp); sprites.push(sp);
+  }
+  scene.add(grp);
+  SENT = { grp, sprites, info: data.info };
+  console.log('sentieri:', data.linee.length, 'linee,', idx.length / 3, 'triangoli,', sprites.length, 'targhette');
+}
+async function toggleSentieri(forza){
+  const on = forza === undefined ? !SENT_ON : !!forza;
+  if (on && !SENT) {
+    try {
+      const data = await (await fetch('assets/sentieri.json?' + VER)).json();
+      if (!TIDX) { try { TIDX = buildTerrIndex(); } catch (e) {} }
+      buildSentieri(data);
+    } catch (e) { console.warn('sentieri:', e); openCard('<h2>Sentieri</h2><p>Dati dei sentieri non disponibili.</p>'); return; }
+  }
+  SENT_ON = on;
+  if (SENT) SENT.grp.visible = on;
+  const b = $('b-sent'); if (b) b.classList.toggle('on', on);
+  try { localStorage.setItem('srm-sentieri', on ? '1' : '0'); } catch (e) {}
+}
+// targhette dei sentieri: come quelle delle vette, solo a campo aperto e vicine (entro 2,5 km)
+function tickSentieri(dt){
+  if (!SENT || !SENT_ON) return;
+  sentT += dt; if (sentT < 0.2) return; sentT = 0;
+  for (const sp of SENT.sprites) {
+    const d = camera.position.distanceTo(sp.position);
+    let oT = 0;
+    if (d < 2600) {
+      const o = d < 500 ? 1 : Math.max(0.35, 1 - (d - 500) / 2400);
+      oT = lineaLibera(camera.position, sp.position) ? o : 0;
+    }
+    sp.userData.vis += (oT - sp.userData.vis) * 0.45;
+    sp.material.opacity = sp.userData.vis;
+    sp.visible = sp.userData.vis > 0.02;
+    if (sp.visible) { const k = clamp(d * 0.013, 6.5, 24); sp.scale.set(k, k * 0.4375, 1); }
+  }
+}
+// scheda di un sentiero (tocco sulla targhetta)
+function openSentiero(t){
+  const righe = t.refs.map(r => {
+    const i = (SENT && SENT.info[r]) || {};
+    const rete = i.rete === 'iwn' ? 'sentiero europeo' : i.rete === 'rwn' ? 'rete regionale' : 'rete CAI locale';
+    return '<tr><th>' + r + '</th><td>' + (i.nome ? '<b>' + i.nome + '</b><br>' : '') + (i.da || i.a ? (i.da || '?') + ' → ' + (i.a || '?') + '<br>' : '') + '<span style="color:var(--grigio)">' + rete + '</span></td></tr>';
+  }).join('');
+  openCard('<h2>Sentiero ' + t.refs.join(' · ') + '</h2><h3>segnavia bianco-rosso</h3><table>' + righe + '</table>' +
+    '<p style="margin-top:10px;font-size:13px;color:var(--grigio)">Tracciati della rete escursionistica da OpenStreetMap (rete CAI). Dove un sentiero coincide con il percorso di gara è disegnato solo il nastro arancione.</p>');
 }
 
 // ---------- bandierine fantasma delle vette ----------
@@ -3799,7 +3924,7 @@ function tick(){
       m.position.set(g.c[0] + g.r * Math.cos(ph), g.c[2] + Math.sin(tNow0 * 0.6 + g.ph0) * 4, -(g.c[1] + g.r * Math.sin(ph)));
       m.rotation.y = ph + Math.PI / 2 + Math.PI;
     }
-    tickPeaks(dt);
+    tickPeaks(dt); tickSentieri(dt);
     renderer.render(scene, camera);
     guardiaFps(dtReale);
     return;
@@ -3883,7 +4008,7 @@ function tick(){
     m.position.set(g.c[0] + g.r * Math.cos(ph), g.c[2] + Math.sin(tNow * 0.6 + g.ph0) * 4, -(g.c[1] + g.r * Math.sin(ph)));
     m.rotation.y = ph + Math.PI / 2 + Math.PI;
   }
-  tickPeaks(dt);
+  tickPeaks(dt); tickSentieri(dt);
   updateHUD();
   renderer.render(scene, camera);
   guardiaFps(dtReale);
@@ -3901,7 +4026,8 @@ function lineaLibera(a, b){
     const t = i / n, dist = t * L;
     if (dist < 25 || L - dist < 20) continue;
     const x = a.x + dx * t, y = a.y + dy * t, z = a.z + dz * t;
-    const g = groundAt(x, z);
+    // mesh vera entro 1,5 km (la griglia sbaglia anche di 20 m e chiudeva viste aperte), griglia oltre
+    const g = dist < 1500 ? terraVera(x, z, y) : groundAt(x, z);
     if (g > -1e3 && g > y + 1.5) return false;
   }
   return true;
