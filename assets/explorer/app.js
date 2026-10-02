@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v61';
+const VER = 'v62';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -221,22 +221,8 @@ async function boot(){
       poggia(lupoSrc);
       // il rifugio di Sevice era sospeso di quasi 3 m: si posa (regola poggia)
       if (SEVICE) poggia(SEVICE, -0.25);
-      // suolo VERO campionato lungo tutto il tratto estrapolato (arco -> km 0)
-      try {
-        const bers = [];
-        scene.traverse(o => { if (o.isMesh && (o.name === 'Terrain' || /^Piazza/.test(o.name || ''))) bers.push(o); });
-        const ye = [];
-        for (let k = 0; k <= 15; k++) {
-          posAt(S0_ARCO + k, tmpA);
-          const rc0 = new THREE.Raycaster(new THREE.Vector3(tmpA.x, 400, tmpA.z),
-                                          new THREE.Vector3(0, -1, 0), 0, 900);
-          const h0 = rc0.intersectObjects(bers, false)[0];
-          ye.push(h0 ? h0.point.y + 0.05 : null);
-        }
-        for (let k = 0; k <= 15; k++) if (ye[k] === null) ye[k] = k > 0 ? ye[k - 1] : route.z[0];
-        YEXT = ye;
-        Y0_ARCO = ye[0];
-      } catch (e) { console.warn('quota arco:', e); }
+      // suolo VERO campionato lungo tutto il tratto arco -> km 0, poi il tappeto verde
+      try { setArco(ARCO.x, ARCO.z); campionaTrattoArco(); buildTappeto(); } catch (e) { console.warn('quota arco:', e); }
     }
   } catch (e) { console.warn('lupo discesa:', e); }
   loader.load('assets/extras.glb?' + VER, g => {
@@ -288,6 +274,7 @@ async function boot(){
     // arco di partenza: i piloni erano 0,3-0,9 m sopra l'asfalto; si annega di 1 m
     { const arco = g.scene.getObjectByName('ArcoSRM'); if (arco) arco.position.y -= 1.0; }
     try { arredaPartenza(g.scene); } catch (e) { console.warn('partenza:', e); }
+    try { aggiornaArco(g.scene); } catch (e) { console.warn('arco:', e); }
     // tigli davanti al Comune (oggetti Tiglio* del blend di Ale): chioma con vento e tinta d'autunno
     g.scene.traverse(o => { if (o.isMesh && /^Tiglio/.test(o.name || '')) vestiTiglio(o); });
     try { buildTigli(); } catch (e) { console.warn('tigli:', e); }
@@ -336,7 +323,7 @@ async function boot(){
   window.SRMX = { st, scene: () => scene, route: () => route, vista: setView, terra: groundAt, cam: () => camera, ctrl: () => controls, lino: () => lino, terraV: (x, z, y) => terraVera(x, z, y),
                   look: (p, t) => { camera.position.set(p[0], p[1], p[2]); camTgt.set(t[0], t[1], t[2]); controls.target.copy(camTgt); controls.update(); },
                   y0arco: () => Y0_ARCO, pos: s => { posAt(s, tmpC); return [tmpC.x, tmpC.y, tmpC.z]; }, goto: km => { st.sTarget = clamp(km, 0, route.total_km) * 1000; },
-                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
+                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, cer: () => CER, rb: (n, ax, a) => rotBone(n, AX[ax], a), vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
                   anim: () => action ? { t: +action.time.toFixed(3), ts: +mixer.timeScale.toFixed(2),
                                          dur: +action.getClip().duration.toFixed(2) } : null,
                   tracks: () => action ? action.getClip().tracks.map(t => t.name) : [],
@@ -527,9 +514,29 @@ function prepLino(lg){
 // mesh) o del terreno vero, campionata a ogni punto del percorso e ammorbidita su +-40 m per
 // togliere gli scalini di pendenza; mai piu' di 3 cm sotto il nastro (i piedi non affondano).
 let YT = null;
+// il nastro esportato da Blender in certi tratti galleggia anche 4-5 m sopra la mesh del terreno
+// (pendii ripidi): si drappeggia vertice per vertice sulla mesh vera, fuori dal paese
+function drappeggiaNastro(trail){
+  const g = trail.geometry, pos = g.getAttribute('position');
+  trail.updateMatrixWorld(true);
+  const M = trail.matrixWorld, Mi = M.clone().invert(), v = new THREE.Vector3();
+  const cx = route.x[0], cz = -route.y[0];
+  let n = 0, dmax = 0;
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i).applyMatrix4(M);
+    if (Math.hypot(v.x - cx, v.z - cz) < 700) continue;          // in paese il suolo e' la piazza/asfalto
+    const gt = terraVera(v.x, v.z, v.y);
+    if (gt < -1e3) continue;
+    const d = v.y - gt;
+    if (d > 0.5 || d < -0.5) { dmax = Math.max(dmax, Math.abs(d)); v.y = gt + 0.22; v.applyMatrix4(Mi); pos.setXYZ(i, v.x, v.y, v.z); n++; }
+  }
+  if (n) { pos.needsUpdate = true; g.computeBoundingSphere(); g.computeBoundingBox(); console.log('nastro drappeggiato:', n, 'vertici, scarto max', dmax.toFixed(1)); }
+  // la copia-ombra condivide la geometria: nulla da fare
+}
 function buildTrailHeights(){
   let trail = null;
   scene.traverse(o => { if (!trail && o.isMesh && (o.name || '') === 'SRM_Trail') trail = o; });
+  if (trail) { try { drappeggiaNastro(trail); } catch (e) { console.warn('drappeggio nastro:', e); } }
   const TI = trail ? buildTerrIndex(trail, 30) : null;
   const raw = new Float32Array(N);
   for (let i = 0; i < N; i++) {
@@ -538,40 +545,117 @@ function buildTrailHeights(){
     const gt = terraVera(x, z, route.z[i] + 20);
     if (y < -1e3 || (gt > -1e3 && y < gt - 2)) y = gt;
     if (y < -1e3) y = route.z[i];
+    // i piedi non stanno mai piu' di 30 cm sopra la terra vera (ne' sotto)
+    if (gt > -1e3) y = Math.min(Math.max(y, gt - 0.05), gt + 0.3);
     raw[i] = y + 0.04;
   }
   const out = new Float32Array(N);
-  const W = 4;                                   // +-4 campioni = +-40 m
+  const W = 2;                                   // +-2 campioni = +-20 m: liscia i gradini senza sollevare dai dossi
   for (let i = 0; i < N; i++) {
     let acc = 0, wsum = 0;
     for (let k = -W; k <= W; k++) {
       const j = Math.min(N - 1, Math.max(0, i + k)), w = 1 - Math.abs(k) / (W + 1);
       acc += raw[j] * w; wsum += w;
     }
-    out[i] = Math.max(acc / wsum, raw[i] - 0.03);
+    out[i] = Math.min(Math.max(acc / wsum, raw[i] - 0.03), raw[i] + 0.45);
   }
   YT = out;
 }
-const S0_ARCO = -15.0;   // partenza sotto l'arco: 15 m prima del km 0 lungo la tangente iniziale
+// Partenza sotto l'arco: il tratto da s = S0_ARCO (centro dell'arco) a s = 0 (inizio del tracciato)
+// e' una RETTA dal centro dell'arco al primo punto del percorso, coperta dal tappeto verde.
+// Il centro dell'arco viene dai piloni di ArcoSRM (magliano_centro.blend): valori iniziali dal blend
+// del 02/10, ricalcolati appena maglianoC.glb e' caricato (cosi' Ale puo' spostare l'arco a piacere).
+const ARCO = { x: -1555.6, z: 4890.4, L: 15, dx: 0, dz: -1 };   // centro (three), lunghezza del tratto, direzione arco -> km 0
+let S0_ARCO = -15.0;
 let Y0_ARCO = null;      // quota del suolo vero sotto l'arco (raycast al caricamento)
-let YEXT = null;         // suolo campionato ogni metro da s=-15 a s=0
+let YEXT = null;         // suolo campionato ogni metro da s=S0_ARCO a s=0
+let TAPPETO = null;
+function setArco(cx, cz){
+  ARCO.x = cx; ARCO.z = cz;
+  const dx = route.x[0] - cx, dz = -route.y[0] - cz;
+  ARCO.L = Math.max(4, Math.hypot(dx, dz)); ARCO.dx = dx / ARCO.L; ARCO.dz = dz / ARCO.L;
+  S0_ARCO = -ARCO.L;
+  if (st.s < S0_ARCO) st.s = S0_ARCO;
+}
+// suolo vero campionato ogni metro lungo il tratto arco -> km 0 (terreno o piazza)
+function campionaTrattoArco(){
+  const bers = [];
+  scene.traverse(o => { if (o.isMesh && (o.name === 'Terrain' || /^Piazza/.test(o.name || ''))) bers.push(o); });
+  if (!bers.length) return;
+  const n = Math.ceil(ARCO.L), ye = [];
+  const prev = YEXT; YEXT = null;      // posAt(s<0) senza tabella: solo la retta
+  for (let k = 0; k <= n; k++) {
+    posAt(Math.min(S0_ARCO + k, 0), tmpA);
+    const rc0 = new THREE.Raycaster(new THREE.Vector3(tmpA.x, 400, tmpA.z), new THREE.Vector3(0, -1, 0), 0, 900);
+    const h0 = rc0.intersectObjects(bers, false)[0];
+    ye.push(h0 ? h0.point.y + 0.05 : null);
+  }
+  for (let k = 0; k <= n; k++) if (ye[k] === null) ye[k] = k > 0 ? ye[k - 1] : (prev ? prev[0] : route.z[0]);
+  YEXT = ye; Y0_ARCO = ye[0];
+}
+// tappeto verde dall'arco all'inizio del tracciato: nastro di 5 m che segue il suolo campionato,
+// centrato sulla retta dell'arco, con due righe bianche ai bordi
+function buildTappeto(){
+  if (TAPPETO) { TAPPETO.removeFromParent(); TAPPETO.geometry.dispose(); TAPPETO = null; }
+  if (!YEXT) return;
+  const W = 5.0, n = YEXT.length - 1;
+  const sx = -ARCO.dz, sz = ARCO.dx;             // lato
+  const pos = [], uv = [], idx = [];
+  for (let k = 0; k <= n; k++) {
+    const s = Math.min(S0_ARCO + k, 0);
+    posAt(s, tmpA);
+    const y = YEXT[Math.min(k, n)] + 0.035;
+    pos.push(tmpA.x - sx * W / 2, y, tmpA.z - sz * W / 2, tmpA.x + sx * W / 2, y, tmpA.z + sz * W / 2);
+    uv.push(0, k, 1, k);
+    if (k < n) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.MeshStandardMaterial({ color: 0x2f7a43, roughness: 0.95, metalness: 0, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  m.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+{ float b = min(vUv.x, 1.0 - vUv.x);                               // bordo bianco di 18 cm
+  float riga = 1.0 - smoothstep(0.03, 0.045, b);
+  float grana = 0.94 + 0.12 * fract(sin(dot(floor(vUv * vec2(40.0, 2.0)), vec2(12.9898, 78.233))) * 43758.5453);
+  diffuseColor.rgb = mix(diffuseColor.rgb * grana, vec3(0.93, 0.92, 0.88), riga); }`);
+  };
+  m.defines = { USE_UV: '' };
+  TAPPETO = new THREE.Mesh(g, m); TAPPETO.name = 'Tappeto'; TAPPETO.receiveShadow = true; TAPPETO.renderOrder = 1;
+  scene.add(TAPPETO);
+}
+// legge il centro dell'arco dai piloni del glb e rifa' tratto, suolo e tappeto
+function aggiornaArco(root){
+  const p = [];
+  root.traverse(o => { if (o.isMesh && /^Arch_Pillar/.test(o.name || '')) { const b = new THREE.Box3().setFromObject(o); p.push(b.getCenter(new THREE.Vector3())); } });
+  if (p.length < 2) return;
+  const cx = (p[0].x + p[1].x) / 2, cz = (p[0].z + p[1].z) / 2;
+  const era = st.s <= S0_ARCO + 0.01;
+  setArco(cx, cz);
+  campionaTrattoArco();
+  buildTappeto();
+  if (era) st.s = S0_ARCO;
+  console.log('arco: centro', cx.toFixed(1), cz.toFixed(1), 'tratto', ARCO.L.toFixed(1), 'm');
+}
 function posAt(s, out){
   if (s < 0) {
-    const dx = route.x[2] - route.x[0], dy = route.y[2] - route.y[0];
-    const L = Math.hypot(dx, dy) || 1;
+    // retta dal centro dell'arco (s = S0_ARCO) all'inizio del tracciato (s = 0)
+    const L = ARCO.L;
+    const d = clamp(s - S0_ARCO, 0, L);                 // distanza dall'arco
     let y;
     if (YEXT) {
-      const f0 = clamp(s + 15, 0, 15);
-      const k0 = Math.min(14, Math.floor(f0));
-      const yg = YEXT[k0] + (YEXT[k0 + 1] - YEXT[k0]) * (f0 - k0);
+      const n = YEXT.length - 1;
+      const k0 = Math.min(n - 1, Math.floor(d));
+      const yg = YEXT[k0] + (YEXT[k0 + 1] - YEXT[k0]) * (d - k0);
       const t0 = clamp(1 + s / 3.0, 0, 1);      // raccordo al nastro solo negli ultimi 3 m
       y = yg * (1 - t0) + (YT ? YT[0] : route.z[0]) * t0;
     } else {
-      const t0 = clamp(1 + s / 15.0, 0, 1);
+      const t0 = d / L;
       const yA = (typeof Y0_ARCO === 'number') ? Y0_ARCO : route.z[0];
       y = yA * (1 - t0) + route.z[0] * t0;
     }
-    return out.set(route.x[0] + dx / L * s, y, -(route.y[0] + dy / L * s));
+    return out.set(ARCO.x + ARCO.dx * d, y, ARCO.z + ARCO.dz * d);
   }
   const f = clamp(s, 0, TOT) / TOT * (N - 1);
   const i = Math.min(Math.floor(f), N - 2), t = f - i;
@@ -587,7 +671,7 @@ function quotaAt(s){
   return route.elev_a * lerp(route.z[i], route.z[i + 1], t) + route.elev_b;
 }
 function tanAt(s, out){
-  posAt(Math.min(s + 22, TOT), out); posAt(Math.max(s - 22, 0), tmpD);
+  posAt(Math.min(s + 22, TOT), out); posAt(Math.max(s - 22, S0_ARCO), tmpD);   // anche sul tratto dell'arco la tangente guarda avanti
   out.sub(tmpD);
   return out.lengthSq() > 1e-6 ? out.normalize() : out.set(1, 0, 0);
 }
@@ -847,7 +931,7 @@ function buildNubiBasse(){
 function buildPins(){
   pinGroup = new THREE.Group();
   for (const p of route.pois) {
-    if (p.tipo === 'start') continue;
+    if (p.tipo === 'start' || p.tipo === 'finish') continue;   // niente spillo sull'arco (partenza = arrivo): fa solo confusione
     const sp = new THREE.Sprite(pinSprite(PIN_COLORS[p.tipo] || '#ffffff'));
     posAt(p.km * 1000, tmpA);
     sp.position.copy(tmpA); sp.position.y += 16;
@@ -2501,7 +2585,20 @@ const SPECIE = {
           ROLL_MAX: 1.35, AGIL: 1.75, MORDE_V0: 42, FOLD_V: 50, V_ATT: 19, V_IMP: 30 }
   }
 };
-const ORDINE_SPECIE = ['grifone', 'aquila', 'falco'];
+const ORDINE_SPECIE = ['grifone', 'aquila', 'falco', 'cervo'];
+// il cervo: stessa modalita' e stessi comandi, ma a terra (Meshy "Cervo animato": riggato, 49 ossa,
+// senza clip -> andature procedurali per ossa). Prua +z come gli uccelli, origine agli zoccoli.
+SPECIE.cervo = {
+  titolo: 'Cervo', breve: 'CERVO', file: 'assets/cervo2.glb', terra: true, scala: 4.4, cam: 1.0,
+  map: { spine: ['Bone_001', 'Bone_003', 'Bone_002'], neck: ['Bone_010', 'Bone_009', 'Bone_008'], head: 'Bone_007',
+         tail: ['Bone_026', 'Bone_025', 'Bone_024'], earL: 'Bone_044', earR: 'Bone_046', pelvis: 'Bone_004',
+         // zampe: spalla/anca, gomito/ginocchio, carpo/garretto, nodello
+         FL: ['Bone_016', 'Bone_015', 'Bone_014', 'Bone_013'], FR: ['Bone_022', 'Bone_021', 'Bone_020', 'Bone_019'],
+         RL: ['Bone_032', 'Bone_031', 'Bone_030', 'Bone_029'], RR: ['Bone_038', 'Bone_037', 'Bone_036', 'Bone_035'] },
+  // velocita' di scena (il modello e' 4,4 volte un cervo vero, come Lino): passo, trotto, galoppo
+  cc: { V_PASSO: 4, V_TROTTO: 10, V_GALOPPO: 19, ACC: 7, FRENO: 14, GIRO: 1.5, PEND_MAX: 0.95 }   // 14, 36, 68 km/h: come un cervo vero
+};
+const CER = { v: 0, ph: 0, gait: 0, bob: 0, pitch: 0, roll: 0, idleT: 0, pronto: false };
 const RIGS = {};          // rig pronti, per specie
 let RIG = null;           // rig della specie in volo
 let LOADER = null;
@@ -2512,6 +2609,27 @@ function prepRig(g, nome){
   const sp = SPECIE[nome], map = sp.map;
   const bones = {}; let skin = null;
   g.scene.traverse(o => { if (o.isBone) bones[o.name] = o; if (o.isSkinnedMesh) skin = o; });
+  if (sp.terra) {
+    if (!skin || !bones[map.FL[0]]) throw new Error('rig non riconosciuto: ' + nome);
+    skin.frustumCulled = false; skin.castShadow = true;
+    if (skin.material && skin.material.isMeshStandardMaterial) {
+      const mm = skin.material; mm.metalness = 0; mm.roughness = 0.85;
+      // la texture Meshy e' scura e grigiastra: si schiarisce e si scalda verso il bruno-rossiccio del
+      // manto autunnale, tenendo chiari ventre e specchio anale
+      mm.customProgramCacheKey = () => 'cervo-manto';
+      mm.onBeforeCompile = sh => {
+        sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+{ vec3 c = diffuseColor.rgb;
+  float l = dot(c, vec3(0.299, 0.587, 0.114));
+  c = pow(c, vec3(0.88)) * 1.10;                                   // un po' piu' chiaro
+  vec3 caldo = vec3(0.50, 0.33, 0.19) * (0.5 + 0.9 * pow(l, 0.6));   // bruno-rossiccio
+  c = mix(c, caldo, 0.40);
+  diffuseColor.rgb = clamp(c * vec3(1.05, 1.0, 0.93), 0.0, 1.0); }`);
+      };
+    }
+    const rest = new Map(); for (const b of Object.values(bones)) rest.set(b, b.quaternion.clone());
+    return { nome, sp, root: g.scene, bones, rest, skin, map, ax: AX, qFix: new THREE.Quaternion(), sc: sp.scala, centro: new THREE.Vector3(0, 0, 0) };
+  }
   if (!skin || !bones[map.wings[0][0]] || !bones[map.wings[1][0]]) throw new Error('rig non riconosciuto: ' + nome);
   skin.frustumCulled = false; skin.castShadow = true;
   if (skin.material && skin.material.isMeshStandardMaterial) { skin.material.metalness = 0; skin.material.roughness = 0.9; }
@@ -2566,6 +2684,7 @@ function posaGrifone(flap, sweep, legs, roll, pitchIn, flutter){
     }
     return;
   }
+  if (RIG.sp.terra) return;
   const m = RIG.map, A = RIG.ax, sw = sweep, asym = RIG.sp.asym || 0;
   const [R, L] = m.wings;
   // il rig del grifone a riposo ha l'ala destra piu' alta della sinistra (~14 gradi): si compensa alle spalle
@@ -2597,8 +2716,7 @@ function montaSpecie(rig){
   m.quaternion.copy(rig.qFix);
   m.position.copy(rig.centro).multiplyScalar(-rig.sc);
   grifP.add(m);
-  FC.AGL_MIN = sp.agl; FC.H_TERRA = sp.hTerra;
-  Object.assign(FC, sp.fc);
+  if (!sp.terra) { FC.AGL_MIN = sp.agl; FC.H_TERRA = sp.hTerra; Object.assign(FC, sp.fc); }
   RIG = rig;
   grifP.updateMatrixWorld(true);
 }
@@ -2618,11 +2736,21 @@ async function cambiaSpecie(nome){
   cambioInCorso = true;
   try {
     const rig = await caricaSpecie(nome);
+    const eraTerra = RIG && RIG.sp.terra;
     if (RIG) grifP.remove(RIG.root);
     montaSpecie(rig);
     FLY.specie = nome;
+    if (rig.sp.terra) cervoInizio(eraTerra);
+    else if (eraTerra) {
+      // dal cervo a un uccello: si decolla dal punto in cui si era, 25 m piu' in alto
+      FLY.pos.y += 25; FLY.v = 22; FLY.pitch = FC.PITCH_GLIDE; FLY.roll = 0; FLY.mode = 'volo'; FLY.fold = 0; FLY.flapPow = 0.5;
+      document.body.classList.remove('cervo');
+    }
     FLY.v = Math.min(FLY.v, FC.VMAX);
     if (FLY.on) { $('zona-n').textContent = nomeVolo(); }
+    { const lab = document.querySelectorAll('#bar .slot .lab'); if (lab[0]) { lab[0].textContent = rig.sp.terra ? 'A terra' : 'In volo'; lab[3].textContent = rig.sp.terra ? 'Pendenza' : 'Vario'; } }
+    const bf = $('b-flap'); if (bf) bf.innerHTML = rig.sp.terra ? 'CORRI<small>GALOPPO</small>' : 'BATTI<small>LE ALI</small>';
+    const fh = $('fly-hint'); if (fh) fh.textContent = rig.sp.terra ? '▲ avanti · ▼ fermo · ◀ ▶ gira · SPAZIO galoppo · C cambia animale · ESC torna a Lino' : '▲ picchiata · ▼ cabrata · ◀ ▶ virata · SPAZIO batti le ali · C cambia uccello · ESC torna a Lino';
     const bs = $('b-specie'); if (bs) bs.textContent = SPECIE[nome].breve + ' ▸';
     try { localStorage.setItem('srm-specie', nome); } catch (e) {}
   } catch (e) {
@@ -2708,9 +2836,10 @@ function flyStart(){
   }
   FLY.pitch = FC.PITCH_GLIDE; FLY.roll = 0; FLY.v = 22; FLY.pitchV = 0; FLY.rollV = 0;
   FLY.stall = false; FLY.flap = false; FLY.flapPow = 0; FLY.vario = 0;
-  FLY.mode = 'volo'; FLY.tT = 0; FLY.fold = 0; FLY.flapHold = 0; FLY.tumble = null;
+  FLY.mode = 'volo'; FLY.tT = 0; FLY.fold = 0; FLY.flapHold = 0; FLY.tumble = null; FLY.volato = false; FLY.tVolo = 0;
   $('fade').style.opacity = 0; $('impatto').classList.remove('on');
   FLY.on = true; grifP.visible = true; skirt.visible = true;
+  if (RIG && RIG.sp.terra) cervoInizio(false);
   if (!FLY.fogSaved) FLY.fogSaved = [scene.fog.near, scene.fog.far];
   scene.fog.near = 700; scene.fog.far = FOG_VOLO[QUAL.liv];
   luceGrifone(true);
@@ -2719,7 +2848,7 @@ function flyStart(){
   controls.enabled = false;
   $('b-grif').classList.add('on'); $('b-grif').textContent = 'TORNA A LINO';
   const lab = document.querySelectorAll('#bar .slot .lab');
-  lab[0].textContent = 'In volo'; lab[1].textContent = 'Velocità'; lab[3].textContent = 'Vario';
+  lab[0].textContent = (RIG && RIG.sp.terra) ? 'A terra' : 'In volo'; lab[1].textContent = 'Velocità'; lab[3].textContent = (RIG && RIG.sp.terra) ? 'Pendenza' : 'Vario';
   $('zona-n').textContent = nomeVolo(); $('zona-s').textContent = '';
   st.curZone = -1; st.curKey = null; st.lastHudS = -1e9;
   $('poi-banner').classList.remove('on'); st.curPoi = -1;
@@ -2742,7 +2871,7 @@ function flyStop(){
   $('fade').style.opacity = 0; $('impatto').classList.remove('on');
   camera.fov = 55; camera.updateProjectionMatrix();
   luceGrifone(false);
-  document.body.classList.remove('grif');
+  document.body.classList.remove('grif'); document.body.classList.remove('cervo');
   $('b-grif').classList.remove('on'); $('b-grif').textContent = 'GRIFONE';
   $('stallo').classList.remove('on');
   const lab = document.querySelectorAll('#bar .slot .lab');
@@ -2820,6 +2949,7 @@ function ascendenzaAt(x, z, agl){
 }
 // ---- sorvolo guidato: il grifone segue il tracciato da solo, a 100 m sopra il sentiero ----
 function tourStart(){
+  if (FLY.mode === 'cervo') return;   // il sorvolo e' per gli uccelli
   const f = FLY;
   if (!f.on) flyStart();
   f.mode = 'tour'; f.tourS = f.tourS || 0; f.fold = 0; f.flap = false; f.flapPow = 0; f.legs = 0;
@@ -2840,7 +2970,7 @@ function tourStop(){
   $('b-tour').classList.remove('on');
   document.body.classList.remove('tour');
   const lab = document.querySelectorAll('#bar .slot .lab');
-  lab[0].textContent = 'In volo'; lab[1].textContent = 'Velocità'; lab[3].textContent = 'Vario';
+  lab[0].textContent = (RIG && RIG.sp.terra) ? 'A terra' : 'In volo'; lab[1].textContent = 'Velocità'; lab[3].textContent = (RIG && RIG.sp.terra) ? 'Pendenza' : 'Vario';
   st.lastHudS = -1e9; st.curPoi = -1;
 }
 function tickTour(dt){
@@ -2902,9 +3032,11 @@ function tickTour(dt){
 function tickFly(dt){
   const f = FLY;
   if (window.SRMX && window.SRMX.pausa) return;   // collaudi: uccello fermo a mezz'aria
+  if (f.mode === 'cervo') { tickCervo(dt); return; }
   if (f.mode === 'terra') { tickTerra(dt); return; }
   if (f.mode === 'impatto') { tickImpatto(dt); return; }
   if (f.mode === 'tour') { tickTour(dt); return; }
+  f.tVolo = (f.tVolo || 0) + dt; if (f.tVolo > 3) f.volato = true;
   // assetto a proiettile: oltre ~150 km/h in picchiata le ali si chiudono sul corpo;
   // rallentando (o alzando il muso) si riaprono da sole
   const foldT = clamp((f.v - FC.FOLD_V) / 16, 0, 1) * clamp((-f.pitch - 0.12) / 0.2, 0, 1);
@@ -3145,6 +3277,154 @@ function schedaVetta(p, daSentiero){
     '<p style="margin-top:10px;font-size:13px"><b>Natura.</b> ' + nat.txt.split('. ').slice(0, 2).join('. ') + '.</p>' +
     '<p style="margin-top:6px;font-size:13px"><b>Chi vive qui.</b> ' + nat.fauna + '</p>' +
     (daSentiero ? '' : '<p style="margin-top:12px;color:var(--grigio);font-size:13px">Tieni premuto <b>BATTI</b> (o SPAZIO) per decollare; da un pendio ripido basta la picchiata.</p>');
+}
+// ---------- modalita' CERVO: esplorazione a terra con gli stessi comandi del volo ----------
+// Avanti = passo/trotto, CORRI (SPAZIO) = galoppo, sinistra/destra = gira. Zoccoli sempre sulla mesh
+// vera, corpo inclinato con il pendio, andature procedurali per ossa (passo a 4 tempi, trotto e
+// galoppo), fermo: respiro, testa che guarda, orecchie. Pendii oltre ~43 gradi: non si sale.
+function cervoInizio(eraTerra){
+  const f = FLY;
+  f.mode = 'cervo'; f.fold = 0; f.flapPow = 0; f.stall = false; f.roll = 0; f.pitch = 0;
+  CER.v = 0; CER.ph = 0; CER.gait = 0; CER.pronto = false;
+  if (!eraTerra && !(f.volato)) {
+    // partenza da Lino: se e' gia' sul percorso, 7 m a lato del sentiero; se e' ancora in paese,
+    // poco prima del Monte Rozza (km 11,8), dove il sentiero sale sulle creste
+    const sRef = st.s > 500 ? st.s : 11800;
+    posAt(sRef, tmpA); tanAt(sRef, tmpB);
+    f.pos.set(tmpA.x - tmpB.z * 7, tmpA.y, tmpA.z + tmpB.x * 7);
+    f.yaw = Math.atan2(tmpB.x, tmpB.z);
+  }
+  // a terra, sulla mesh vera, sotto il punto attuale
+  let gy = terraVera(f.pos.x, f.pos.z, f.pos.y);
+  if (gy < -1e3) gy = groundAt(f.pos.x, f.pos.z);
+  if (gy > -1e3) f.pos.y = gy;
+  f.agl = 0; f.vario = 0; f.v = 0;
+  document.body.classList.add('cervo');
+  if (f.mode === 'tour') tourStop();
+  // camera dietro e un po' alta
+  fwdV.set(Math.sin(f.yaw), 0, Math.cos(f.yaw));
+  camera.position.copy(f.pos).addScaledVector(fwdV, -26); camera.position.y += 11;
+  camTgt.copy(f.pos); camTgt.y += 4;
+  if (!TIDX) { try { TIDX = buildTerrIndex(); } catch (e) {} }
+}
+const cTmp = new THREE.Vector3(), cTmp2 = new THREE.Vector3();
+function tickCervo(dt){
+  const f = FLY, C = CER, cc = RIG && RIG.sp.cc; if (!cc) return;
+  // ingressi (tastiera, joystick, inclinazione): su = avanti, giu' = frena, lati = gira
+  const pick = (a, b, c) => Math.abs(a) >= Math.abs(b) ? (Math.abs(a) >= Math.abs(c) ? a : c) : (Math.abs(b) >= Math.abs(c) ? b : c);
+  f.inX = clamp(pick(f.keyIn[0], f.joyIn[0], f.tiltIn[0]), -1, 1);
+  f.inY = clamp(pick(f.keyIn[1], f.joyIn[1], f.tiltIn[1]), -1, 1);
+  const avanti = Math.max(0, f.inY), indietro = Math.max(0, -f.inY);
+  // velocita' obiettivo: trotto proporzionale alla spinta, galoppo con CORRI tenuto
+  let vT = avanti * (f.flap ? cc.V_GALOPPO : cc.V_TROTTO);
+  if (avanti > 0.05 && avanti < 0.45 && !f.flap) vT = cc.V_PASSO * (avanti / 0.45);
+  if (indietro > 0.3) vT = 0;
+  // pendenza davanti: in salita si rallenta, oltre la pendenza massima ci si ferma
+  fwdV.set(Math.sin(f.yaw), 0, Math.cos(f.yaw));
+  const gHere = suoloVolo(f.pos.x, f.pos.z, f.pos.y + 2);
+  const gAhead = suoloVolo(f.pos.x + fwdV.x * 6, f.pos.z + fwdV.z * 6, f.pos.y + 6);
+  const pend = (gHere > -1e3 && gAhead > -1e3) ? (gAhead - gHere) / 6 : 0;    // tan della pendenza lungo la prua
+  if (pend > cc.PEND_MAX) vT = Math.min(vT, 1.5);
+  else if (pend > 0) vT *= 1 - 0.55 * clamp(pend / cc.PEND_MAX, 0, 1);
+  const k = vT > C.v ? cc.ACC : cc.FRENO;
+  C.v += clamp(vT - C.v, -k * dt, k * dt);
+  if (C.v < 0.05) C.v = 0;
+  f.v = C.v;
+  // sterzata: piu' stretta da fermo e al passo, piu' larga al galoppo
+  const giro = cc.GIRO * (1 - 0.55 * clamp(C.v / cc.V_GALOPPO, 0, 1));
+  f.yaw -= f.inX * giro * dt;
+  // moto sul terreno
+  f.pos.addScaledVector(fwdV, C.v * dt);
+  let gy = suoloVolo(f.pos.x, f.pos.z, f.pos.y + 2);
+  if (gy < -1e3) gy = groundAt(f.pos.x, f.pos.z);
+  if (gy > -1e3) f.pos.y += (gy - f.pos.y) * (1 - Math.exp(-14 * dt));
+  f.agl = 0; f.lift = 0;
+  f.vario += ((C.v * pend) - f.vario) * (1 - Math.exp(-3 * dt));
+  // confine morbido come in volo
+  const ex = (f.pos.x - FC.BC[0]) / FC.BR[0], ez = (f.pos.z - FC.BC[1]) / FC.BR[1];
+  const er = Math.hypot(ex, ez);
+  if (er > 1.0) { f.pos.x = FC.BC[0] + ex / er * FC.BR[0]; f.pos.z = FC.BC[1] + ez / er * FC.BR[1]; }
+  // assetto: beccheggio lungo il pendio, rollio col pendio trasversale (molle lente)
+  const gL = suoloVolo(f.pos.x + fwdV.z * 2.5, f.pos.z - fwdV.x * 2.5, f.pos.y + 3), gR = suoloVolo(f.pos.x - fwdV.z * 2.5, f.pos.z + fwdV.x * 2.5, f.pos.y + 3);
+  const pT = clamp(Math.atan(pend) * 0.6, -0.5, 0.5), rT = (gL > -1e3 && gR > -1e3) ? clamp(Math.atan((gL - gR) / 5), -0.4, 0.4) : 0;
+  C.pitch += (pT - C.pitch) * (1 - Math.exp(-4 * dt));
+  C.roll += (rT - C.roll) * (1 - Math.exp(-4 * dt));
+  // andatura: 0 fermo, 1 passo, 2 trotto, 3 galoppo; fase dalla distanza percorsa
+  const gaitT = C.v < 0.2 ? 0 : C.v < cc.V_PASSO + 1.5 ? 1 : C.v < cc.V_TROTTO + 4 ? 2 : 3;
+  C.gait += (gaitT - C.gait) * (1 - Math.exp(-5 * dt));
+  const passo = [1, 4.6, 8.0, 14.5][gaitT] || 4.6;    // lunghezza della falcata in unita' di scena
+  if (C.v > 0.2) C.ph += dt * Math.PI * 2 * C.v / passo; else C.idleT += dt;
+  posaCervo(dt);
+  // posa del gruppo: inclinato come il suolo, con il "bob" della corsa
+  gEul.set(-C.pitch, f.yaw, -C.roll, 'YXZ');   // muso in giu' in discesa
+  grifP.quaternion.setFromEuler(gEul);
+  grifP.position.copy(f.pos); grifP.position.y += C.bob;
+  // camera d'inseguimento
+  const back = 22 + C.v * 0.25, alto = 9 + C.v * 0.08;
+  cTmp.copy(f.pos).addScaledVector(fwdV, -back); cTmp.y += alto;
+  const gc = groundAt(cTmp.x, cTmp.z); if (gc > -1e3 && cTmp.y < gc + 4) cTmp.y = gc + 4;
+  if (!(window.SRMX && window.SRMX.freeze)) {
+    camera.position.lerp(cTmp, 1 - Math.exp(-3.2 * dt));
+    cTmp2.copy(f.pos); cTmp2.y += 4.5;
+    camTgt.lerp(cTmp2, 1 - Math.exp(-6 * dt));
+    camera.lookAt(camTgt);
+  }
+  if (SHADOWS && sunLight) {
+    sunLight.position.set(f.pos.x + SUNDIR.x * 2300, f.pos.y + SUNDIR.y * 2300, f.pos.z + SUNDIR.z * 2300);
+    sunLight.target.position.copy(f.pos); sunLight.target.updateMatrixWorld();
+  }
+  sndWind(0, 0);
+  updateHUDFly();
+  $('v-p').innerHTML = (pend * 100 > 0 ? '+' : '') + Math.round(pend * 100) + '<span class="unit"> %</span>';
+  $('stallo').classList.remove('on');
+}
+// andature per ossa: passo (4 tempi, coppie diagonali sfalsate), trotto (diagonali insieme),
+// galoppo (anteriori quasi insieme, posteriori quasi insieme, schiena che si flette)
+function posaCervo(dt){
+  const C = CER, m = RIG.map, t = performance.now() / 1000;
+  const g = C.gait, ph = C.ph;
+  const wIdle = clamp(1 - g, 0, 1), wWalk = clamp(1 - Math.abs(g - 1), 0, 1), wTrot = clamp(1 - Math.abs(g - 2), 0, 1), wGal = clamp(g - 2, 0, 1);
+  // ampiezza dell'oscillazione dell'arto e flessione in volo per andatura
+  const A = 0.22 * wWalk + 0.32 * wTrot + 0.46 * wGal, B = 0.45 * wWalk + 0.60 * wTrot + 0.85 * wGal;
+  // sfasamenti: passo/trotto diagonali (FL+RR, FR+RL); galoppo per coppie trasversali
+  const offWalk = { FL: 0, RR: 0.35, FR: Math.PI, RL: Math.PI + 0.35 };
+  const offGal = { FL: 0, FR: 0.5, RL: Math.PI + 0.1, RR: Math.PI + 0.6 };
+  const zampa = (k, post) => {
+    const off = offWalk[k] * (1 - wGal) + offGal[k] * wGal;
+    const p = ph + off;
+    const sw = Math.sin(p);                                   // rotazione x positiva = arto indietro
+    const vol = Math.max(0, -Math.cos(p));                   // l'arto avanza (sospeso): si flette
+    const ch = m[k];
+    // spalla/anca: oscillazione. Anteriore: gomito e carpo si piegano all'indietro.
+    // Posteriore: grassella indietro, garretto in avanti, nodello indietro (zampa che si raccoglie)
+    rotBone(ch[0], AX.x, sw * A * (post ? 1.0 : 0.9) + C.pitch * 0.85);   // + compenso: zampe quasi verticali anche col corpo inclinato
+    if (!post) {
+      rotBone(ch[1], AX.x, vol * B * 0.55);
+      rotBone(ch[2], AX.x, vol * B * 0.65);
+      rotBone(ch[3], AX.x, vol * B * 0.3);
+    } else {
+      rotBone(ch[1], AX.x, vol * B * 0.5);
+      rotBone(ch[2], AX.x, -vol * B * 0.7);
+      rotBone(ch[3], AX.x, vol * B * 0.35);
+    }
+  };
+  zampa('FL', false); zampa('FR', false); zampa('RL', true); zampa('RR', true);
+  // schiena e bob: al galoppo il dorso si flette e si distende con la falcata
+  const flex = Math.sin(ph + 0.4) * (0.06 * wTrot + 0.16 * wGal);
+  m.spine.forEach((n, i) => rotBone(n, AX.x, flex * (0.6 + 0.4 * i)));
+  rotBone(m.pelvis, AX.x, -flex * 0.8);
+  C.bob = (Math.sin(ph * 2) * (0.05 * wWalk + 0.08 * wTrot) + Math.sin(ph) * 0.22 * wGal) * (RIG.sc / 4.4);
+  // collo e testa: fermo guarda in giro e bruca ogni tanto; in corsa il collo si allunga avanti
+  const look = Math.sin(t * 0.35) * 0.6 + Math.sin(t * 0.13 + 1) * 0.4;
+  const graze = wIdle * clamp(Math.sin(t * 0.09 + C.idleT * 0.01) * 3 - 1.5, 0, 1);
+  const stretch = 0.12 * wTrot + 0.30 * wGal;
+  const turnLook = -FLY.inX * 0.35;
+  m.neck.forEach((n, i) => rotBone(n, AX.y, (look * 0.25 * wIdle + turnLook * 0.4) * (i === 0 ? 1 : 0.6), AX.x, graze * 0.35 + stretch * 0.4 - Math.sin(ph) * 0.03 * wGal));
+  rotBone(m.head, AX.y, look * 0.3 * wIdle + turnLook * 0.3, AX.x, graze * 0.3 - stretch * 0.5 + Math.sin(t * 0.7) * 0.03);
+  // coda: su quando corre (allarme), ferma e penzolante da fermo; orecchie a scatti
+  m.tail.forEach((n, i) => rotBone(n, AX.x, -(0.25 * wTrot + 0.55 * wGal) * (i === 0 ? 1 : 0.5) + Math.sin(t * 1.6 + i) * 0.04 * wIdle, AX.y, Math.sin(t * 1.3) * 0.08 * wIdle));
+  const e1 = Math.sin(t * 3.3) > 0.9 ? 1 : 0, e2 = Math.sin(t * 2.7 + 2) > 0.9 ? 1 : 0;
+  rotBone(m.earL, AX.z, e1 * 0.3 * wIdle); rotBone(m.earR, AX.z, -e2 * 0.3 * wIdle);
 }
 function tickTerra(dt){
   const f = FLY;
