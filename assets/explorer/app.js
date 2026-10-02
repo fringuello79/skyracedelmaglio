@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v63';
+const VER = 'v64';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -517,18 +517,36 @@ let YT = null;
 // il nastro esportato da Blender in certi tratti galleggia anche 4-5 m sopra la mesh del terreno
 // (pendii ripidi): si drappeggia vertice per vertice sulla mesh vera, fuori dal paese
 function drappeggiaNastro(trail){
-  const g = trail.geometry, pos = g.getAttribute('position');
+  const g = trail.geometry, pos = g.getAttribute('position'), side = g.getAttribute('aSide');
   trail.updateMatrixWorld(true);
-  const M = trail.matrixWorld, Mi = M.clone().invert(), v = new THREE.Vector3();
+  const M = trail.matrixWorld, Mi = M.clone().invert(), v = new THREE.Vector3(), w = new THREE.Vector3(), o = new THREE.Vector3();
   const cx = route.x[0], cz = -route.y[0];
+  const ALLARGA = 0.55, SOPRA = 0.6;      // nastro piu' largo di 55 cm per lato e 60 cm sopra la terra vera
   let n = 0, dmax = 0;
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i).applyMatrix4(M);
     if (Math.hypot(v.x - cx, v.z - cz) < 700) continue;          // in paese il suolo e' la piazza/asfalto
+    // allargamento: spinge il vertice verso l'esterno, lontano dal vertice del lato opposto piu' vicino
+    if (side) {
+      const sd = side.getX(i);
+      let tx = 0, tz = 0, ox = NaN, oz = NaN;
+      for (let j = i + 1; j <= Math.min(pos.count - 1, i + 6); j++) if (side.getX(j) === sd) { w.fromBufferAttribute(pos, j).applyMatrix4(M); tx = w.x - v.x; tz = w.z - v.z; break; }
+      if (tx === 0 && tz === 0) for (let j = i - 1; j >= Math.max(0, i - 6); j--) if (side.getX(j) === sd) { w.fromBufferAttribute(pos, j).applyMatrix4(M); tx = v.x - w.x; tz = v.z - w.z; break; }
+      for (let j = Math.max(0, i - 3); j <= Math.min(pos.count - 1, i + 3); j++) if (side.getX(j) !== sd) { o.fromBufferAttribute(pos, j).applyMatrix4(M); ox = o.x; oz = o.z; break; }
+      const L = Math.hypot(tx, tz);
+      if (L > 1e-3 && !isNaN(ox)) {
+        let nx = tz / L, nz = -tx / L;
+        if (nx * (v.x - ox) + nz * (v.z - oz) < 0) { nx = -nx; nz = -nz; }
+        v.x += nx * ALLARGA; v.z += nz * ALLARGA;
+      }
+    }
     const gt = terraVera(v.x, v.z, v.y);
-    if (gt < -1e3) continue;
-    const d = v.y - gt;
-    if (d > 0.5 || d < -0.5) { dmax = Math.max(dmax, Math.abs(d)); v.y = gt + 0.22; v.applyMatrix4(Mi); pos.setXYZ(i, v.x, v.y, v.z); n++; }
+    if (gt > -1e3) {
+      const d = v.y - gt;
+      dmax = Math.max(dmax, Math.abs(d));
+      v.y = gt + SOPRA;                 // sempre un po' sopra la terra vera: niente tratti annegati
+    }
+    v.applyMatrix4(Mi); pos.setXYZ(i, v.x, v.y, v.z); n++;
   }
   if (n) { pos.needsUpdate = true; g.computeBoundingSphere(); g.computeBoundingBox(); console.log('nastro drappeggiato:', n, 'vertici, scarto max', dmax.toFixed(1)); }
   // la copia-ombra condivide la geometria: nulla da fare
@@ -546,7 +564,7 @@ function buildTrailHeights(){
     if (y < -1e3 || (gt > -1e3 && y < gt - 2)) y = gt;
     if (y < -1e3) y = route.z[i];
     // i piedi non stanno mai piu' di 30 cm sopra la terra vera (ne' sotto)
-    if (gt > -1e3) y = Math.min(Math.max(y, gt - 0.05), gt + 0.3);
+    if (gt > -1e3) y = Math.min(Math.max(y, gt - 0.05), gt + 0.66);   // sul nastro (terra + 0,6), mai dentro
     raw[i] = y + 0.04;
   }
   const out = new Float32Array(N);
@@ -1849,7 +1867,7 @@ function colorizeTrail(mesh){
     window._trailUni = uni;
     if (uni > 0) console.warn('nastro: ' + uni + ' triangoli con lato uniforme');
   }
-  const m = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+  const m = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   m.onBeforeCompile = sh => {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nattribute float aSide; attribute float aAsf; varying float vSide; varying float vAsf;')
