@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v62';
+const VER = 'v63';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -3851,6 +3851,24 @@ function tick(){
   renderer.render(scene, camera);
   guardiaFps(dtReale);
 }
+// linea di vista fra due punti sopra il terreno: campiona la quota del suolo lungo il segmento
+// (griglia interna + anello esterno); basta che un campione stia sopra la linea e la vista e' chiusa.
+// Passo ~45 m, i primi 25 m vicino alla camera e gli ultimi 20 m vicino al bersaglio non contano
+const lvA = new THREE.Vector3();
+function lineaLibera(a, b){
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+  const L = Math.hypot(dx, dz);
+  if (L < 60) return true;
+  const n = Math.min(400, Math.ceil(L / 45));
+  for (let i = 1; i < n; i++) {
+    const t = i / n, dist = t * L;
+    if (dist < 25 || L - dist < 20) continue;
+    const x = a.x + dx * t, y = a.y + dy * t, z = a.z + dz * t;
+    const g = groundAt(x, z);
+    if (g > -1e3 && g > y + 1.5) return false;
+  }
+  return true;
+}
 function tickPeaks(dt){
   peakT += dt;
   if (peakItems.length && peakT > 0.15) {
@@ -3858,16 +3876,25 @@ function tickPeaks(dt){
     for (const g of peakItems) {
       const d = camera.position.distanceTo(g.position);
       const ext = !!g.userData.peak.ext;
-      g.visible = d < (ext ? 26000 : 7500);
+      g.visible = d < (ext ? 26000 : 9000);
       if (!g.visible) continue;
-      let o = ext ? (d < 9000 ? 1 : Math.max(0.3, 1 - (d - 9000) / 20000)) : (d < 1400 ? 1 : Math.max(0, 1 - (d - 1400) / 3000));
+      // targhetta: visibile solo a campo aperto (linea di vista sul terreno libera), piena da vicino,
+      // tenue da lontano; si accende/spegne con una dissolvenza per non sfarfallare
+      let o = ext ? (d < 6000 ? 1 : Math.max(0.3, 1 - (d - 6000) / 22000)) : (d < 1500 ? 1 : Math.max(0.25, 1 - (d - 1500) / 7000));
+      g.userData.lbl.getWorldPosition(tmpC);
+      const libero = lineaLibera(camera.position, tmpC);
+      const oT = libero ? o : 0;
+      g.userData.vis = (g.userData.vis === undefined ? oT : g.userData.vis) + (oT - (g.userData.vis === undefined ? oT : g.userData.vis)) * 0.45;
+      o = g.userData.vis;
+      if (o < 0.02) { g.userData.lbl.material.opacity = 0; g.userData.asta.material.opacity = 0; g.userData.flag.material.opacity = 0; if (g.userData.punta) g.userData.punta.material.opacity = 0; continue; }
       // in volo l'asta e la bandierina sfumano quando il grifone ci arriva addosso
       let vic = 1;
       if (FLY.on) { const dg = FLY.pos.distanceTo(g.position); vic = clamp((dg - 50) / 110, 0, 1); }
+      const kv = Math.min(1, o * 1.6);          // asta e bandiera seguono la visibilita' della targhetta
       g.userData.lbl.material.opacity = o * vic;
-      g.userData.asta.material.opacity = 0.85 * vic;
-      g.userData.flag.material.opacity = 0.95 * vic;
-      if (g.userData.punta) g.userData.punta.material.opacity = 0.95 * vic;
+      g.userData.asta.material.opacity = 0.85 * vic * kv;
+      g.userData.flag.material.opacity = 0.95 * vic * kv;
+      if (g.userData.punta) g.userData.punta.material.opacity = 0.95 * vic * kv;
       const s2 = clamp(d * 0.11, 44, ext ? 520 : 190);
       const hh = s2 * 0.1875;
       g.userData.lbl.scale.set(hh * (g.userData.lbl.userData.aspect || 5.33), hh, 1);
