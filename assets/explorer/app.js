@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v66';
+const VER = 'v67';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -2034,12 +2034,17 @@ let SENT = null, SENT_ON = false, sentT = 0;
 const SENT_TEX = {};
 function targhettaSentiero(txt){
   if (SENT_TEX[txt]) return SENT_TEX[txt];
-  const c = document.createElement('canvas'); c.width = 256; c.height = 112;
+  // segnavia CAI: tre bande verticali rosso-bianco-rosso, numero nero nella banda bianca
+  const c = document.createElement('canvas'); c.width = 192; c.height = 128;
   const x = c.getContext('2d');
-  x.fillStyle = '#d7212b'; x.fillRect(0, 0, 256, 112);
-  x.fillStyle = '#f6f3ea'; x.fillRect(0, 36, 256, 40);
-  x.fillStyle = '#111'; x.font = '700 ' + (txt.length > 4 ? 26 : 32) + 'px Oswald, Arial'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText(txt, 128, 57);
+  x.fillStyle = '#d7212b'; x.fillRect(0, 0, 192, 128);
+  const bw = txt.length > 3 ? 112 : 80;
+  x.fillStyle = '#f6f3ea'; x.fillRect(96 - bw / 2, 0, bw, 128);
+  x.fillStyle = '#111'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let fs = txt.length > 6 ? 30 : txt.length > 4 ? 40 : txt.length > 2 ? 52 : 68;
+  x.font = '700 ' + fs + 'px Oswald, Arial';
+  while (x.measureText(txt).width > bw - 10 && fs > 18) { fs -= 2; x.font = '700 ' + fs + 'px Oswald, Arial'; }
+  x.fillText(txt, 96, 66);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   SENT_TEX[txt] = t; return t;
 }
@@ -2054,13 +2059,21 @@ function buildSentieri(data){
     const P = L.p;
     // ricampiona la polilinea ogni PASSO metri (segue il terreno), con lunghezza cumulata
     const pts = []; let acc = 0;
-    for (let i = 0; i < P.length - 1; i++) {
-      const ax = P[i][0], az = -P[i][1], bx = P[i + 1][0], bz = -P[i + 1][1];
-      const d = Math.hypot(bx - ax, bz - az); if (d < 0.01) continue;
+    const seg = (ax, az, bx, bz, snap) => {
+      const d = Math.hypot(bx - ax, bz - az); if (d < 0.01) return;
       const n = Math.max(1, Math.ceil(d / PASSO));
-      for (let k = 0; k < n; k++) { const t = k / n; pts.push([ax + (bx - ax) * t, az + (bz - az) * t, acc + d * t]); }
+      for (let k = 0; k < n; k++) { const t = k / n; pts.push([ax + (bx - ax) * t, az + (bz - az) * t, acc + d * t, snap]); }
       acc += d;
-      if (i === P.length - 2) pts.push([bx, bz, acc]);
+    };
+    for (let i = 0; i < P.length - 1; i++) {
+      const a = P[i], b = P[i + 1];
+      if (a[2] && b[2] && a[3] !== undefined && b[3] !== undefined && Math.abs(a[3] - b[3]) < 400) {
+        // entrambi agganciati al percorso di gara: si segue il percorso punto per punto
+        const st0 = a[3] < b[3] ? 1 : -1;
+        let px = route.x[a[3]], pz = -route.y[a[3]];
+        for (let j = a[3] + st0; st0 > 0 ? j <= b[3] : j >= b[3]; j += st0) { seg(px, pz, route.x[j], -route.y[j], 1); px = route.x[j]; pz = -route.y[j]; }
+      } else seg(a[0], -a[1], b[0], -b[1], a[2] && b[2] ? 1 : 0);
+      if (i === P.length - 2) pts.push([b[0], -b[1], acc, b[2] ? 1 : 0]);
     }
     if (pts.length < 2) continue;
     const base = pos.length / 3;
@@ -2069,14 +2082,14 @@ function buildSentieri(data){
       const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(pts.length - 1, i + 1)];
       let tx = p1[0] - p0[0], tz = p1[1] - p0[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
       const nx = tz, nz = -tx;
-      const y = quota(x, z) + 0.5;
+      const y = quota(x, z) + (pts[i][3] ? 0.45 : 0.5);   // sul percorso di gara resta sotto il nastro arancione
       pos.push(x - nx * W / 2, y, z - nz * W / 2, x + nx * W / 2, y, z + nz * W / 2);
       const cc = Math.floor(s / TRATTO) % 2 ? bianco : rosso;
       col.push(cc[0], cc[1], cc[2], cc[0], cc[1], cc[2]);
       if (i < pts.length - 1) { const a = base + i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
     }
     // targhette: a meta' delle linee lunghe e poi ogni 700 m
-    const refTxt = L.r.join(' · ');
+    const refTxt = L.r[0];   // sulla targhetta una sigla sola (le altre nella scheda)
     if (acc > 120) {
       const passi = [acc / 2]; for (let s = 700; s < acc - 300; s += 700) passi.push(s);
       for (const sS of passi) {
@@ -2091,12 +2104,12 @@ function buildSentieri(data){
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.setIndex(idx);
   const m = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.78, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
-  const nastro = new THREE.Mesh(g, m); nastro.name = 'SentieriNastro'; nastro.renderOrder = 1; nastro.frustumCulled = false;
+  const nastro = new THREE.Mesh(g, m); nastro.name = 'SentieriNastro'; nastro.renderOrder = 0; nastro.frustumCulled = false;
   grp.add(nastro);
   const sprites = [];
   for (const t of targhette) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: targhettaSentiero(t.txt), transparent: true, depthTest: false, opacity: 0 }));
-    sp.position.set(t.x, t.y, t.z); sp.scale.set(6.4, 2.8, 1); sp.userData = { sent: t, vis: 0 };
+    sp.position.set(t.x, t.y, t.z); sp.scale.set(7.5, 5, 1); sp.userData = { sent: t, vis: 0 };
     sp.renderOrder = 3; grp.add(sp); sprites.push(sp);
   }
   scene.add(grp);
@@ -2131,7 +2144,7 @@ function tickSentieri(dt){
     sp.userData.vis += (oT - sp.userData.vis) * 0.45;
     sp.material.opacity = sp.userData.vis;
     sp.visible = sp.userData.vis > 0.02;
-    if (sp.visible) { const k = clamp(d * 0.013, 6.5, 24); sp.scale.set(k, k * 0.4375, 1); }
+    if (sp.visible) { const k = clamp(d * 0.014, 7, 26); sp.scale.set(k, k * 0.667, 1); }
   }
 }
 // scheda di un sentiero (tocco sulla targhetta)
