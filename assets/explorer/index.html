@@ -160,6 +160,10 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
 #b-snd{position:absolute;right:16px;top:calc(210px + env(safe-area-inset-top));width:36px;height:36px;border-radius:18px;
   border:1px solid rgba(243,239,226,.3);background:var(--veil);color:var(--avorio);font-size:16px;pointer-events:auto;cursor:pointer}
 @media (max-width:700px){#b-snd{top:calc(170px + env(safe-area-inset-top));right:12px}}
+#b-specie{position:absolute;left:12px;top:calc(76px + env(safe-area-inset-top));height:30px;padding:0 12px;
+  border-radius:15px;border:1px solid rgba(243,239,226,.35);background:var(--veil);color:var(--avorio);
+  font-family:Oswald,sans-serif;font-size:11px;letter-spacing:.14em;pointer-events:auto;cursor:pointer}
+#b-specie:hover{border-color:var(--arancio);color:var(--arancio)}
 #fly-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));
   font-size:11px;letter-spacing:.06em;color:var(--grigio);background:var(--veil);padding:4px 10px;border-radius:5px;white-space:nowrap}
 #stallo{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font-family:Anton,sans-serif;font-size:42px;
@@ -246,7 +250,7 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
     <div class="lab" id="g-lab">Cancello</div>
     <div class="val" id="v-g">&mdash;</div>
   </div>
-  <div id="logo-top"><img src="assets/srm_logo.png?v=60" alt="Skyrace del Maglio"></div>
+  <div id="logo-top"><img src="assets/srm_logo.png?v=61" alt="Skyrace del Maglio"></div>
   <div class="slot" id="slot-sent">
     <div id="chip">E1</div>
     <div id="sent-lab">SENTIERO</div>
@@ -283,14 +287,15 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
   <div id="joy"><span class="jl t">PICCHIATA</span><span class="jl b">CABRATA</span><div id="joy-k"></div></div>
   <button id="b-tilt">INCLINA IL TELEFONO</button>
   <button id="b-snd" title="audio">🔊</button>
+  <button id="b-specie" title="cambia uccello (tasto C)">GRIFONE ▸</button>
   <button id="b-flap">BATTI<small>LE ALI</small></button>
-  <div id="fly-hint">▲ picchiata · ▼ cabrata · ◀ ▶ virata · SPAZIO batti le ali · ESC torna a Lino</div>
+  <div id="fly-hint">▲ picchiata · ▼ cabrata · ◀ ▶ virata · SPAZIO batti le ali · C cambia uccello · ESC torna a Lino</div>
 </div>
 
 <div class="cover" id="loader">
   <div id="load-t">SRM <span>EXPLORER</span></div>
   <div id="load-sub">Skyrace del Maglio 2026 · percorso in 3D</div>
-  <img id="lino-nome" src="assets/lino_nome.png?v=60" alt="LINO">
+  <img id="lino-nome" src="assets/lino_nome.png?v=61" alt="LINO">
   <div id="spinbox">
     <div id="spin-img"></div>
     <svg id="spin-svg"></svg>
@@ -315,6 +320,6 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="app.js?v=60"></script>
+<script type="module" src="app.js?v=61"></script>
 </body>
 </html>

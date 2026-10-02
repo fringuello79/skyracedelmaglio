@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v60';
+const VER = 'v61';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -138,7 +138,7 @@ async function boot(){
       if (dz > 0) acc += dz; cumDP[i] = acc; } }
   prog(0.06);
   $('load-step').textContent = 'ortofoto e altimetria\u2026';
-  await Promise.all([loadOrtho(), loadHeights()]);
+  await Promise.all([loadOrtho(), loadHeights(), loadExt()]);
   prog(0.12);
   buildStage();
   buildSky();
@@ -287,6 +287,7 @@ async function boot(){
     try { arredaCase(g.scene); } catch (e) { console.warn('facciate maglianoC:', e); }
     // arco di partenza: i piloni erano 0,3-0,9 m sopra l'asfalto; si annega di 1 m
     { const arco = g.scene.getObjectByName('ArcoSRM'); if (arco) arco.position.y -= 1.0; }
+    try { arredaPartenza(); } catch (e) { console.warn('partenza:', e); }
     // tigli davanti al Comune (oggetti Tiglio* del blend di Ale): chioma con vento e tinta d'autunno
     g.scene.traverse(o => { if (o.isMesh && /^Tiglio/.test(o.name || '')) vestiTiglio(o); });
     try { buildTigli(); } catch (e) { console.warn('tigli:', e); }
@@ -296,9 +297,10 @@ async function boot(){
   try { lg = await loadGLB(loader, 'assets/lino2.glb?' + VER, p => prog(0.66 + 0.28 * p)); LINO2 = true; }
   catch (e) { console.warn('lino2.glb assente, uso lino.glb:', e); lg = await loadGLB(loader, 'assets/lino.glb?' + VER, p => prog(0.66 + 0.28 * p)); }
   prepLino(lg);
+  LOADER = loader;
   try {
     const gr = await loadGLB(loader, 'assets/grifone.glb?' + VER, () => {});
-    prepGrifRig(gr);
+    RIGS.grifone = prepRig(gr, 'grifone'); RIG = RIGS.grifone;
   } catch (e) { console.warn('grifone riggato assente, uso il Meshy statico:', e); }
   buildPins();
   buildAnimali(loader).catch(e => console.warn('animali:', e));
@@ -307,12 +309,15 @@ async function boot(){
   try { buildDataSassi(); } catch (e) { console.warn('sassi:', e); }
   try { buildNubiBasse(); } catch (e) { console.warn('nubi:', e); }
   try { buildNuvole(); } catch (e) { console.warn('nuvole:', e); }
+  try { buildTerrenoEsterno(); } catch (e) { console.warn('anello esterno:', e); }
+  try { aggiungiVetteEsterne(); } catch (e) { console.warn('vette esterne:', e); }
   try { await document.fonts.load('400 72px Anton'); } catch (e) {}
   buildPeaks();
   buildProfile(); buildMinimap(); bindUI();
   const h = location.hash.match(/km=([\d.]+)/);
   if (h) st.s = clamp(parseFloat(h[1]) * 1000, 0, TOT);
   else st.s = S0_ARCO;
+  applicaQualita(QUAL.liv); QUAL.avvio = performance.now();   // ora che alberi e nuvole esistono
   st.ready = true; prog(1);
   {
     // Lino continua a girare con le targhette finche' non si preme il pulsante
@@ -331,7 +336,7 @@ async function boot(){
   window.SRMX = { st, scene: () => scene, route: () => route, vista: setView, terra: groundAt, cam: () => camera, ctrl: () => controls, lino: () => lino, terraV: (x, z, y) => terraVera(x, z, y),
                   look: (p, t) => { camera.position.set(p[0], p[1], p[2]); camTgt.set(t[0], t[1], t[2]); controls.target.copy(camTgt); controls.update(); },
                   y0arco: () => Y0_ARCO, pos: s => { posAt(s, tmpC); return [tmpC.x, tmpC.y, tmpC.z]; }, goto: km => { st.sTarget = clamp(km, 0, route.total_km) * 1000; },
-                  poi: i => openPoi(route.pois[i]), vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
+                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
                   anim: () => action ? { t: +action.time.toFixed(3), ts: +mixer.timeScale.toFixed(2),
                                          dur: +action.getClip().duration.toFixed(2) } : null,
                   tracks: () => action ? action.getClip().tracks.map(t => t.name) : [],
@@ -379,17 +384,22 @@ function buildStage(){
   const fill = new THREE.DirectionalLight(0xffe7c8, 0.32);
   fill.position.set(5600, 4000, 4800);
   scene.add(hemi, sunLight, sunLight.target, fill);
-  SHADOWS = !/Android|iPhone|iPad|Mobi/i.test(navigator.userAgent);
+  const liv0 = qualIniziale();
+  QUAL.tetto = Math.max(liv0, QUAL.mob ? 2 : 3);
+  SHADOWS = liv0 >= 2;        // ombre vere solo dal livello alto (PC e telefoni forti); sotto, restano quelle delle nuvole
   if (SHADOWS) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.mapSize.set(QUAL.mob ? 1024 : 2048, QUAL.mob ? 1024 : 2048);
     const sk = sunLight.shadow.camera;
     sk.left = -430; sk.right = 430; sk.top = 430; sk.bottom = -430;
     sk.near = 150; sk.far = 4500;
+    sk.updateProjectionMatrix();   // senza questo la camera delle ombre resta a +-5 m / far 500: nessuna ombra in scena
     sunLight.shadow.bias = -0.00055;
+    sunLight.shadow.normalBias = 0.6;
   }
+  applicaQualita(liv0);
   addEventListener('resize', () => {
     const W = Math.max(320, innerWidth || 1280), H = Math.max(240, innerHeight || 720);
     camera.aspect = W / H; camera.updateProjectionMatrix();
@@ -671,6 +681,141 @@ function buildDataSassi(){
   scene.add(im);
 }
 
+// ---------- comignoli: una o due canne fumarie per tetto, tutte in una InstancedMesh ----------
+function buildComignoli(tetti, nome){
+  if (!tetti.length) return;
+  const geo = new THREE.BoxGeometry(0.55, 1.6, 0.55); geo.translate(0, 0.8, 0);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xb3a08a, roughness: 1, metalness: 0 });
+  const slots = [];
+  const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), org = new THREE.Vector3();
+  const bb = new THREE.Box3();
+  let sd = 11;
+  const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (const t of tetti) {
+    bb.setFromObject(t);
+    const w = bb.max.x - bb.min.x, d = bb.max.z - bb.min.z;
+    if (w < 4 || d < 4) continue;
+    const n = w * d > 90 ? 2 : 1;
+    for (let k = 0; k < n; k++) {
+      // vicino al colmo (centro della pianta), spostato lungo il lato lungo
+      const u = 0.5 + (rnd() - 0.5) * 0.5, v = 0.5 + (rnd() - 0.5) * 0.25;
+      const x = w >= d ? bb.min.x + w * u : bb.min.x + w * v;
+      const z = w >= d ? bb.min.z + d * v : bb.min.z + d * u;
+      org.set(x, bb.max.y + 5, z); ray.set(org, down); ray.far = 40;
+      const h = ray.intersectObject(t, false)[0];
+      if (!h) continue;
+      slots.push([x, h.point.y - 0.45, z, 0.8 + rnd() * 0.5, rnd() * Math.PI]);
+    }
+  }
+  if (!slots.length) return;
+  const im = new THREE.InstancedMesh(geo, mat, slots.length);
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(), P = new THREE.Vector3();
+  const col = new THREE.Color();
+  slots.forEach((c, i) => {
+    P.set(c[0], c[1], c[2]); Q.setFromEuler(E.set(0, c[4], 0)); S.set(c[3], c[3], c[3]);
+    M.compose(P, Q, S); im.setMatrixAt(i, M);
+    col.setHSL(0.07, 0.18 + 0.15 * (i % 3) / 2, 0.52 + 0.14 * ((i * 7) % 5) / 4); im.setColorAt(i, col);
+  });
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; im.name = 'Comignoli_' + nome;
+  scene.add(im);
+}
+// ---------- zona partenza: linea a scacchi, transenne e festoni di bandierine ----------
+function suoloPartenza(x, z){
+  // suolo vero (terreno o piazza) con un raggio, come per l'arco
+  const bers = [];
+  scene.traverse(o => { if (o.isMesh && (o.name === 'Terrain' || /^Piazza/.test(o.name || ''))) bers.push(o); });
+  const rc = new THREE.Raycaster(new THREE.Vector3(x, 400, z), new THREE.Vector3(0, -1, 0), 0, 900);
+  const h = rc.intersectObjects(bers, false)[0];
+  return h ? h.point.y : (typeof Y0_ARCO === 'number' ? Y0_ARCO : route.z[0]);
+}
+function mergeBoxes(spec){
+  // unisce scatole [w,h,d,x,y,z] in una sola geometria non indicizzata
+  const parts = spec.map(([w, h, d, x, y, z]) => { const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); g.translate(x, y, z); return g; });
+  let n = 0; for (const g of parts) n += g.getAttribute('position').count;
+  const pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  let o = 0;
+  for (const g of parts) {
+    pos.set(g.getAttribute('position').array, o * 3); nrm.set(g.getAttribute('normal').array, o * 3); uv.set(g.getAttribute('uv').array, o * 2);
+    o += g.getAttribute('position').count;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3)); out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return out;
+}
+function arredaPartenza(){
+  const A = new THREE.Vector3(), T = new THREE.Vector3(), SD = new THREE.Vector3();
+  // 1. linea di partenza/arrivo a scacchi, sotto l'arco
+  posAt(S0_ARCO + 1.2, A); tanAt(S0_ARCO + 1.2, T);
+  {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+    const x = c.getContext('2d');
+    for (let i = 0; i < 16; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? '#f3efe2' : '#161616'; x.fillRect(i * 16, j * 16, 16, 16); }
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(8.2, 1.1), new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+    m.rotation.x = -Math.PI / 2; m.rotation.z = -Math.atan2(T.x, T.z) + Math.PI / 2;
+    m.position.set(A.x, suoloPartenza(A.x, A.z) + 0.04, A.z);
+    m.renderOrder = 1; m.receiveShadow = true; m.name = 'LineaPartenza';
+    scene.add(m);
+  }
+  // 2. transenne: dai -22 ai +48 m, su entrambi i lati della strada (3,6 m dall'asse), ogni 2,5 m
+  const trans = mergeBoxes([
+    [0.06, 1.1, 0.06, -1.2, 0.55, 0], [0.06, 1.1, 0.06, 1.2, 0.55, 0],      // montanti
+    [2.5, 0.05, 0.05, 0, 1.08, 0], [2.5, 0.04, 0.04, 0, 0.72, 0], [2.5, 0.04, 0.04, 0, 0.36, 0],   // traverse
+    [0.5, 0.05, 0.06, -1.2, 0.03, 0], [0.5, 0.05, 0.06, 1.2, 0.03, 0]        // piedi
+  ]);
+  const posti = [];
+  for (let s = -22; s <= 48; s += 2.5) {
+    posAt(s, A); tanAt(s, T); SD.set(T.z, 0, -T.x);
+    const yaw = Math.atan2(T.x, T.z) + Math.PI / 2;
+    for (const k of [-1, 1]) {
+      const x = A.x + SD.x * 3.6 * k, z = A.z + SD.z * 3.6 * k;
+      posti.push([x, suoloPartenza(x, z), z, yaw]);
+    }
+  }
+  const im = new THREE.InstancedMesh(trans, new THREE.MeshStandardMaterial({ color: 0xc9ccd1, roughness: 0.5, metalness: 0.6 }), posti.length);
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3();
+  posti.forEach((p, i) => { P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); M.compose(P, Q, S); im.setMatrixAt(i, M); });
+  im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.frustumCulled = false; im.name = 'Transenne';
+  scene.add(im);
+  // 3. festoni: file di bandierine triangolari a catenaria sopra la strada, ogni 12 m
+  const tri = new THREE.BufferGeometry();
+  tri.setAttribute('position', new THREE.Float32BufferAttribute([-0.22, 0, 0, 0.22, 0, 0, 0, -0.42, 0], 3));
+  tri.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
+  tri.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 0.5, 0], 2));
+  const fl = [];
+  const tinte = [0xf4951f, 0xf3efe2, 0x2e6b3a, 0xf4951f, 0xc8102e];
+  for (let s = 8; s <= 46; s += 12) {
+    posAt(s, A); tanAt(s, T); SD.set(T.z, 0, -T.x);
+    const yaw = Math.atan2(T.x, T.z);
+    const y0 = suoloPartenza(A.x, A.z) + 4.6;
+    const n = 14;
+    for (let i = 0; i < n; i++) {
+      const u = (i + 0.5) / n, k = (u - 0.5) * 2;
+      const x = A.x + SD.x * 3.6 * k, z = A.z + SD.z * 3.6 * k;
+      const sag = 0.55 * (1 - k * k);          // catenaria: piu' bassa al centro
+      fl.push([x, y0 - sag, z, yaw, tinte[i % tinte.length]]);
+    }
+  }
+  const fm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
+  fm.onBeforeCompile = sh => {
+    sh.uniforms.uT = { value: 0 }; VENTO_SH.push(sh);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+{ vec4 wp = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+  float w = clamp(-position.y / 0.42, 0.0, 1.0);          // la punta sventola, la base sta sul filo
+  transformed.z += sin(uT * 4.0 + wp.x * 0.7 + wp.z * 0.5) * 0.09 * w;
+  transformed.x += sin(uT * 2.6 + wp.z * 0.9) * 0.03 * w; }`);
+  };
+  const fim = new THREE.InstancedMesh(tri, fm, fl.length);
+  const col = new THREE.Color();
+  fl.forEach((p, i) => { P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); M.compose(P, Q, S); fim.setMatrixAt(i, M); col.setHex(p[4]); fim.setColorAt(i, col); });
+  fim.instanceMatrix.needsUpdate = true; if (fim.instanceColor) fim.instanceColor.needsUpdate = true;
+  fim.frustumCulled = false; fim.name = 'Festoni';
+  scene.add(fim);
+  console.log('partenza: transenne', posti.length, 'bandierine', fl.length);
+}
+
 // ---------- cumuli a billboard, con deriva lenta e ombra sul terreno ----------
 const NNUBI = 14;
 const NUBI_U = [];
@@ -790,11 +935,26 @@ function buildPins(){
     if ($('modal').classList.contains('on')) { closeModal(); return; }
     const hit = ray.intersectObjects(pinGroup.children, false)[0];
     if (hit) { openPoi(hit.object.userData.poi); return; }
-    // vette: si tocca l'etichetta o la bandierina
+    // vette: si tocca l'etichetta o la bandierina...
     const cand = [];
     for (const g of peakItems) if (g.visible && g.userData.lbl.material.opacity > 0.05) cand.push(g.userData.lbl, g.userData.flag, g.userData.asta);
     const hp = ray.intersectObjects(cand, false)[0];
-    if (hp) { let g = hp.object; while (g && !g.userData.peak) g = g.parent; if (g) openPeak(g.userData.peak); }
+    if (hp) { let g = hp.object; while (g && !g.userData.peak) g = g.parent; if (g) openPeak(g.userData.peak); return; }
+    // ...oppure, anche da lontano e in volo col grifone, il punto piu' vicino al dito sullo schermo
+    // (raggio 36 px, 48 col tocco): confronto in pixel, niente raycast sul terreno
+    const R = e.pointerType === 'touch' ? 48 : 36;
+    let best = null, bd = R;
+    const sx = (innerWidth || 1280) * 0.5, sy = (innerHeight || 720) * 0.5;
+    for (const g of peakItems) {
+      if (!g.visible) continue;
+      g.userData.lbl.getWorldPosition(tmpC);
+      if (tmpC.distanceTo(camera.position) > 9000) continue;
+      tmpC.project(camera);
+      if (tmpC.z > 1) continue;                            // dietro la camera
+      const d = Math.hypot((tmpC.x + 1) * sx - e.clientX, (1 - tmpC.y) * sy - e.clientY);
+      if (d < bd) { bd = d; best = g.userData.peak; }
+    }
+    if (best) openPeak(best);
   });
 }
 
@@ -1012,6 +1172,7 @@ function bindUI(){
     if (FLY.on) {
       if (k === 'Escape' && down) { closeModal(); if (FLY.mode === 'tour') tourStop(); else flyStop(); return; }
       if ((k === 't' || k === 'T') && down) { if (FLY.mode === 'tour') tourStop(); else tourStart(); return; }
+      if ((k === 'c' || k === 'C') && down) { cambiaSpecie(); return; }
       const K = st.keys;
       const map = { ArrowLeft: 'L', a: 'L', A: 'L', ArrowRight: 'R', d: 'R', D: 'R',
                     ArrowUp: 'U', w: 'U', W: 'U', ArrowDown: 'D', s: 'D', S: 'D', ' ': 'F' };
@@ -1039,23 +1200,23 @@ function openCard(html){
 }
 function closeModal(){ $('modal').classList.remove('on'); }
 // ---- natura lungo il percorso: dalla Guida naturalistica SRM 2026 (Studio di Incidenza
-// Ambientale, Dr. B. Petriccione) e dal Piano di gestione della Riserva Naturale Orientata
-// Monte Velino. Testi per chi corre o cammina, senza gergo.
+// Ambientale, Dr. B. Petriccione). Testi per chi corre o cammina, senza gergo.
+// (Niente riferimenti al Piano di gestione ne' codici habitat: richiesta di Ale, 02/10.)
 const NATURA = [
-  { a: 0, b: 10, hab: 'Praterie secche e colline coltivate (habitat 6210*, prioritario)',
+  { a: 0, b: 10, hab: 'Praterie secche e colline coltivate',
     txt: 'Prati magri su calcare, fra i più ricchi di orchidee spontanee dell\'Appennino: in maggio-giugno fioriscono, in ottobre sono bruni e silenziosi. Verso Passo Le Forche il sentiero sfiora un bosco di roverella, la quercia dei versanti caldi, senza mai attraversarlo. Nelle conche fresche il pioppo tremulo in autunno vira al giallo acceso: se lo vedi, lì sotto c\'è acqua.',
     fauna: 'Coturnice e lupo appenninico frequentano i valloni laterali e ti eviteranno molto prima che tu li veda. Alza lo sguardo: i grifoni passano anche qui.' },
-  { a: 10, b: 15, hab: 'Praterie di cresta (habitat 6170) e, alla Capanna, i nardeti (6230*, prioritario)',
+  { a: 10, b: 15, hab: 'Praterie di cresta e, alla Capanna, i nardeti',
     txt: 'Sulle creste del Rozza l\'erba è fatta di piante durissime, abituate a vento, gelo e siccità: resistono a tutto tranne che al calpestio fuori sentiero. Cento metri intorno al rifugio ospitano un nardeto, un pascolo d\'altura che l\'Europa considera a rischio: il ristoro sta apposta sull\'area già nuda davanti alla capanna. Poco prima del rifugio, a bordo sentiero, cinquanta piante di adonide ricurva: fiorisce a inizio estate e non esiste in nessun altro luogo al mondo se non su queste montagne.',
     fauna: 'Il grifone (reintrodotto nel 1994, oggi circa 250 individui) sfrutta le correnti delle creste: da qui in su è l\'incontro più probabile della giornata. Una coppia di aquile reali nidifica in Valle Majelama e caccia su queste creste.' },
-  { a: 15, b: 18.6, hab: 'Pavimenti calcarei (habitat 8240*, prioritario) e rupi',
+  { a: 15, b: 18.6, hab: 'Pavimenti calcarei e rupi',
     txt: 'Sopra i 2.200 m il suolo quasi scompare. La roccia incisa dall\'acqua ospita cuscinetti compatti di silene e sassifraga, larghi una mano ma vecchi di decenni: basta un piede fuori sentiero per cancellare mezzo secolo di crescita. Corri sulla roccia, non sui cuscinetti. Sulla cresta fra Velino e Cafornia duecento piante di adonide ricurva, endemismo dell\'Appennino centrale.',
     fauna: 'Le pareti della Val di Teve sono i nidi dei grifoni e del falco pellegrino. Con il sole d\'ottobre volano tutto il giorno.' },
-  { a: 18.6, b: 22, hab: 'Praterie di cresta (6170) sui versanti del Cafornia',
+  { a: 18.6, b: 22, hab: 'Praterie di cresta sui versanti del Cafornia',
     txt: 'Creste erbose e ghiaioni: nella breccia in movimento vivono piante che "nuotano" fra i sassi riemergendo ogni volta che vengono sepolte.',
     fauna: 'Sulle pendici sud del Cafornia vive la vipera dell\'Orsini, la più piccola e mite d\'Europa: mangia cavallette, è schivissima e a metà ottobre è già in letargo. Non la incontrerai.' },
-  { a: 22, b: 30, hab: 'Praterie secche (6210*, prioritario) e campagna di Massa d\'Albe',
-    txt: 'La grande discesa scende dalle praterie di cresta ai prati magri di fondovalle, poi a campi e querceti. Fonte Canale è una sorgente naturale della Riserva. Nel territorio di Massa d\'Albe, ai piedi del Velino, ci sono i resti della città romana di Alba Fucens.',
+  { a: 22, b: 30, hab: 'Praterie secche e campagna di Massa d\'Albe',
+    txt: 'La grande discesa scende dalle praterie di cresta ai prati magri di fondovalle, poi a campi e querceti. Fonte Canale è una sorgente naturale ai piedi del massiccio. Nel territorio di Massa d\'Albe, ai piedi del Velino, ci sono i resti della città romana di Alba Fucens.',
     fauna: 'Il branco di lupi del Velino si muove fra Colle Cerretino, Piè di Cafornia e Valle Majelama: sono di casa, ma tu non li vedrai.' }
 ];
 const naturaAt = km => NATURA.find(n => km >= n.a && km < n.b) || NATURA[NATURA.length - 1];
@@ -1064,7 +1225,7 @@ function schedaNatura(km){
   return '<h3 style="margin-top:14px">Natura qui intorno</h3>' +
     '<p style="font-size:13px;color:var(--ambra);margin-bottom:4px">' + n.hab + '</p>' +
     '<p>' + n.txt + '</p><p style="margin-top:8px"><b>Chi vive qui.</b> ' + n.fauna + '</p>' +
-    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026 e Piano di gestione della Riserva Naturale Orientata Monte Velino.</p>';
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026.</p>';
 }
 function openPoi(p){
   const km = p.km;
@@ -1198,16 +1359,25 @@ function colorizeTerrain(mesh){
     tex.anisotropy = 8;
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
     const matT = new THREE.MeshStandardMaterial({ map: tex, vertexColors: true, roughness: 1, metalness: 0 });
-    matT.onBeforeCompile = sh => {
+    matT.onBeforeCompile = sh => { TERR_SH = sh; compilaTerreno(sh, tintaTex()); };
+    mesh.material = matT;
+  } else {
+    mesh.material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
+  }
+}
+// lo shader del terreno (roccia procedurale, affioramenti, macchie, grana vicina, ombre dei cumuli):
+// condiviso dal terreno interno e dall'anello esterno
+function compilaTerreno(sh, tinta){
+  {
       sh.uniforms.uDet = { value: detailTex() };
-      sh.uniforms.uTinta = { value: tintaTex() };
+      sh.uniforms.uTinta = { value: tinta };
       sh.uniforms.uNubi = { value: NUBI_U };
-      TERR_SH = sh;
+      sh.uniforms.uQual = QUAL_U;
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec2 vDetXZ;\nvarying vec2 vUvO;\nvarying float vNy;\nvarying float vWy;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDetXZ = (modelMatrix * vec4(position, 1.0)).xz;\nvUvO = uv;\nvNy = normalize(mat3(modelMatrix) * normal).y;\nvWy = (modelMatrix * vec4(position, 1.0)).y;');
       sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform sampler2D uDet;\nuniform sampler2D uTinta;\nuniform vec3 uNubi[' + NNUBI + '];\nvarying vec2 vDetXZ;\nvarying vec2 vUvO;\nvarying float vNy;\nvarying float vWy;')
+        .replace('#include <common>', '#include <common>\nuniform sampler2D uDet;\nuniform sampler2D uTinta;\nuniform vec3 uNubi[' + NNUBI + '];\nuniform float uQual;\nvarying vec2 vDetXZ;\nvarying vec2 vUvO;\nvarying float vNy;\nvarying float vWy;')
         .replace('#include <color_fragment>', `#include <color_fragment>
 {
   // C: roccia procedurale sulle pareti ripide (la foto stirata sparisce)
@@ -1240,11 +1410,31 @@ function colorizeTerrain(mesh){
   float d1 = texture2D(uDet, vDetXZ / 19.0).r;
   float d2 = texture2D(uDet, vDetXZ / 141.0).g;
   diffuseColor.rgb *= mix(0.84, 1.16, d1) * mix(0.92, 1.08, d2);
+  // macchie di media e bassa quota (sotto i ~2000 m), sorelle degli affioramenti di cresta:
+  // chiazze di arbusti e boscaglia scura nei pascoli e nei coltivi, radure chiare di terra e calcare
+  // sui pendii, e una lenta variazione di tinta che fonde i colori delle zone dell'ortofoto
+  {
+    float basso = 1.0 - smoothstep(1380.0, 1620.0, vWy);
+    float m1 = texture2D(uDet, vDetXZ / 160.0).g;
+    float m2 = texture2D(uDet, vDetXZ / 38.0).r;
+    float m3 = texture2D(uDet, vDetXZ / 12.0).g;
+    float verde = smoothstep(0.0, 0.10, diffuseColor.g - max(diffuseColor.r, diffuseColor.b));
+    float arb = smoothstep(0.58, 0.70, m1 * 0.55 + m2 * 0.30 + m3 * 0.15) * basso * (0.45 + 0.55 * verde);
+    vec3 cArb = diffuseColor.rgb * vec3(0.60, 0.70, 0.52) * (0.85 + 0.3 * m3);
+    float pend = smoothstep(0.97, 0.88, abs(vNy));
+    float rad = smoothstep(0.71, 0.80, m2 * 0.6 + m3 * 0.4) * (1.0 - arb) * basso * (0.35 + 0.65 * pend);
+    vec3 cRad = mix(diffuseColor.rgb, vec3(0.76, 0.71, 0.60) * (0.8 + 0.4 * m3), 0.6);
+    diffuseColor.rgb = mix(diffuseColor.rgb, cArb, arb * 0.85);
+    diffuseColor.rgb = mix(diffuseColor.rgb, cRad, rad * 0.7);
+    // tinta lenta: scalda o raffredda a chiazze larghe (fonde i confini fra prato, bosco e coltivo)
+    float t1 = texture2D(uDet, vDetXZ / 420.0).r;
+    diffuseColor.rgb *= mix(vec3(0.95, 0.97, 1.04), vec3(1.05, 1.02, 0.94), t1) * basso + vec3(1.0 - basso);
+  }
   // dettaglio ravvicinato (sotto i ~350 m dalla camera): grana fine dell'erba e ciuffi,
   // sfuma con la distanza cosi' da lontano la texture resta quella di prima
   {
     float dist = distance(cameraPosition, vec3(vDetXZ.x, vWy, vDetXZ.y));
-    float vicino = 1.0 - smoothstep(120.0, 380.0, dist);
+    float vicino = (1.0 - smoothstep(120.0, 380.0, dist)) * step(0.5, uQual);   // livello essenziale: niente grana
     if (vicino > 0.002) {
       float g1 = texture2D(uDet, vDetXZ / 2.6).g;
       float g2 = texture2D(uDet, vDetXZ / 0.9).r;
@@ -1271,10 +1461,6 @@ function colorizeTerrain(mesh){
   vec3 gGr = vec3(dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)));
   diffuseColor.rgb = clamp((mix(gGr, diffuseColor.rgb, 1.30) - 0.5) * 1.07 + 0.5, 0.0, 1.0);
 }`);
-    };
-    mesh.material = matT;
-  } else {
-    mesh.material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
   }
 }
 
@@ -1342,6 +1528,50 @@ function skyPalette(nome){
 
 // ---------- ortofoto, griglia altezze, brecciato ----------
 let ORTHO = null, HG = null, sunLight = null, SHADOWS = false, HEMI = null, SEVICE = null;
+
+// ---------- qualita' adattiva: livello scelto dal dispositivo, poi regolato sugli FPS misurati ----------
+// 0 essenziale (telefoni deboli)  1 medio  2 alto  3 massimo (PC). Ogni livello dosa risoluzione,
+// ombre, dettaglio ravvicinato del terreno, facciate, numero di alberi e nuvole, distanza della nebbia.
+const QUAL_U = { value: 2 };            // uniform condiviso dagli shader (terreno, case)
+const FOG_VOLO = [3800, 6500, 9500, 11500];   // nebbia in volo per livello: con l'anello esterno si vede lontano
+const QUAL = { liv: 2, tetto: 3, mob: false, t: 0, n: 0, ok: 0, avvio: 0 };
+const VEG_IM = [];                      // { im, n }: mesh istanziate della vegetazione
+function qualIniziale(){
+  const mob = /Android|iPhone|iPad|Mobi/i.test(navigator.userAgent);
+  QUAL.mob = mob;
+  const q = new URLSearchParams(location.search).get('q');
+  if (q !== null && /^[0-3]$/.test(q)) { QUAL.lock = true; return +q; }      // ?q=0..3 per le prove (livello bloccato)
+  if (!mob) return 3;
+  const mem = navigator.deviceMemory || 4, cpu = navigator.hardwareConcurrency || 4;
+  if (mem <= 3 || cpu <= 4) return 0;
+  if (mem <= 4 || cpu <= 6) return 1;
+  return 2;
+}
+function applicaQualita(l){
+  l = clamp(l, 0, QUAL.tetto);
+  QUAL.liv = l; QUAL_U.value = l;
+  if (renderer) {
+    const dpr = devicePixelRatio || 1;
+    renderer.setPixelRatio([1, Math.min(dpr, 1.5), Math.min(dpr, 2), Math.min(dpr, 2)][l]);
+  }
+  if (SHADOWS && sunLight) sunLight.castShadow = l >= 2;     // spegnere la luce-ombra ricompila da solo i programmi
+  const fr = [0.55, 0.8, 1, 1][l];
+  for (const v of VEG_IM) v.im.count = Math.max(1, Math.round(v.n * fr));
+  for (let i = 0; i < NUVOLE.length; i++) NUVOLE[i].visible = l > 0 || i % 2 === 0;
+  if (scene && scene.fog) scene.fog.far = FLY.on ? FOG_VOLO[l] : (l === 0 ? 11000 : 18000);
+  console.log('qualita\':', ['essenziale', 'media', 'alta', 'massima'][l]);
+}
+// guardia prestazioni: finestre di 3 s sul dt reale (non su quello limitato del gioco); sotto i 27 fps
+// si scende di un livello e quel livello diventa il tetto; sopra i 50 fps per tre finestre si risale
+function guardiaFps(dtReale){
+  QUAL.t += dtReale; QUAL.n++;
+  if (QUAL.t < 3) return;
+  const fps = QUAL.n / QUAL.t; QUAL.t = 0; QUAL.n = 0;
+  if (QUAL.lock || performance.now() < QUAL.avvio + 8000) return;        // i primi secondi: compilazione shader, caricamenti
+  if (fps < 27 && QUAL.liv > 0) { QUAL.tetto = QUAL.liv - 1; applicaQualita(QUAL.liv - 1); QUAL.ok = 0; }
+  else if (fps > 50 && QUAL.liv < QUAL.tetto) { if (++QUAL.ok >= 3) { applicaQualita(QUAL.liv + 1); QUAL.ok = 0; } }
+  else QUAL.ok = 0;
+}
 const SUNDIR = { x: -0.52, y: 0.62, z: -0.58 };
 const OC = [0, 0, 0];
 async function loadOrtho(){
@@ -1385,12 +1615,125 @@ function groundAt(x, z){
   const xb = x, yb = -z;
   const u = (xb - HG.x0) / (HG.x1 - HG.x0) * (HG.nx - 1);
   const v = (yb - HG.y0) / (HG.y1 - HG.y0) * (HG.ny - 1);
-  if (u < 0 || v < 0 || u > HG.nx - 1.001 || v > HG.ny - 1.001) return -1e4;
+  if (u < 0 || v < 0 || u > HG.nx - 1.001 || v > HG.ny - 1.001) return groundExt(x, z);
   const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
   const gg = (jj, ii) => HG.data[Math.min(jj, HG.ny - 1) * HG.nx + Math.min(ii, HG.nx - 1)] * HG.scala;
   return gg(j, i) * (1 - fu) * (1 - fv) + gg(j, i + 1) * fu * (1 - fv) +
          gg(j + 1, i) * (1 - fu) * fv + gg(j + 1, i + 1) * fu * fv;
 }
+// ---------- anello esterno: i monti intorno (Sirente, Magnola, Duchessa, Ocre, Carseolani...) ----------
+// Quote da AWS Terrain Tiles (z12, ~28 m) e Sentinel-2 cloudless (EOX), georeferenziati sulla scena
+// correlando il DEM con height.bin (rotazione 1,14 gradi = convergenza UTM). File: dem_ext.bin/json
+// (griglia 640x640, riga 0 = sud, come height.bin) e ortho_ext.jpg (2048, nord in alto).
+let HG2 = null, EXT = null;
+const VETTE_EXT = [
+  // n, quota, x scena, y scena (blender, nord +), scheda
+  ['Monte Sirente', 2348, 18935, 554, 'Il gigante gemello del Velino, dall’altra parte dell’Altopiano delle Rocche: insieme danno il nome al Parco regionale Sirente-Velino. Una lunga dorsale calcarea con la parete nord che precipita sulla Valle Subequana; ai suoi piedi, sui Prati del Sirente, c’è una piccola conca con un laghetto a lungo studiata come possibile cratere meteoritico.'],
+  ['Monte Magnola', 2220, 6358, 436, 'La montagna di Ovindoli: sul suo versante corrono le piste della stazione sciistica Ovindoli-Monte Magnola, la più grande della Marsica. Dalla cima si abbraccia tutto l’Altopiano delle Rocche e, a ovest, la cresta del Velino.'],
+  ['Monte Ocre', 2208, 5486, 13138, 'La vetta delle Montagne di Bagno, che chiudono a sud la conca dell’Aquila: dalla cima la vista si apre sulla città e sul Gran Sasso. È dentro il Parco Sirente-Velino.'],
+  ['Monte Cagno', 2153, 7037, 11955, 'La cima gemella dell’Ocre, sopra Rocca di Cambio, il comune più alto dell’Appennino (1.434 m). Prati di cresta e boschi di faggio sul versante aquilano.'],
+  ['Murolungo', 2184, -3218, 4498, 'La cima più alta delle Montagne della Duchessa, già in Lazio: sotto le sue pareti c’è il Lago della Duchessa, a 1.788 m, uno dei laghi più alti dell’Appennino. Riserva naturale regionale.'],
+  ['Monte Puzzillo', 2174, 1103, 7373, 'Fra il Velino e la piana di Campo Felice: d’inverno è la cima più frequentata con le ciaspole, perché si sale dalla stazione sciistica. Dalla vetta la cresta del Velino è tutta davanti.'],
+  ['Monte Morrone', 2141, -4441, 6429, 'Il Morrone della Duchessa, spalla del Murolungo sul versante laziale del gruppo: pascoli d’altura e grandi valloni che scendono verso Cartore, il borgo abbandonato da cui parte il sentiero per il lago.'],
+  ['Monte Cava', 2000, -7226, 10741, 'Nel Cicolano, al confine fra Lazio e Abruzzo: la dorsale che guarda la Valle del Salto e il suo lago artificiale.'],
+  ['Monte Orsello', 2043, -1278, 12297, 'Sopra Tornimparte e Campo Felice, sul lato aquilano del gruppo del Velino: prati di cresta e faggete.'],
+  ['Serra di Celano', 1921, 14067, -4084, 'La lunga cresta rocciosa sopra Celano (la cima si chiama Monte Tino): alle sue pendici si aprono le Gole di Celano, un canyon stretto e profondo che si percorre a piedi, uno dei luoghi più spettacolari della Marsica.'],
+  ['Monte Midia', 1737, -16365, -9098, 'La cima più alta dei Monti Carseolani, al confine con il Lazio: sul suo versante ci sono le piste di Marsia, la piccola stazione sciistica di Tagliacozzo.'],
+  ['Monte Padiglione', 1627, -11424, -12678, 'Montagna boscosa sopra Tagliacozzo, fra la Marsica e la valle del Turano.'],
+  ['Monte Salviano', 1026, 1522, -12998, 'La collina di Avezzano: riserva naturale con la Via Crucis e il santuario della Madonna di Pietraquaria. È il balcone sul Fucino, la piana che fino al 1875 era il terzo lago d’Italia.'],
+  ['Monte Arunzo', 1455, -6750, -13283, 'Fra Capistrello e Castellafiume, dove la Marsica scende nella Valle Roveto.'],
+  ['Cima di Vallevona', 1818, -17472, -13439, 'Sui Monti Simbruini, al confine con il Lazio, sopra l’altopiano di Camporotondo (Cappadocia).']
+];
+async function loadExt(){
+  try {
+    const j = await (await fetch('assets/dem_ext.json?' + VER)).json();
+    const b = await (await fetch('assets/dem_ext.bin?' + VER)).arrayBuffer();
+    HG2 = Object.assign({}, j, { data: new Uint16Array(b) });
+  } catch (e) { console.warn('dem_ext assente:', e.message); }
+}
+function groundExt(x, z){
+  if (!HG2) return -1e4;
+  const xb = x, yb = -z, G = HG2;
+  const u = (xb - G.x0) / (G.x1 - G.x0) * (G.nx - 1);
+  const v = (yb - G.y0) / (G.y1 - G.y0) * (G.ny - 1);
+  if (u < 0 || v < 0 || u > G.nx - 1.001 || v > G.ny - 1.001) return -1e4;
+  const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
+  const gg = (jj, ii) => G.data[Math.min(jj, G.ny - 1) * G.nx + Math.min(ii, G.nx - 1)] * G.scala + G.off;
+  return gg(j, i) * (1 - fu) * (1 - fv) + gg(j, i + 1) * fu * (1 - fv) +
+         gg(j + 1, i) * (1 - fu) * fv + gg(j + 1, i + 1) * fu * fv;
+}
+function buildTerrenoEsterno(){
+  if (!HG2 || !HG) return;
+  const G = HG2;
+  // griglia piu' fitta vicino al terreno interno, piu' rada ai bordi; densita' dal livello di qualita'
+  const N = QUAL.liv >= 3 ? 224 : QUAL.liv === 2 ? 176 : QUAL.liv === 1 ? 128 : 96;
+  const asse = (a0, a1, c0, c1) => {
+    // c0..c1 = intervallo interno (celle piu' fitte ~ 1/3 della spaziatura esterna)
+    const out = [];
+    const L = a1 - a0, Li = c1 - c0, Lo = L - Li;
+    const wi = Li * 3 / (Li * 3 + Lo);          // frazione di nodi dedicata all'interno
+    const ni = Math.max(8, Math.round(N * wi)), no = N - ni;
+    const nl = Math.round(no * (c0 - a0) / Lo), nr = no - nl;
+    for (let k = 0; k < nl; k++) { const t = k / nl; out.push(a0 + (c0 - a0) * (1 - Math.pow(1 - t, 1.6))); }
+    for (let k = 0; k <= ni; k++) out.push(c0 + Li * k / ni);
+    for (let k = 1; k <= nr; k++) { const t = k / nr; out.push(c1 + (a1 - c1) * Math.pow(t, 1.6)); }
+    return out;
+  };
+  const xs = asse(G.x0, G.x1, HG.x0 - 1500, HG.x1 + 1500);
+  const ys = asse(G.y0, G.y1, HG.y0 - 1500, HG.y1 + 1500);
+  const nx = xs.length, ny = ys.length;
+  const pos = new Float32Array(nx * ny * 3), uv = new Float32Array(nx * ny * 2);
+  const OV = 220;      // sovrapposizione col terreno interno (m): dentro il bordo l'anello scende sotto
+  const dentro = (x, y) => x > HG.x0 + OV && x < HG.x1 - OV && y > HG.y0 + OV && y < HG.y1 - OV;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const k = j * nx + i, x = xs[i], y = ys[j];
+    let h = groundExt(x, -y);
+    // nella fascia di sovrapposizione si abbassa gradualmente, cosi' il terreno interno resta sopra
+    const dIn = Math.min(x - HG.x0, HG.x1 - x, y - HG.y0, HG.y1 - y);
+    if (dIn > -300) h -= 2 + 14 * clamp((dIn + 300) / 500, 0, 1);
+    pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = -y;
+    uv[k * 2] = (x - G.x0) / (G.x1 - G.x0); uv[k * 2 + 1] = (y - G.y0) / (G.y1 - G.y0);
+  }
+  const idx = [];
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    if (dentro(xs[i], ys[j]) && dentro(xs[i + 1], ys[j + 1])) continue;   // buco sotto il terreno interno
+    const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1;
+    idx.push(a, b, c, b, d, c);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const tex = new THREE.TextureLoader().load('assets/ortho_ext.jpg?' + VER);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
+  // tinta per la roccia procedurale: una miniatura della texture (canvas 128)
+  const tinta = new THREE.CanvasTexture(document.createElement('canvas'));
+  tinta.image.width = 128; tinta.image.height = 128;
+  const ctx = tinta.image.getContext('2d'); ctx.fillStyle = '#8c8878'; ctx.fillRect(0, 0, 128, 128);
+  const img = new Image(); img.onload = () => { ctx.drawImage(img, 0, 0, 128, 128); tinta.needsUpdate = true; }; img.src = 'assets/ortho_ext.jpg?' + VER;
+  tinta.colorSpace = THREE.SRGBColorSpace;
+  mat.onBeforeCompile = sh => compilaTerreno(sh, tinta);
+  mat.customProgramCacheKey = () => 'terreno-ext';
+  const m = new THREE.Mesh(geo, mat);
+  m.name = 'TerrenoEsterno'; m.receiveShadow = false; m.castShadow = false; m.frustumCulled = false;
+  m.renderOrder = -1;
+  scene.add(m);
+  EXT = m;
+  console.log('anello esterno:', nx + 'x' + ny, 'vertici', nx * ny, 'triangoli', idx.length / 3);
+}
+// vette dei monti intorno: come quelle del Velino, con quota dal DEM esterno
+function aggiungiVetteEsterne(){
+  if (!HG2 || !route.peaks) return;
+  for (const v of VETTE_EXT) {
+    const h = groundExt(v[2], -v[3]);
+    if (h < -1e3) continue;
+    const quota = (v[1] - route.elev_b) / route.elev_a;    // la vetta vera sta un po' sopra il DEM lisciato
+    route.peaks.push({ n: v[0], e: v[1], x: v[2], y: v[3], z: Math.max(h, quota - 3), ext: true });
+    PEAK_INFO[v[0]] = [v[4], ''];
+  }
+}
+
 // REGOLA FISSA: ogni oggetto appoggiato al suolo passa da poggia() —
 // il punto piu' basso del bounding box tocca terra (+3 cm), mai annegato ne' volante.
 function poggia(obj, margine = 0.03){
@@ -1511,12 +1854,14 @@ const CASE_SH = [];
 function arredaCase(root){
   const isMuro = m => /^muro|^TB_int|intonaco/i.test(m.name || '');
   const isTetto = m => /^tetto|^TB_roof|roof/i.test(m.name || '');
+  const tetti = [];
   const N = new THREE.Vector3(), P = new THREE.Vector3(), Q = new THREE.Vector3(), R = new THREE.Vector3();
   root.updateMatrixWorld(true);
   root.traverse(o => {
     if (!o.isMesh || !o.material) return;
     const muro = isMuro(o.material), tetto = isTetto(o.material);
     if (!muro && !tetto) return;
+    if (tetto) tetti.push(o);
     let g = o.geometry;
     if (g.index) { g = g.toNonIndexed(); o.geometry = g; }
     const pos = g.getAttribute('position'), nv = pos.count;
@@ -1561,12 +1906,14 @@ function arredaCase(root){
     mat.customProgramCacheKey = () => muro ? 'casa-muro' : 'casa-tetto';
     mat.onBeforeCompile = sh => {
       CASE_SH.push(sh);
+      sh.uniforms.uQual = QUAL_U;
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', '#include <common>\nattribute vec2 aUV; attribute vec3 aWall; varying vec2 vUVc; varying vec3 vWall; varying vec3 vWp; varying float vNyc;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvUVc = aUV; vWall = aWall; vWp = (modelMatrix * vec4(position, 1.0)).xyz; vNyc = normalize(mat3(modelMatrix) * normal).y;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
 varying vec2 vUVc; varying vec3 vWall; varying vec3 vWp; varying float vNyc;
+uniform float uQual;
 float hsh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float nz2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(hsh(i), hsh(i + vec2(1, 0)), f.x), mix(hsh(i + vec2(0, 1)), hsh(i + vec2(1, 1)), f.x), f.y); }`)
@@ -1590,7 +1937,7 @@ float nz2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
     float cx = floor(vUVc.x / cellW), fx = vUVc.x - cx * cellW;      // campata e posizione nella campata
     float py = floor(vUVc.y / piano), fy = vUVc.y - py * piano;        // piano e altezza nel piano
     float hw = hsh(vec2(id * 37.0 + cx, py));                         // caso per finestra
-    if (py < nP) {
+    if (py < nP && uQual > 0.5) {
       float ww = 1.15, wh = 1.45, wb = 0.95;                             // finestra: larghezza, altezza, davanzale
       bool porta = (py == 0.0) && (cx == floor(hsh(vec2(id, 7.0)) * nW));
       if (porta) { ww = 1.15; wh = 2.25; wb = 0.0; }
@@ -1635,6 +1982,7 @@ float nz2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
 }`);
     };
   });
+  try { buildComignoli(tetti, root.name || ('r' + tetti.length)); } catch (e) { console.warn('comignoli:', e); }
 }
 
 // ---------- bandierine fantasma delle vette ----------
@@ -1822,6 +2170,7 @@ async function loadVeg(loader){
     im.frustumCulled = false;
     im.castShadow = true;
     scene.add(im);
+    VEG_IM.push({ im, n: arr.length });
   }
   console.log('vegetazione:', Object.keys(veg.inst).map(k => k + ':' + veg.inst[k].length).join(', '));
 }
@@ -2163,15 +2512,16 @@ const FLY = {
   inX: 0, inY: 0, flap: false, flapPh: 0, flapPow: 0, stall: false, stallT: 0,
   vario: 0, lift: 0, agl: 0, pitchV: 0, rollV: 0, tilt: false, tiltBase: null, tiltIn: [0, 0], joyIn: [0, 0], keyIn: [0, 0],
   fogSaved: null, camRoll: 0, ready: false,
-  mode: 'volo', tT: 0, fold: 0, flapHold: 0, tumble: null, orbit: 0, legs: 0, flapCyc: 0, shake: 0
+  mode: 'volo', tT: 0, fold: 0, flapHold: 0, tumble: null, orbit: 0, legs: 0, flapCyc: 0, shake: 0, specie: 'grifone'
 };
 const FC = {
   G: 9.81, VSTALL: 9.5, VMAX: 84, CD: 0.0027,   // VMAX 84 m/s ≈ 300 km/h a proiettile (ali chiuse)
   PITCH_GLIDE: -0.105,   // -6°: pendenza di planata naturale
   PITCH_UP: 0.50, PITCH_DN: 0.88, ROLL_MAX: 1.05, FLAP_HZ: 2.1, FLAP_ACC: 16, FLAP_LIFT: 6,
+  AGIL: 1.0, MORDE_V0: 30, FOLD_V: 42,   // maneggevolezza, velocita' oltre cui il battito non morde, soglia ali chiuse (per specie)
   CEIL: 2950, AGL_MIN: 2.3, V_ATT: 17, V_IMP: 26, PITCH_IMP: -0.5, H_TERRA: 2.75,
   // confine morbido: ellisse centrata sul terreno (coordinate three: x, z)
-  BC: [-636, 970], BR: [4250, 5050]
+  BC: [-636, 970], BR: [4250, 5050]    // allargato all'anello esterno in flyStart se dem_ext c'e'
 };
 let grifP = null, grifMat = null;
 const fwdV = new THREE.Vector3(), upV = new THREE.Vector3(0, 1, 0), rightV = new THREE.Vector3();
@@ -2179,26 +2529,86 @@ const gEul = new THREE.Euler(0, 0, 0, 'YXZ');
 let skirt = null;
 const isTouch = () => matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
 
-// ---------- grifone riggato (Meshy "Sky Sentinel", 43 ossa, animato per ossa in three.js) ----------
-// Mappa delle ossa letta dalle posizioni del rig: prua +z, ali lungo ±x, y in alto.
-const RIGB = {
-  shR: 'Bone_019', elR: 'Bone_018', wrR: 'Bone_017', tipR: ['Bone_032', 'Bone_034', 'Bone_036'],
-  shL: 'Bone_022', elL: 'Bone_021', wrL: 'Bone_020', tipL: ['Bone_038', 'Bone_040', 'Bone_042'],
-  hipR: 'Bone_010', kneeR: 'Bone_009', hipL: 'Bone_007', kneeL: 'Bone_006',
-  neck: 'Bone_016', head: 'Bone_015', tail: 'Bone_004', tail2: 'Bone_003', spine: 'Bone_014'
+// ---------- uccelli riggati (Meshy), animati per ossa in three.js ----------
+// Tre specie con lo stesso schema: una mappa di ossa (spalle, gomiti, polsi, punte, collo, testa,
+// coda, zampe se ci sono) e il "frame" del modello: prua, dorso e asse delle ali letti dalle
+// posizioni delle ossa a riposo, cosi' il modello puo' essere orientato in qualunque modo nel glb.
+const SPECIE = {
+  grifone: {
+    titolo: 'Grifone del Velino', breve: 'GRIFONE', file: 'assets/grifone.glb', aperturaScena: 13,
+    hintUp: [0, 1, 0], asym: 0.10, agl: 1.1, hTerra: 1.72, cam: 1.0,
+    map: { wings: [['Bone_019', 'Bone_018', 'Bone_017', ['Bone_032', 'Bone_034', 'Bone_036']],
+                   ['Bone_022', 'Bone_021', 'Bone_020', ['Bone_038', 'Bone_040', 'Bone_042']]],
+           hips: ['Bone_010', 'Bone_007'], knees: ['Bone_009', 'Bone_006'],
+           neck: 'Bone_016', head: 'Bone_015', tail: ['Bone_004'], tail2: ['Bone_003'], root: 'Bone_000', spine: 'Bone_014' },
+    // grande veleggiatore: plana bene, batte poco, lento nelle manovre
+    fc: { VMAX: 84, CD: 0.0027, FLAP_HZ: 2.1, FLAP_ACC: 16, FLAP_LIFT: 6, VSTALL: 9.5, PITCH_UP: 0.50, PITCH_DN: 0.88,
+          ROLL_MAX: 1.05, AGIL: 1.0, MORDE_V0: 30, FOLD_V: 42, V_ATT: 17, V_IMP: 26 }
+  },
+  aquila: {
+    titolo: 'Aquila reale', breve: 'AQUILA', file: 'assets/aquila.glb', aperturaScena: 10.6,
+    hintUp: [0, 1, 0], asym: 0, agl: 1.0, hTerra: 1.5, cam: 0.95,
+    map: { wings: [['Bone_018', 'Bone_017', 'Bone_016', ['Bone_015', 'Bone_014']],
+                   ['Bone_013', 'Bone_012', 'Bone_011', ['Bone_010', 'Bone_009']]],
+           hips: [], knees: [], neck: 'Bone_008', head: 'Bone_006', tail: ['Bone_002'], tail2: ['Bone_001'], root: 'Bone_000', spine: 'Bone_003' },
+    // piu' potente e maneggevole del grifone, picchia fino a ~320 km/h
+    fc: { VMAX: 89, CD: 0.0025, FLAP_HZ: 1.7, FLAP_ACC: 19, FLAP_LIFT: 7, VSTALL: 10, PITCH_UP: 0.56, PITCH_DN: 0.95,
+          ROLL_MAX: 1.2, AGIL: 1.3, MORDE_V0: 34, FOLD_V: 44, V_ATT: 17, V_IMP: 27 }
+  },
+  falco: {
+    titolo: 'Falco pellegrino', breve: 'FALCO', file: 'assets/falco.glb', aperturaScena: 6.2,
+    hintUp: [0, 0, -1], asym: 0, agl: 0.8, hTerra: 1.1, cam: 0.72,
+    map: { wings: [['Bone_014', 'Bone_013', 'Bone_012', ['Bone_018', 'Bone_019', 'Bone_021']],
+                   ['Bone_017', 'Bone_016', 'Bone_015', ['Bone_022', 'Bone_023', 'Bone_025']]],
+           hips: ['Bone_004', 'Bone_006'], knees: ['Bone_003', 'Bone_005'], neck: 'Bone_011', head: 'Bone_010', tail: ['Bone_002'], tail2: ['Bone_001'], root: 'Bone_000', spine: 'Bone_007' },
+    legAmp: [0.0, 0.7],   // zampe gia' raccolte nel modello: in volo restano cosi', scendono solo per posarsi
+    // l'animale piu' veloce del mondo: battito rapido, virate secche, picchiata a ~390 km/h,
+    // ma plana peggio e stalla prima (ali strette)
+    fc: { VMAX: 108, CD: 0.0022, FLAP_HZ: 4.2, FLAP_ACC: 24, FLAP_LIFT: 5, VSTALL: 12, PITCH_UP: 0.62, PITCH_DN: 1.0,
+          ROLL_MAX: 1.35, AGIL: 1.75, MORDE_V0: 42, FOLD_V: 50, V_ATT: 19, V_IMP: 30 }
+  }
 };
-let RIG = null;
+const ORDINE_SPECIE = ['grifone', 'aquila', 'falco'];
+const RIGS = {};          // rig pronti, per specie
+let RIG = null;           // rig della specie in volo
+let LOADER = null;
 const AX = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
 const qA = new THREE.Quaternion(), qP = new THREE.Quaternion(), qI = new THREE.Quaternion();
-function prepGrifRig(g){
+const bpA = new THREE.Vector3(), bpB = new THREE.Vector3();
+function prepRig(g, nome){
+  const sp = SPECIE[nome], map = sp.map;
   const bones = {}; let skin = null;
   g.scene.traverse(o => { if (o.isBone) bones[o.name] = o; if (o.isSkinnedMesh) skin = o; });
-  if (!skin || !bones[RIGB.shR] || !bones[RIGB.shL]) throw new Error('rig del grifone non riconosciuto');
+  if (!skin || !bones[map.wings[0][0]] || !bones[map.wings[1][0]]) throw new Error('rig non riconosciuto: ' + nome);
   skin.frustumCulled = false; skin.castShadow = true;
   if (skin.material && skin.material.isMeshStandardMaterial) { skin.material.metalness = 0; skin.material.roughness = 0.9; }
   const rest = new Map();
   for (const b of Object.values(bones)) rest.set(b, b.quaternion.clone());
-  RIG = { root: g.scene, bones, rest, skin };
+  g.scene.updateMatrixWorld(true);
+  // frame del modello dalle ossa a riposo: prua = radice -> spalle, ali = punta -> punta, dorso = prua x ali
+  const wp = n => bones[n].getWorldPosition(new THREE.Vector3());
+  const radice = wp(map.root), spalle = wp(map.spine);
+  const tipA = wp(map.wings[0][3][map.wings[0][3].length - 1]), tipB = wp(map.wings[1][3][map.wings[1][3].length - 1]);
+  const ali = tipA.clone().sub(tipB).normalize();
+  let prua = spalle.clone().sub(radice); prua.addScaledVector(ali, -prua.dot(ali)).normalize();
+  let dorso = new THREE.Vector3().crossVectors(prua, ali).normalize();
+  if (dorso.dot(new THREE.Vector3(...sp.hintUp)) < 0) dorso.negate();
+  const destra = new THREE.Vector3().crossVectors(dorso, prua).normalize();   // +x dell'uccello
+  // ala "R" = quella sul lato +x del frame
+  const wings = tipA.clone().sub(radice).dot(destra) > 0 ? map.wings : [map.wings[1], map.wings[0]];
+  // rotazione che porta il frame del modello sugli assi standard (prua +z, dorso +y, destra +x)
+  const M = new THREE.Matrix4().makeBasis(destra, dorso, prua);
+  const qFix = new THREE.Quaternion().setFromRotationMatrix(M).invert();
+  // apertura alare del modello (punta a punta) e centro del corpo nel frame standard
+  const apertura = tipA.distanceTo(tipB);
+  const centro = spalle.clone().lerp(radice, 0.35).applyQuaternion(qFix);
+  // gli assi di rotBone sono quelli del MODELLO: gli assi standard riportati nel frame del glb
+  const qInv = qFix.clone().invert();
+  const ax = { x: AX.x.clone().applyQuaternion(qInv), y: AX.y.clone().applyQuaternion(qInv), z: AX.z.clone().applyQuaternion(qInv) };
+  const sc = sp.aperturaScena / apertura;
+  const sz = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3());
+  console.log('rig', nome, 'prua', prua.toArray().map(v => v.toFixed(2)).join(','), 'dorso', dorso.toArray().map(v => v.toFixed(2)).join(','), 'ossa', Object.keys(bones).length, 'apertura', apertura.toFixed(2), 'scala', sc.toFixed(2), 'box', sz.toArray().map(v => v.toFixed(2)).join('x'));
+  return { nome, sp, root: g.scene, bones, rest, skin, map: Object.assign({}, map, { wings }), ax, qFix, sc, centro };
 }
 // ruota un osso attorno a un asse dello SPAZIO DEL MODELLO (non a quello locale dell'osso):
 // locale' = P^-1 * Q * P * riposo, con P = rotazione accumulata dei genitori (fino alla radice del rig)
@@ -2214,7 +2624,7 @@ function rotBone(name, axis, ang, extraAxis, extraAng){
   b.quaternion.copy(qI).multiply(qA).multiply(qP).multiply(RIG.rest.get(b));
 }
 // posa completa: flap (angolo, + = ali su), sweep 0..1 (chiuse all'indietro), legs 0..1 (giu'),
-// roll e pitchIn per testa/coda, tremolio delle punte
+// roll e pitchIn per testa/coda, tremolio delle punte. Vale per tutte le specie.
 function posaGrifone(flap, sweep, legs, roll, pitchIn, flutter){
   if (!RIG) {
     if (grifMat && grifMat.userData.sh) {
@@ -2223,46 +2633,84 @@ function posaGrifone(flap, sweep, legs, roll, pitchIn, flutter){
     }
     return;
   }
-  const sw = sweep;
-  // il rig a riposo ha l'ala destra piu' alta della sinistra (~14 gradi): si compensa alle spalle
-  rotBone(RIGB.shR, AX.z, (flap - 0.10) * 0.75, AX.y, sw * 0.55);
-  rotBone(RIGB.shL, AX.z, -(flap + 0.10) * 0.75, AX.y, -sw * 0.55);
-  rotBone(RIGB.elR, AX.z, flap * 0.35 - sw * 0.25, AX.y, sw * 0.95);
-  rotBone(RIGB.elL, AX.z, -flap * 0.35 + sw * 0.25, AX.y, -sw * 0.95);
-  rotBone(RIGB.wrR, AX.z, flap * 0.25, AX.y, sw * 0.8);
-  rotBone(RIGB.wrL, AX.z, -flap * 0.25, AX.y, -sw * 0.8);
+  const m = RIG.map, A = RIG.ax, sw = sweep, asym = RIG.sp.asym || 0;
+  const [R, L] = m.wings;
+  // il rig del grifone a riposo ha l'ala destra piu' alta della sinistra (~14 gradi): si compensa alle spalle
+  rotBone(R[0], A.z, (flap - asym) * 0.75, A.y, sw * 0.55);
+  rotBone(L[0], A.z, -(flap + asym) * 0.75, A.y, -sw * 0.55);
+  rotBone(R[1], A.z, flap * 0.35 - sw * 0.25, A.y, sw * 0.95);
+  rotBone(L[1], A.z, -flap * 0.35 + sw * 0.25, A.y, -sw * 0.95);
+  rotBone(R[2], A.z, flap * 0.25, A.y, sw * 0.8);
+  rotBone(L[2], A.z, -flap * 0.25, A.y, -sw * 0.8);
   const fl = flutter || 0;
-  RIGB.tipR.forEach((n, i) => rotBone(n, AX.z, -flap * 0.3 + Math.sin(performance.now() / 90 + i) * fl));
-  RIGB.tipL.forEach((n, i) => rotBone(n, AX.z, flap * 0.3 - Math.sin(performance.now() / 90 + i + 1) * fl));
-  // zampe: in volo raccolte indietro sotto la coda; in atterraggio portate avanti e giu',
-  // sotto il corpo, con le dita aperte (ginocchio che si distende)
-  const lg = (1 - legs) * 1.15 - legs * 0.9;
-  rotBone(RIGB.hipR, AX.x, lg); rotBone(RIGB.hipL, AX.x, lg);
-  rotBone(RIGB.kneeR, AX.x, (1 - legs) * 0.6 - legs * 0.25); rotBone(RIGB.kneeL, AX.x, (1 - legs) * 0.6 - legs * 0.25);
+  R[3].forEach((n, i) => rotBone(n, A.z, -flap * 0.3 + Math.sin(performance.now() / 90 + i) * fl));
+  L[3].forEach((n, i) => rotBone(n, A.z, flap * 0.3 - Math.sin(performance.now() / 90 + i + 1) * fl));
+  // zampe (solo il grifone le ha nel rig): in volo raccolte indietro sotto la coda; in atterraggio
+  // portate avanti e giu', sotto il corpo, con le dita aperte (ginocchio che si distende)
+  const la = RIG.sp.legAmp || [1.15, 0.9];
+  const lg = (1 - legs) * la[0] - legs * la[1];
+  for (const h of m.hips) rotBone(h, A.x, lg);
+  for (const k of m.knees) rotBone(k, A.x, (1 - legs) * 0.6 * (la[0] / 1.15) - legs * 0.25);
   const r = roll || 0, pi = pitchIn || 0;
-  rotBone(RIGB.neck, AX.y, -r * 0.35, AX.x, -pi * 0.25);
-  rotBone(RIGB.head, AX.y, -r * 0.25, AX.z, r * 0.2);
-  rotBone(RIGB.tail, AX.y, r * 0.45, AX.x, pi * 0.35);
-  rotBone(RIGB.tail2, AX.x, pi * 0.2);
+  rotBone(m.neck, A.y, -r * 0.35, A.x, -pi * 0.25);
+  rotBone(m.head, A.y, -r * 0.25, A.z, r * 0.2);
+  for (const t of m.tail) rotBone(t, A.y, r * 0.45, A.x, pi * 0.35);
+  for (const t of m.tail2) rotBone(t, A.x, pi * 0.2);
 }
+// mette nel gruppo-pilota il modello della specie: scala, orientamento e origine al corpo
+function montaSpecie(rig){
+  const sp = rig.sp, m = rig.root;
+  m.scale.setScalar(rig.sc);
+  m.quaternion.copy(rig.qFix);
+  m.position.copy(rig.centro).multiplyScalar(-rig.sc);
+  grifP.add(m);
+  FC.AGL_MIN = sp.agl; FC.H_TERRA = sp.hTerra;
+  Object.assign(FC, sp.fc);
+  RIG = rig;
+  grifP.updateMatrixWorld(true);
+}
+async function caricaSpecie(nome){
+  if (RIGS[nome]) return RIGS[nome];
+  if (!LOADER) throw new Error('loader assente');
+  const g = await loadGLB(LOADER, SPECIE[nome].file + '?' + VER, () => {});
+  RIGS[nome] = prepRig(g, nome);
+  return RIGS[nome];
+}
+// cambio di specie in volo (tasto C o il pulsante in alto): stesso punto, stessa velocita'
+let cambioInCorso = false;
+async function cambiaSpecie(nome){
+  if (cambioInCorso || !grifP) return;
+  if (!nome) nome = ORDINE_SPECIE[(ORDINE_SPECIE.indexOf(FLY.specie) + 1) % ORDINE_SPECIE.length];
+  if (nome === FLY.specie) return;
+  cambioInCorso = true;
+  try {
+    const rig = await caricaSpecie(nome);
+    if (RIG) grifP.remove(RIG.root);
+    montaSpecie(rig);
+    FLY.specie = nome;
+    FLY.v = Math.min(FLY.v, FC.VMAX);
+    if (FLY.on) { $('zona-n').textContent = nomeVolo(); }
+    const bs = $('b-specie'); if (bs) bs.textContent = SPECIE[nome].breve + ' ▸';
+    try { localStorage.setItem('srm-specie', nome); } catch (e) {}
+  } catch (e) {
+    console.warn('specie', nome, e);
+    openCard('<h2>' + SPECIE[nome].titolo + '</h2><p>Il modello non è disponibile (' + (e.message || e) + ').</p>');
+  }
+  cambioInCorso = false;
+}
+function nomeVolo(){ return SPECIE[FLY.specie] ? SPECIE[FLY.specie].titolo : 'Grifone del Velino'; }
 function buildGrifone(){
   if (grifP || (!grifTpl && !RIG)) return;
   if (RIG) {
     grifP = new THREE.Group(); grifP.name = 'GrifonePilota';
-    const m = RIG.root;
-    // apertura alare del modello 5,35 unita' -> 13 m in scena (come il Meshy statico);
-    // l'origine del modello e' ai piedi: si abbassa perche' l'origine del gruppo sia il corpo
-    const sc = 13 / 5.35;
-    m.scale.setScalar(sc);
-    m.position.set(0, -0.62 * sc, 0);
-    m.rotation.set(0, 0, 0);
-    grifP.add(m);
     grifP.visible = false;
     scene.add(grifP);
-    grifP.updateMatrixWorld(true);
-    // quote di contatto per questo modello (pancia ~0.35 sotto l'origine, piedi ~1.5 sotto)
-    FC.AGL_MIN = 1.1; FC.H_TERRA = 1.72;
+    montaSpecie(RIG);
+    FLY.specie = RIG.nome;
     buildSkirt();
+    // specie scelta l'ultima volta
+    let pref = null; try { pref = localStorage.getItem('srm-specie'); } catch (e) {}
+    if (pref && SPECIE[pref] && pref !== RIG.nome) cambiaSpecie(pref);
     return;
   }
   grifP = new THREE.Group(); grifP.name = 'GrifonePilota';
@@ -2299,13 +2747,14 @@ function buildSkirt(){
   // così il limite della mappa sfuma nella nebbia invece di mostrare un orlo
   const sk = new THREE.Mesh(new THREE.CircleGeometry(60000, 48),
     new THREE.MeshBasicMaterial({ color: scene.fog.color.clone(), fog: true }));
-  sk.rotation.x = -Math.PI / 2; sk.position.set(FC.BC[0], -46, FC.BC[1]);
+  sk.rotation.x = -Math.PI / 2; sk.position.set(FC.BC[0], HG2 ? -320 : -46, FC.BC[1]);   // sotto la Valle Roveto (y -265) se c'e' l'anello
   sk.name = 'Skirt'; sk.visible = false; skirt = sk;
   scene.add(sk);
 }
 const GRIF_MESH_YAW = 0;   // orientamento del modello Meshy rispetto alla prua (+z del gruppo)
 
 function flyStart(){
+  if (HG2) { FC.BC = [(HG2.x0 + HG2.x1) / 2, -(HG2.y0 + HG2.y1) / 2]; FC.BR = [(HG2.x1 - HG2.x0) / 2 - 1500, (HG2.y1 - HG2.y0) / 2 - 1500]; }
   if (!grifTpl) { openCard('<h2>Grifone assente</h2><p>Il modello del grifone non è nella scena.</p>'); return; }
   buildGrifone();
   if (!TIDX) { try { TIDX = buildTerrIndex(); } catch (e) { console.warn('indice terreno:', e); } }
@@ -2330,7 +2779,7 @@ function flyStart(){
   $('fade').style.opacity = 0; $('impatto').classList.remove('on');
   FLY.on = true; grifP.visible = true; skirt.visible = true;
   if (!FLY.fogSaved) FLY.fogSaved = [scene.fog.near, scene.fog.far];
-  scene.fog.near = 700; scene.fog.far = degraded ? 3800 : 4600;
+  scene.fog.near = 700; scene.fog.far = FOG_VOLO[QUAL.liv];
   luceGrifone(true);
   document.body.classList.add('grif');
   document.body.classList.toggle('touch', isTouch());
@@ -2338,7 +2787,7 @@ function flyStart(){
   $('b-grif').classList.add('on'); $('b-grif').textContent = 'TORNA A LINO';
   const lab = document.querySelectorAll('#bar .slot .lab');
   lab[0].textContent = 'In volo'; lab[1].textContent = 'Velocità'; lab[3].textContent = 'Vario';
-  $('zona-n').textContent = 'Grifone del Velino'; $('zona-s').textContent = '';
+  $('zona-n').textContent = nomeVolo(); $('zona-s').textContent = '';
   st.curZone = -1; st.curKey = null; st.lastHudS = -1e9;
   $('poi-banner').classList.remove('on'); st.curPoi = -1;
   // la camera parte dietro al grifone
@@ -2356,7 +2805,7 @@ function flyStop(){
   sndWind(0, 0);
   if (FLY.mode === 'tour') { $('b-tour').classList.remove('on'); document.body.classList.remove('tour'); }
   FLY.mode = 'volo'; grifP.visible = false; skirt.visible = false;
-  if (FLY.fogSaved) { scene.fog.near = FLY.fogSaved[0]; scene.fog.far = FLY.fogSaved[1]; FLY.fogSaved = null; }
+  if (FLY.fogSaved) { scene.fog.near = FLY.fogSaved[0]; scene.fog.far = QUAL.liv === 0 ? 11000 : FLY.fogSaved[1]; FLY.fogSaved = null; }
   $('fade').style.opacity = 0; $('impatto').classList.remove('on');
   camera.fov = 55; camera.updateProjectionMatrix();
   luceGrifone(false);
@@ -2519,12 +2968,13 @@ function tickTour(dt){
 }
 function tickFly(dt){
   const f = FLY;
+  if (window.SRMX && window.SRMX.pausa) return;   // collaudi: uccello fermo a mezz'aria
   if (f.mode === 'terra') { tickTerra(dt); return; }
   if (f.mode === 'impatto') { tickImpatto(dt); return; }
   if (f.mode === 'tour') { tickTour(dt); return; }
   // assetto a proiettile: oltre ~150 km/h in picchiata le ali si chiudono sul corpo;
   // rallentando (o alzando il muso) si riaprono da sole
-  const foldT = clamp((f.v - 42) / 16, 0, 1) * clamp((-f.pitch - 0.12) / 0.2, 0, 1);
+  const foldT = clamp((f.v - FC.FOLD_V) / 16, 0, 1) * clamp((-f.pitch - 0.12) / 0.2, 0, 1);
   f.fold += (foldT - f.fold) * (1 - Math.exp(-(foldT > f.fold ? 3.5 : 2.5) * dt));
   // zampe: scendono gradualmente quando si rallenta vicino al suolo (preparazione al tocco)
   const legsT = clamp((22 - f.v) / 8, 0, 1) * clamp((45 - f.agl) / 30, 0, 1);
@@ -2540,15 +2990,15 @@ function tickFly(dt){
   if (f.stall) pT = Math.min(pT, -0.55);
   if (f.pos.y > FC.CEIL) pT = Math.min(pT, -0.15 - (f.pos.y - FC.CEIL) / 200);
   // beccheggio con inerzia (molla smorzata): risponde, non scatta
-  f.pitchV += ((pT - f.pitch) * (f.stall ? 10 : 8.5) - f.pitchV * 5.2) * dt;
+  f.pitchV += ((pT - f.pitch) * (f.stall ? 10 : 8.5) * FC.AGIL - f.pitchV * 5.2 * Math.sqrt(FC.AGIL)) * dt;
   f.pitch += f.pitchV * dt;
   // rollio → virata coordinata
   const rT = f.inX * FC.ROLL_MAX * ctl;
-  f.rollV += ((rT - f.roll) * 13 - f.rollV * 6.2) * dt;
+  f.rollV += ((rT - f.roll) * 13 * FC.AGIL - f.rollV * 6.2 * Math.sqrt(FC.AGIL)) * dt;
   // turbolenza sottovento alle creste: scossoni sul rollio
   if (ASC.turb > 0) f.rollV += (Math.sin(performance.now() / 173) + Math.sin(performance.now() / 61) * 0.5) * ASC.turb * 1.4 * dt;
   f.roll += f.rollV * dt;
-  const yawRate = clamp(FC.G * Math.tan(f.roll) / Math.max(f.v, 10), -1.1, 1.1);
+  const yawRate = clamp(FC.G * Math.tan(f.roll) / Math.max(f.v, 10), -1.1 * FC.AGIL, 1.1 * FC.AGIL);
   f.yaw -= yawRate * dt;
   // battito d'ali: ciclo a FLAP_HZ, spinta in avanti + un po' di portanza
   if (f.flap && f.pos.y < FC.CEIL) {
@@ -2567,7 +3017,7 @@ function tickFly(dt){
   // in cabrata il battito rende di più (ali che 'remano'): salita decisa
   const cabra = clamp(f.pitch / 0.35, 0, 1);
   // oltre i ~110 km/h il battito non morde più: in cabrata veloce si scambia velocità con quota
-  const morde = clamp(1 - (f.v - 30) / 25, 0, 1);
+  const morde = clamp(1 - (f.v - FC.MORDE_V0) / 25, 0, 1);
   const thrust = FC.FLAP_ACC * beat * f.flapPow * (1 + 0.9 * cabra) * morde;
   // bilancio di velocità lungo la prua
   // ad alta velocità il grifone si 'chiude' e la resistenza cala: la picchiata ripida arriva a VMAX
@@ -2636,7 +3086,7 @@ function tickFly(dt){
                 f.roll, -f.inY, 0.02 + 0.06 * clamp((f.v - 40) / 40, 0, 1));
   }
   // camera d'inseguimento
-  const back = 26 + f.v * 0.07;
+  const back = (26 + f.v * 0.07) * (RIG ? RIG.sp.cam : 1);
   tmpD.set(Math.sin(f.yaw), 0, Math.cos(f.yaw));
   tmpB.copy(f.pos).addScaledVector(tmpD, -back);
   tmpB.y += 12 - f.pitch * 10 - 4 * f.fold;
@@ -2686,7 +3136,7 @@ function atterra(gy){
 const PEAK_INFO = {
   'Monte Velino': ['Il tetto del massiccio e la terza vetta dell\u2019Appennino dopo il Corno Grande e il Monte Amaro. Un cono di calcare che domina la Marsica e il Fucino: la Riserva Naturale Orientata che porta il suo nome (1987) è il cuore del Parco Sirente Velino, e qui, sulle sue pareti, sono tornati a nidificare i grifoni reintrodotti negli anni Novanta.',
     'La gara non tocca la cima: la sfiora sulla spalla, a 2.385 m, il punto più alto del tracciato. Dalla croce, nelle giornate limpide, lo sguardo corre dal Gran Sasso alla Maiella, dal Sirente al Terminillo e giù fino alla piana del Fucino.'],
-  'Monte Cafornia': ['La seconda cima del massiccio, gemella orientale del Velino, a cui è legata da una lunga cresta d\u2019alta quota. È il punto di partenza dei voli in questa modalità: da qui la valle è tutta davanti.',
+  'Monte Cafornia': ['La seconda cima del massiccio, gemella orientale del Velino, a cui è legata da una lunga cresta d\u2019alta quota. Dalla sua cima la valle di Magliano è tutta davanti, fino al Fucino.',
     'La Skyrace la costeggia lungo il crinale che dal Velino porta alla Selletta, dove comincia la grande discesa verso Fonte Canale: oltre 1.100 m di dislivello in tre chilometri.'],
   'Monte di Sevice': ['La montagna della Capanna di Sevice: il rifugio ai suoi piedi, a 2.115 m, è l\u2019unico ristoro completo della gara e il secondo cancello orario (ore 12:45).',
     'Dalla sua groppa si domina la conca della capanna e la lunga dorsale del Rozza da cui arrivano gli atleti.'],
@@ -2979,7 +3429,7 @@ function updateHUDFly(){
     $('zona-n').textContent = bp.n;
     $('zona-s').textContent = Math.round(best) + ' m in pianta · vetta ' + bp.e + ' m';
   } else {
-    $('zona-n').textContent = f.fold > 0.6 ? 'A proiettile · ali chiuse' : 'Grifone del Velino';
+    $('zona-n').textContent = f.fold > 0.6 ? 'A proiettile · ali chiuse' : nomeVolo();
     let asc = '';
     if (ASC.termica > 0.8 && ASC.termica >= ASC.sole) asc = ' · termica';
     else if (ASC.pendio > 0.8) asc = ' · ascendenza di pendio';
@@ -3017,6 +3467,7 @@ function updateHUDFly(){
   drawMiniPos();
 }
 function bindFlyUI(){
+  const bsp = $('b-specie'); if (bsp) { bsp.onclick = () => cambiaSpecie(); bsp.textContent = (SPECIE[FLY.specie] || SPECIE.grifone).breve + ' ▸'; }
   // joystick virtuale
   const joy = $('joy'), knob = $('joy-k');
   let jid = null;
@@ -3081,9 +3532,9 @@ function tiltOff(){
 }
 
 // ---------- ciclo ----------
-let fpsAcc = 0, fpsN = 0, fpsT = 0, degraded = false;
 function tick(){
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const dtReale = clock.getDelta();
+  const dt = Math.min(dtReale, 0.05);
   if (SKY) SKY.position.copy(camera.position);
   if (NUVOLE.length) tickNuvole(dt);
   if (VENTO_SH.length) { const tt = performance.now() / 1000; for (const sh of VENTO_SH) sh.uniforms.uT.value = tt; }
@@ -3100,11 +3551,7 @@ function tick(){
     }
     tickPeaks(dt);
     renderer.render(scene, camera);
-    fpsAcc += dt; fpsN++; fpsT += dt;
-    if (fpsT > 4 && !degraded) {
-      if (fpsN / fpsT < 26) { degraded = true; renderer.setPixelRatio(1); scene.fog.far = 3800; }
-      fpsN = 0; fpsT = 0;
-    }
+    guardiaFps(dtReale);
     return;
   }
   // movimento
@@ -3189,12 +3636,7 @@ function tick(){
   tickPeaks(dt);
   updateHUD();
   renderer.render(scene, camera);
-  // guardia prestazioni
-  fpsAcc += dt; fpsN++; fpsT += dt;
-  if (fpsT > 4 && !degraded) {
-    if (fpsN / fpsT < 26) { degraded = true; renderer.setPixelRatio(1); scene.fog.far = FLY.on ? 3800 : 12000; }
-    fpsN = 0; fpsT = 0;
-  }
+  guardiaFps(dtReale);
 }
 function tickPeaks(dt){
   peakT += dt;
@@ -3202,9 +3644,10 @@ function tickPeaks(dt){
     peakT = 0;
     for (const g of peakItems) {
       const d = camera.position.distanceTo(g.position);
-      g.visible = d < 7500;
+      const ext = !!g.userData.peak.ext;
+      g.visible = d < (ext ? 26000 : 7500);
       if (!g.visible) continue;
-      let o = d < 1400 ? 1 : Math.max(0, 1 - (d - 1400) / 3000);
+      let o = ext ? (d < 9000 ? 1 : Math.max(0.3, 1 - (d - 9000) / 20000)) : (d < 1400 ? 1 : Math.max(0, 1 - (d - 1400) / 3000));
       // in volo l'asta e la bandierina sfumano quando il grifone ci arriva addosso
       let vic = 1;
       if (FLY.on) { const dg = FLY.pos.distanceTo(g.position); vic = clamp((dg - 50) / 110, 0, 1); }
@@ -3212,7 +3655,7 @@ function tickPeaks(dt){
       g.userData.asta.material.opacity = 0.85 * vic;
       g.userData.flag.material.opacity = 0.95 * vic;
       if (g.userData.punta) g.userData.punta.material.opacity = 0.95 * vic;
-      const s2 = clamp(d * 0.11, 44, 190);
+      const s2 = clamp(d * 0.11, 44, ext ? 520 : 190);
       const hh = s2 * 0.1875;
       g.userData.lbl.scale.set(hh * (g.userData.lbl.userData.aspect || 5.33), hh, 1);
       // (la bandiera sventola nel vertex shader)
