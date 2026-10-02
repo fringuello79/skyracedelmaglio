@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v64';
+const VER = 'v65';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -2636,13 +2636,27 @@ function prepRig(g, nome){
       // manto autunnale, tenendo chiari ventre e specchio anale
       mm.customProgramCacheKey = () => 'cervo-manto';
       mm.onBeforeCompile = sh => {
-        sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        // posizione nella posa di legatura (prima dello skinning): per riconoscere corna e muso
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vBind;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBind = position;');
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vBind;')
+          .replace('#include <color_fragment>', `#include <color_fragment>
 { vec3 c = diffuseColor.rgb;
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   c = pow(c, vec3(0.88)) * 1.10;                                   // un po' piu' chiaro
   vec3 caldo = vec3(0.50, 0.33, 0.19) * (0.5 + 0.9 * pow(l, 0.6));   // bruno-rossiccio
   c = mix(c, caldo, 0.40);
-  diffuseColor.rgb = clamp(c * vec3(1.05, 1.0, 0.93), 0.0, 1.0); }`);
+  c *= vec3(1.05, 1.0, 0.93);
+  // corna: sopra la testa (y > 1,08, davanti): piu' chiare e meno rosse, punte quasi avorio
+  float corna = smoothstep(1.06, 1.14, vBind.y) * smoothstep(0.28, 0.36, vBind.z);
+  vec3 cCorna = mix(vec3(0.62, 0.52, 0.40), vec3(0.80, 0.74, 0.62), smoothstep(1.2, 1.6, vBind.y)) * (0.75 + 0.5 * l);
+  c = mix(c, cCorna, corna * 0.85);
+  // muso: la punta (z oltre 0,42, all'altezza della testa) schiarisce con sfumatura
+  float muso = smoothstep(0.40, 0.54, vBind.z) * smoothstep(0.78, 0.86, vBind.y) * (1.0 - smoothstep(1.04, 1.10, vBind.y));
+  c = mix(c, vec3(0.74, 0.62, 0.50) * (0.7 + 0.6 * l), muso * 0.55);
+  diffuseColor.rgb = clamp(c, 0.0, 1.0); }`);
       };
     }
     const rest = new Map(); for (const b of Object.values(bones)) rest.set(b, b.quaternion.clone());
@@ -3364,9 +3378,14 @@ function tickCervo(dt){
   if (er > 1.0) { f.pos.x = FC.BC[0] + ex / er * FC.BR[0]; f.pos.z = FC.BC[1] + ez / er * FC.BR[1]; }
   // assetto: beccheggio lungo il pendio, rollio col pendio trasversale (molle lente)
   const gL = suoloVolo(f.pos.x + fwdV.z * 2.5, f.pos.z - fwdV.x * 2.5, f.pos.y + 3), gR = suoloVolo(f.pos.x - fwdV.z * 2.5, f.pos.z + fwdV.x * 2.5, f.pos.y + 3);
-  const pT = clamp(Math.atan(pend) * 0.6, -0.5, 0.5), rT = (gL > -1e3 && gR > -1e3) ? clamp(Math.atan((gL - gR) / 5), -0.4, 0.4) : 0;
+  // il corpo resta verticale: al pendio trasversale si adattano le zampe (C.lat), in curva veloce
+  // c'e' solo una leggera piega verso l'interno
+  const pT = clamp(Math.atan(pend) * 0.6, -0.5, 0.5);
+  const latT = (gL > -1e3 && gR > -1e3) ? clamp(Math.atan((gL - gR) / 5), -0.45, 0.45) : 0;
+  const rT = -f.inX * 0.10 * clamp(C.v / cc.V_GALOPPO, 0, 1);
   C.pitch += (pT - C.pitch) * (1 - Math.exp(-4 * dt));
   C.roll += (rT - C.roll) * (1 - Math.exp(-4 * dt));
+  C.lat = (C.lat || 0) + (latT - (C.lat || 0)) * (1 - Math.exp(-4 * dt));
   // andatura: 0 fermo, 1 passo, 2 trotto, 3 galoppo; fase dalla distanza percorsa
   const gaitT = C.v < 0.2 ? 0 : C.v < cc.V_PASSO + 1.5 ? 1 : C.v < cc.V_TROTTO + 4 ? 2 : 3;
   C.gait += (gaitT - C.gait) * (1 - Math.exp(-5 * dt));
@@ -3415,7 +3434,7 @@ function posaCervo(dt){
     const ch = m[k];
     // spalla/anca: oscillazione. Anteriore: gomito e carpo si piegano all'indietro.
     // Posteriore: grassella indietro, garretto in avanti, nodello indietro (zampa che si raccoglie)
-    rotBone(ch[0], AX.x, sw * A * (post ? 1.0 : 0.9) + C.pitch * 0.85);   // + compenso: zampe quasi verticali anche col corpo inclinato
+    rotBone(ch[0], AX.x, sw * A * (post ? 1.0 : 0.9) + C.pitch * 0.85, AX.z, -(C.lat || 0));   // compensi: zampe verticali col corpo inclinato in avanti, e piegate col pendio laterale
     if (!post) {
       rotBone(ch[1], AX.x, vol * B * 0.55);
       rotBone(ch[2], AX.x, vol * B * 0.65);
