@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v71';
+const VER = 'v72';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -311,6 +311,8 @@ async function boot(){
   buildPins();
   buildAnimali(loader).catch(e => console.warn('animali:', e));
   buildGEV(loader).catch(e => console.warn('GEV:', e));
+  buildMezzoPC(loader).catch(e => console.warn('mezzo PC:', e));
+  try { buildGenziane(); } catch (e) { console.warn('genziane:', e); }
   buildChiesaNives(loader).catch(e => console.warn('chiesa Nives:', e));
   try { buildDataSassi(); } catch (e) { console.warn('sassi:', e); }
   try { buildNubiBasse(); } catch (e) { console.warn('nubi:', e); }
@@ -1033,6 +1035,8 @@ function buildPins(){
     if ($('modal').classList.contains('on')) { closeModal(); return; }
     const hit = ray.intersectObjects(pinGroup.children, false)[0];
     if (hit) { openPoi(hit.object.userData.poi); return; }
+    // genziane
+    if (GENZ) { const hg = ray.intersectObject(GENZ, false)[0]; if (hg && hg.instanceId !== undefined) { schedaGenziana(GENZ.userData.posti[hg.instanceId][5]); return; } }
     // targhette dei sentieri
     if (SENT && SENT_ON) {
       const hs = ray.intersectObjects(SENT.sprites.filter(sp => sp.visible && sp.material.opacity > 0.1), false)[0];
@@ -2550,6 +2554,101 @@ function tickAnimali(dt){
     const e1 = Math.sin(t * 3.3) > 0.9 ? 1 : 0, e2 = Math.sin(t * 2.7 + 2) > 0.9 ? 1 : 0;
     rotBoneA(an, o.earL, AX.z, e1 * A.ear); rotBoneA(an, o.earR, AX.z, -e2 * A.ear);
   }
+}
+
+// ---------- mezzo della Protezione Civile a Passo Le Forche (km 10): modello nuovo di Ale ----------
+// Decimato a 30k triangoli (meshoptimizer), 1024 webp, Draco. Prende il posto del PC_Meshy di scene.glb.
+// Appoggiato con le QUATTRO ruote a terra: piano passante per le quote del suolo sotto le ruote.
+async function buildMezzoPC(loader){
+  let vecchio = null; scene.traverse(o => { if (!vecchio && o.isMesh && o.name === 'PC_Meshy') vecchio = o; });
+  if (!vecchio) return;
+  const bbv = new THREE.Box3().setFromObject(vecchio); const cv = bbv.getCenter(new THREE.Vector3());
+  const g = await loadGLB(loader, 'assets/pc2.glb?' + VER, () => {});
+  g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { o.material.metalness = 0.1; o.material.roughness = 0.6; } } });
+  const bb = new THREE.Box3().setFromObject(g.scene); const sz = bb.getSize(new THREE.Vector3());
+  const LUNG = 4.9 * ((route.lino_h || 7.8) / 1.7);       // 4,9 m reali nella scala di Lino
+  const sc = LUNG / Math.max(sz.x, sz.z);
+  const grp = new THREE.Group(); grp.name = 'MezzoPC';
+  // origine del gruppo = centro della pianta, a quota delle ruote
+  g.scene.position.set(-(bb.min.x + bb.max.x) / 2 * sc, -bb.min.y * sc, -(bb.min.z + bb.max.z) / 2 * sc);
+  g.scene.scale.setScalar(sc);
+  grp.add(g.scene);
+  // parcheggiato di fianco al sentiero, lungo la tangente (il modello e' lungo l'asse x)
+  let best = 0, bd = 1e9;
+  for (let sS = 9000; sS < 11000; sS += 10) { posAt(sS, tmpA); const d = Math.hypot(tmpA.x - cv.x, tmpA.z - cv.z); if (d < bd) { bd = d; best = sS; } }
+  tanAt(best, tmpB);
+  const yaw = Math.atan2(tmpB.x, tmpB.z) - Math.PI / 2;    // asse x del modello sulla tangente
+  const L = LUNG * (sz.x >= sz.z ? 1 : sz.z / sz.x), Wd = LUNG * Math.min(sz.x, sz.z) / Math.max(sz.x, sz.z);
+  const hx = L / 2 * 0.72, hz = Wd / 2 * 0.85;             // passo e carreggiata (circa)
+  const ex = Math.cos(yaw), ez = -Math.sin(yaw);           // direzione x locale nel mondo
+  const fx = Math.sin(yaw), fz = Math.cos(yaw);            // direzione z locale
+  const q = (dx, dz) => { const x = cv.x + ex * dx + fx * dz, z = cv.z + ez * dx + fz * dz; const t = terraVera(x, z, cv.y + 10); return t > -1e3 ? t : groundAt(x, z); };
+  const hFL = q(hx, -hz), hFR = q(hx, hz), hRL = q(-hx, -hz), hRR = q(-hx, hz);
+  const yC = (hFL + hFR + hRL + hRR) / 4;
+  const pitch = Math.atan2(((hFL + hFR) - (hRL + hRR)) / 2, 2 * hx);     // salita verso +x locale
+  const roll = Math.atan2(((hFR + hRR) - (hFL + hRL)) / 2, 2 * hz);      // salita verso +z locale
+  grp.position.set(cv.x, yC + 0.04, cv.z);
+  grp.rotation.set(0, yaw, 0);
+  grp.rotateZ(-pitch); grp.rotateX(roll);
+  vecchio.visible = false;
+  scene.add(grp);
+  console.log('mezzo PC: km', (best / 1000).toFixed(2), 'pendenze', (pitch * 57.3).toFixed(1), (roll * 57.3).toFixed(1));
+}
+
+// ---------- genziane maggiori (Gentiana lutea) fra il km 19,7 e il 21, ai lati del sentiero ----------
+// Impostor a due quadrati incrociati dalla resa del modello Meshy di Ale (genziana.png, due viste):
+// 20 piante = 80 triangoli in una InstancedMesh. Cliccabili: scheda della pianta.
+let GENZ = null;
+function buildGenziane(){
+  const tex = new THREE.TextureLoader().load('assets/genziana.png?' + VER);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const H = 1.4 * ((route.lino_h || 7.8) / 1.7), W = H * 0.5;    // 1,4 m reali
+  // due quadrati incrociati, ciascuno con una delle due viste (meta' sinistra / destra della texture)
+  const pos = [], uv = [], idx = [];
+  const quad = (ax, az, u0, u1) => {
+    const b = pos.length / 3;
+    pos.push(-ax * W / 2, 0, -az * W / 2, ax * W / 2, 0, az * W / 2, ax * W / 2, H, az * W / 2, -ax * W / 2, H, -az * W / 2);
+    uv.push(u0, 0, u1, 0, u1, 1, u0, 1);
+    idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+  };
+  quad(1, 0, 0, 0.5); quad(0, 1, 0.5, 1);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9, metalness: 0 });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uT = { value: 0 }; VENTO_SH.push(sh);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+{ vec4 wp = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0); float h = clamp(position.y / ${H.toFixed(2)}, 0.0, 1.0);
+  transformed.x += sin(uT * 1.9 + wp.x * 0.3 + wp.z * 0.2) * 0.08 * h * h; transformed.z += sin(uT * 1.3 + wp.z * 0.4) * 0.05 * h * h; }`);
+  };
+  let sd = 19702; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const posti = [];
+  for (let k = 0; k < 22; k++) {
+    const sS = 19700 + rnd() * 1300;
+    const lato = rnd() < 0.5 ? -1 : 1, dist = 4 + rnd() * 14;
+    posAt(sS, tmpA); tanAt(sS, tmpB);
+    const x = tmpA.x - tmpB.z * dist * lato, z = tmpA.z + tmpB.x * dist * lato;
+    let y = terraVera(x, z, tmpA.y + 5); if (y < -1e3) y = groundAt(x, z);
+    posti.push([x, y - 0.05, z, rnd() * Math.PI, 0.8 + rnd() * 0.45, sS]);
+  }
+  const im = new THREE.InstancedMesh(g, m, posti.length);
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(), P = new THREE.Vector3();
+  posti.forEach((p, i) => { P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); S.setScalar(p[4]); M.compose(P, Q, S); im.setMatrixAt(i, M); });
+  im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.frustumCulled = false; im.name = 'Genziane';
+  im.userData.posti = posti;
+  scene.add(im);
+  GENZ = im;
+}
+function schedaGenziana(sS){
+  const km = (sS / 1000).toFixed(1).replace('.', ',');
+  openCard('<h2>Genziana maggiore</h2><h3><i>Gentiana lutea</i> · km ' + km + '</h3>' +
+    '<p>La grande genziana gialla dei pascoli d’altura: un fusto robusto alto fino a un metro e mezzo, foglie larghe e opposte con nervature marcate, fiori gialli a stella raccolti in verticilli lungo il fusto. Fiorisce fra giugno e agosto; in ottobre restano i fusti secchi con le capsule dei semi.</p>' +
+    '<table><tr><th>Dove</th><td>Pascoli e praterie calcaree fra i 1.000 e i 2.200 m: qui sui prati sotto il Cafornia e verso la Sella di Sevice.</td></tr>' +
+    '<tr><th>Radice</th><td>Grossa e amarissima, usata da secoli per liquori e digestivi: per questo la pianta è stata saccheggiata e oggi è <b>protetta</b>, la raccolta è vietata.</td></tr>' +
+    '<tr><th>Attenzione</th><td>Prima della fioritura si confonde con il veratro (<i>Veratrum album</i>), velenoso: la genziana ha le foglie opposte, il veratro alterne.</td></tr>' +
+    '<tr><th>Età</th><td>Cresce lentissima: fiorisce per la prima volta dopo 7–10 anni e può vivere oltre mezzo secolo.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026.</p>');
 }
 
 // ---------- i volontari del GEV sulla vetta del Velino, con la croce di vetta ----------
