@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v73';
+const VER = 'v74';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -1036,7 +1036,7 @@ function buildPins(){
     const hit = ray.intersectObjects(pinGroup.children, false)[0];
     if (hit) { openPoi(hit.object.userData.poi); return; }
     // genziane
-    if (GENZ) { const hg = ray.intersectObject(GENZ, false)[0]; if (hg && hg.instanceId !== undefined) { schedaGenziana(GENZ.userData.posti[hg.instanceId][5]); return; } }
+    if (IMPOSTORS.length) { const hg = ray.intersectObjects(IMPOSTORS, false)[0]; if (hg && hg.instanceId !== undefined) { hg.object.userData.scheda(hg.object.userData.posti[hg.instanceId][5]); return; } }
     // targhette dei sentieri
     if (SENT && SENT_ON) {
       const hs = ray.intersectObjects(SENT.sprites.filter(sp => sp.visible && sp.material.opacity > 0.1), false)[0];
@@ -2606,50 +2606,69 @@ async function buildMezzoPC(loader){
   console.log('mezzo PC: km', (best / 1000).toFixed(2), 'pendenze', (pitch * 57.3).toFixed(1), (roll * 57.3).toFixed(1), 'ruote', res.join(' '));
 }
 
-// ---------- genziane maggiori (Gentiana lutea) fra il km 19,7 e il 21, ai lati del sentiero ----------
-// Impostor a due quadrati incrociati dalla resa del modello Meshy di Ale (genziana.png, due viste):
-// 20 piante = 80 triangoli in una InstancedMesh. Cliccabili: scheda della pianta.
-let GENZ = null;
-function buildGenziane(){
-  const tex = new THREE.TextureLoader().load('assets/genziana.png?' + VER);
+// ---------- piante "impostor": due quadrati incrociati con la resa del modello Meshy (due viste) ----------
+// Una InstancedMesh per specie (4 triangoli a pianta), cliccabili. Genziana maggiore km 19,7-21;
+// adonide ricurva a bordo sentiero prima della Capanna di Sevice (km 14,2-14,6, ~50 piante nella
+// Guida) e sulla cresta Velino-Cafornia (km 17,3-18,4, ~200 piante): qui se ne mostrano alcune.
+const IMPOSTORS = [];
+function buildImpostor(cfg){
+  const tex = new THREE.TextureLoader().load('assets/' + cfg.file + '?' + VER);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  const H = 1.4 * ((route.lino_h || 7.8) / 1.7), W = H * 0.5;    // 1,4 m reali
-  // due quadrati incrociati, ciascuno con una delle due viste (meta' sinistra / destra della texture)
+  const H = cfg.hReale * ((route.lino_h || 7.8) / 1.7), W = H * cfg.aspetto;
   const pos = [], uv = [], idx = [];
-  const quad = (ax, az, u0, u1) => {
+  const quad = (ax, az, u0, v0, u1, v1) => {
     const b = pos.length / 3;
     pos.push(-ax * W / 2, 0, -az * W / 2, ax * W / 2, 0, az * W / 2, ax * W / 2, H, az * W / 2, -ax * W / 2, H, -az * W / 2);
-    uv.push(u0, 0, u1, 0, u1, 1, u0, 1);
+    uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
     idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
   };
-  quad(1, 0, 0, 0.5); quad(0, 1, 0.5, 1);
+  if (cfg.layout === 'colonne') { quad(1, 0, 0, 0, 0.5, 1); quad(0, 1, 0.5, 0, 1, 1); }
+  else { quad(1, 0, 0, 0.5, 1, 1); quad(0, 1, 0, 0, 1, 0.5); }      // 'righe': vista 1 sopra, vista 2 sotto
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9, metalness: 0 });
+  const vento = cfg.vento || 0.08;
   m.onBeforeCompile = sh => {
     sh.uniforms.uT = { value: 0 }; VENTO_SH.push(sh);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 { vec4 wp = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0); float h = clamp(position.y / ${H.toFixed(2)}, 0.0, 1.0);
-  transformed.x += sin(uT * 1.9 + wp.x * 0.3 + wp.z * 0.2) * 0.08 * h * h; transformed.z += sin(uT * 1.3 + wp.z * 0.4) * 0.05 * h * h; }`);
+  transformed.x += sin(uT * 1.9 + wp.x * 0.3 + wp.z * 0.2) * ${vento.toFixed(3)} * h * h; transformed.z += sin(uT * 1.3 + wp.z * 0.4) * ${(vento * 0.6).toFixed(3)} * h * h; }`);
   };
-  let sd = 19702; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  m.customProgramCacheKey = () => 'impostor-' + cfg.nome;
+  let sd = cfg.seme; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
   const posti = [];
-  for (let k = 0; k < 22; k++) {
-    const sS = 19700 + rnd() * 1300;
-    const lato = rnd() < 0.5 ? -1 : 1, dist = 4 + rnd() * 14;
+  for (const z of cfg.zone) for (let k = 0; k < z.n; k++) {
+    const sS = z.a + rnd() * (z.b - z.a);
+    const lato = rnd() < 0.5 ? -1 : 1, dist = z.d0 + rnd() * (z.d1 - z.d0);
     posAt(sS, tmpA); tanAt(sS, tmpB);
-    const x = tmpA.x - tmpB.z * dist * lato, z = tmpA.z + tmpB.x * dist * lato;
-    let y = terraVera(x, z, tmpA.y + 5); if (y < -1e3) y = groundAt(x, z);
-    posti.push([x, y - 0.05, z, rnd() * Math.PI, 0.8 + rnd() * 0.45, sS]);
+    const x = tmpA.x - tmpB.z * dist * lato, z2 = tmpA.z + tmpB.x * dist * lato;
+    let y = terraVera(x, z2, tmpA.y + 5); if (y < -1e3) y = groundAt(x, z2);
+    posti.push([x, y - 0.05, z2, rnd() * Math.PI, 0.8 + rnd() * 0.45, sS]);
   }
   const im = new THREE.InstancedMesh(g, m, posti.length);
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(), P = new THREE.Vector3();
   posti.forEach((p, i) => { P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); S.setScalar(p[4]); M.compose(P, Q, S); im.setMatrixAt(i, M); });
-  im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.frustumCulled = false; im.name = 'Genziane';
-  im.userData.posti = posti;
+  im.instanceMatrix.needsUpdate = true; im.castShadow = cfg.ombra !== false; im.frustumCulled = false; im.name = cfg.nome;
+  im.userData.posti = posti; im.userData.scheda = cfg.scheda;
   scene.add(im);
-  GENZ = im;
+  IMPOSTORS.push(im);
+  return im;
+}
+function buildGenziane(){
+  buildImpostor({ nome: 'Genziane', file: 'genziana.png', layout: 'colonne', hReale: 1.4, aspetto: 0.5, seme: 19702,
+    zone: [{ a: 19700, b: 21000, n: 22, d0: 4, d1: 18 }], scheda: schedaGenziana });
+  buildImpostor({ nome: 'Adonidi', file: 'adonide.png', layout: 'righe', hReale: 0.38, aspetto: 1.85, seme: 14201, vento: 0.03,
+    zone: [{ a: 14200, b: 14620, n: 14, d0: 1.5, d1: 6 }, { a: 17300, b: 18400, n: 22, d0: 2, d1: 9 }], scheda: schedaAdonide });
+}
+function schedaAdonide(sS){
+  const km = (sS / 1000).toFixed(1).replace('.', ',');
+  openCard('<h2>Adonide ricurva</h2><h3><i>Adonis distorta</i> · km ' + km + '</h3>' +
+    '<p>Un piccolo cuscinetto di foglie finemente divise, alto una spanna, che a inizio estate si copre di fiori gialli larghi come una moneta. Non esiste in nessun altro luogo al mondo se non sulle montagne dell’Appennino centrale: è un <b>endemismo</b>, e il Velino ne ospita una delle popolazioni più importanti.</p>' +
+    '<table><tr><th>Dove</th><td>Ghiaioni e pietraie calcaree sopra i 1.800 m, spesso in pieno sentiero: qui poco prima della Capanna di Sevice (una cinquantina di piante a bordo pista) e sulla cresta fra Velino e Cafornia (circa duecento).</td></tr>' +
+    '<tr><th>Fioritura</th><td>Giugno–luglio, subito dopo lo scioglimento della neve; in ottobre resta il cuscinetto verde-grigio fra i sassi.</td></tr>' +
+    '<tr><th>Perché conta</th><td>Specie protetta di interesse europeo: cresce lentissima e un calpestio ripetuto la cancella. In gara si resta sul tracciato segnato proprio per non uscire sui ghiaioni dove vive.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026.</p>');
 }
 function schedaGenziana(sS){
   const km = (sS / 1000).toFixed(1).replace('.', ',');
