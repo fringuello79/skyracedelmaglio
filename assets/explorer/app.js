@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v72';
+const VER = 'v73';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -2566,7 +2566,7 @@ async function buildMezzoPC(loader){
   const g = await loadGLB(loader, 'assets/pc2.glb?' + VER, () => {});
   g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { o.material.metalness = 0.1; o.material.roughness = 0.6; } } });
   const bb = new THREE.Box3().setFromObject(g.scene); const sz = bb.getSize(new THREE.Vector3());
-  const LUNG = 4.9 * ((route.lino_h || 7.8) / 1.7);       // 4,9 m reali nella scala di Lino
+  const LUNG = 6.2 * ((route.lino_h || 7.8) / 1.7);       // un po' piu' grande del vero (leggibile da lontano)
   const sc = LUNG / Math.max(sz.x, sz.z);
   const grp = new THREE.Group(); grp.name = 'MezzoPC';
   // origine del gruppo = centro della pianta, a quota delle ruote
@@ -2583,16 +2583,27 @@ async function buildMezzoPC(loader){
   const ex = Math.cos(yaw), ez = -Math.sin(yaw);           // direzione x locale nel mondo
   const fx = Math.sin(yaw), fz = Math.cos(yaw);            // direzione z locale
   const q = (dx, dz) => { const x = cv.x + ex * dx + fx * dz, z = cv.z + ez * dx + fz * dz; const t = terraVera(x, z, cv.y + 10); return t > -1e3 ? t : groundAt(x, z); };
-  const hFL = q(hx, -hz), hFR = q(hx, hz), hRL = q(-hx, -hz), hRR = q(-hx, hz);
-  const yC = (hFL + hFR + hRL + hRR) / 4;
-  const pitch = Math.atan2(((hFL + hFR) - (hRL + hRR)) / 2, 2 * hx);     // salita verso +x locale
-  const roll = Math.atan2(((hFR + hRR) - (hFL + hRL)) / 2, 2 * hz);      // salita verso +z locale
-  grp.position.set(cv.x, yC + 0.04, cv.z);
+  // appoggio iterativo: si misura dove stanno le 4 ruote nel mondo, si confronta col suolo e si corregge
+  // beccheggio/rollio/quota finche' tutte e quattro toccano (3 passate bastano)
+  const yC = (q(hx, -hz) + q(hx, hz) + q(-hx, -hz) + q(-hx, hz)) / 4;
+  grp.position.set(cv.x, yC, cv.z);
   grp.rotation.set(0, yaw, 0);
-  grp.rotateZ(-pitch); grp.rotateX(roll);
-  vecchio.visible = false;
   scene.add(grp);
-  console.log('mezzo PC: km', (best / 1000).toFixed(2), 'pendenze', (pitch * 57.3).toFixed(1), (roll * 57.3).toFixed(1));
+  const ruote = [[hx, -hz], [hx, hz], [-hx, -hz], [-hx, hz]], wv = new THREE.Vector3();
+  let pitch = 0, roll = 0;
+  for (let it = 0; it < 3; it++) {
+    grp.updateMatrixWorld(true);
+    const d = ruote.map(([lx, lz]) => { wv.set(lx, 0, lz).applyMatrix4(grp.matrixWorld); let t = terraVera(wv.x, wv.z, wv.y + 5); if (t < -1e3) t = groundAt(wv.x, wv.z); return wv.y - t; });   // + = ruota sollevata
+    const dp = ((d[0] + d[1]) - (d[2] + d[3])) / 2, dr = ((d[1] + d[3]) - (d[0] + d[2])) / 2, dm = (d[0] + d[1] + d[2] + d[3]) / 4;
+    pitch += Math.atan2(dp, 2 * hx); roll += Math.atan2(dr, 2 * hz);
+    grp.position.y -= dm;
+    grp.rotation.set(0, yaw, 0); grp.rotateZ(-pitch); grp.rotateX(roll);
+  }
+  grp.updateMatrixWorld(true);
+  const res = ruote.map(([lx, lz]) => { wv.set(lx, 0, lz).applyMatrix4(grp.matrixWorld); const t = terraVera(wv.x, wv.z, wv.y + 5); return +(wv.y - t).toFixed(2); });
+  grp.position.y += 0.03 - Math.min(...res);     // nessuna ruota sotto terra, la piu' bassa sfiora
+  vecchio.visible = false;
+  console.log('mezzo PC: km', (best / 1000).toFixed(2), 'pendenze', (pitch * 57.3).toFixed(1), (roll * 57.3).toFixed(1), 'ruote', res.join(' '));
 }
 
 // ---------- genziane maggiori (Gentiana lutea) fra il km 19,7 e il 21, ai lati del sentiero ----------
