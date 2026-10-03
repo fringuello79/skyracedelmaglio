@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v68';
+const VER = 'v69';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -620,13 +620,26 @@ function buildTappeto(){
   // l'inizio del tracciato (dove si sovrappone al nastro di gara), poi si stringe in 6 m
   const W = ARCO.W || 12, SOPRA = 10, CODA = 6;
   const pos = [], uv = [], idx = [];
+  let trailM = null; scene.traverse(o => { if (!trailM && o.isMesh && (o.name || '') === 'SRM_Trail') trailM = o; });
+  const rcT = new THREE.Raycaster(), rcO = new THREE.Vector3(), rcD = new THREE.Vector3(0, -1, 0);
   let k = 0;
   for (let s = S0_ARCO - 3; s <= SOPRA + CODA + 0.01; s += 1) {
     posAt(s, tmpA); tanAt(Math.max(s, S0_ARCO), tmpB);
     let sx = -tmpB.z, sz = tmpB.x; const sl = Math.hypot(sx, sz) || 1; sx /= sl; sz /= sl;
     if (s <= 0) { sx = -ARCO.dz; sz = ARCO.dx; }                      // sul tratto dell'arco: lato dell'arco
     const w = s <= SOPRA ? W : W * Math.max(0.15, 1 - (s - SOPRA) / CODA);
-    const y = tmpA.y + (s > -2 ? 0.14 : 0.035);   // sul nastro di gara sta sopra il nastro
+    // quota: il punto piu' alto fra suolo e nastro di gara sotto la fascia del tappeto (+12 cm):
+    // cosi' il nastro non buca mai il tappeto
+    let y = tmpA.y + 0.035;
+    if (s > -6) {
+      for (let q = -0.5; q <= 0.5; q += 0.25) {
+        const px = tmpA.x + sx * w * q, pz = tmpA.z + sz * w * q;
+        rcT.set(rcO.set(px, tmpA.y + 25, pz), rcD);
+        const h = trailM ? rcT.intersectObject(trailM, false)[0] : null;
+        if (h && h.point.y + 0.22 > y) y = h.point.y + 0.22;
+        const g = terraVera(px, pz, tmpA.y + 5); if (g > -1e3 && g + 0.06 > y) y = g + 0.06;
+      }
+    }
     pos.push(tmpA.x - sx * w / 2, y, tmpA.z - sz * w / 2, tmpA.x + sx * w / 2, y, tmpA.z + sz * w / 2);
     uv.push(0, k, 1, k);
     if (s + 1 <= SOPRA + CODA + 0.01) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
@@ -636,7 +649,7 @@ function buildTappeto(){
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.MeshStandardMaterial({ color: 0x2f7a43, roughness: 0.95, metalness: 0, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  const m = new THREE.MeshStandardMaterial({ color: 0x2f7a43, roughness: 0.95, metalness: 0, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
   m.onBeforeCompile = sh => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
 { float b = min(vUv.x, 1.0 - vUv.x);                               // bordo bianco di 18 cm
