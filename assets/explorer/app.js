@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v74';
+const VER = 'v75';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -313,6 +313,7 @@ async function boot(){
   buildGEV(loader).catch(e => console.warn('GEV:', e));
   buildMezzoPC(loader).catch(e => console.warn('mezzo PC:', e));
   try { buildGenziane(); } catch (e) { console.warn('genziane:', e); }
+  buildCoturnici(loader).catch(e => console.warn('coturnici:', e));
   buildChiesaNives(loader).catch(e => console.warn('chiesa Nives:', e));
   try { buildDataSassi(); } catch (e) { console.warn('sassi:', e); }
   try { buildNubiBasse(); } catch (e) { console.warn('nubi:', e); }
@@ -1037,6 +1038,8 @@ function buildPins(){
     if (hit) { openPoi(hit.object.userData.poi); return; }
     // genziane
     if (IMPOSTORS.length) { const hg = ray.intersectObjects(IMPOSTORS, false)[0]; if (hg && hg.instanceId !== undefined) { hg.object.userData.scheda(hg.object.userData.posti[hg.instanceId][5]); return; } }
+    // animali statici (coturnici): sfera di tocco invisibile attorno a ciascuno
+    if (CLICCABILI.length) { const ha = ray.intersectObjects(CLICCABILI, false)[0]; if (ha) { ha.object.userData.scheda(ha.object.userData.sS); return; } }
     // targhette dei sentieri
     if (SENT && SENT_ON) {
       const hs = ray.intersectObjects(SENT.sprites.filter(sp => sp.visible && sp.material.opacity > 0.1), false)[0];
@@ -2660,6 +2663,48 @@ function buildGenziane(){
     zone: [{ a: 19700, b: 21000, n: 22, d0: 4, d1: 18 }], scheda: schedaGenziana });
   buildImpostor({ nome: 'Adonidi', file: 'adonide.png', layout: 'righe', hReale: 0.38, aspetto: 1.85, seme: 14201, vento: 0.03,
     zone: [{ a: 14200, b: 14620, n: 14, d0: 1.5, d1: 6 }, { a: 17300, b: 18400, n: 22, d0: 2, d1: 9 }], scheda: schedaAdonide });
+}
+// ---------- coturnici: un gruppetto fermo sui pascoli sassosi sopra Passo Le Forche (km ~10,7) ----------
+// Il modello (semplificato, 6.000 triangoli) guarda verso +z e poggia su un sasso: si posa su terraVera,
+// si ruota verso il sentiero con un po' di casualita' e si rende cliccabile con una sfera invisibile.
+const CLICCABILI = [];
+async function buildCoturnici(loader){
+  const g = await loadGLB(loader, 'assets/coturnice.glb?' + VER, () => {});
+  g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { o.material.metalness = 0; o.material.roughness = 0.85; } } });
+  const bb = new THREE.Box3().setFromObject(g.scene), sz = bb.getSize(new THREE.Vector3());
+  const K = (route.lino_h || 7.8) / 1.7;
+  const sc = 0.55 * K / sz.z;                               // ~55 cm fra coda e sasso (un po' piu' grande del vero)
+  g.scene.position.set(-(bb.min.x + bb.max.x) / 2 * sc, -bb.min.y * sc, -(bb.min.z + bb.max.z) / 2 * sc);
+  g.scene.scale.setScalar(sc);
+  // [km, lato (+1 dx / -1 sx), distanza dal sentiero in m, rotazione extra rispetto al sentiero]
+  const posti = [[10620, 1, 5.5, 0.4], [10660, 1, 8, -0.3], [10690, 1, 4, 1.1], [11180, -1, 6, -0.8]];
+  const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+  for (const [sS, lato, dist, rot] of posti) {
+    posAt(sS, tmpA); tanAt(sS, tmpB);
+    const x = tmpA.x - tmpB.z * dist * K * lato, z = tmpA.z + tmpB.x * dist * K * lato;
+    let y = terraVera(x, z, tmpA.y + 8); if (y < -1e3) y = groundAt(x, z);
+    const c = g.scene.clone(true);
+    const grp = new THREE.Group(); grp.name = 'Coturnice'; grp.add(c);
+    grp.position.set(x, y - 0.02, z);
+    // guarda verso il sentiero (dalla posizione al punto piu' vicino del tracciato), poi un po' di casualita'
+    grp.rotation.y = Math.atan2(tmpA.x - x, tmpA.z - z) + rot;
+    // appoggio sulla pendenza: inclina il sasso lungo la direzione di massima pendenza (poco)
+    const h = 1.5, gx = (terraVera(x + h, z, y + 8) - terraVera(x - h, z, y + 8)) / (2 * h), gz = (terraVera(x, z + h, y + 8) - terraVera(x, z - h, y + 8)) / (2 * h);
+    if (Math.abs(gx) < 2 && Math.abs(gz) < 2) { const up = new THREE.Vector3(-gx, 1, -gz).normalize(); const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), up); grp.quaternion.premultiply(q); }
+    const hit = new THREE.Mesh(new THREE.SphereGeometry(0.42 * K, 10, 8), hitMat);
+    hit.position.y = 0.3 * K; hit.userData.scheda = schedaCoturnice; hit.userData.sS = sS; grp.add(hit);
+    CLICCABILI.push(hit);
+    scene.add(grp);
+  }
+}
+function schedaCoturnice(sS){
+  const km = (sS / 1000).toFixed(1).replace('.', ',');
+  openCard('<h2>Coturnice</h2><h3><i>Alectoris graeca</i> · km ' + km + '</h3>' +
+    '<p>La pernice delle montagne appenniniche: grossa come un piccione tozzo, dorso grigio-bruno, gola bianca bordata di nero e fianchi barrati di nero, bianco e castano; becco e zampe rosso corallo. Si alza in volo solo all’ultimo, con un frullo rumoroso, e preferisce scendere il pendio di corsa fra i sassi.</p>' +
+    '<table><tr><th>Dove</th><td>Versanti aperti, assolati e sassosi fra i 1.000 e i 2.500 m, con erba rada e rocce affioranti: pascoli sopra Passo Le Forche, valloni laterali del Velino, creste del Cafornia. In inverno scende di quota sui pendii spazzati dal vento.</td></tr>' +
+    '<tr><th>Abitudini</th><td>Vive in piccoli gruppi familiari (brigate) di 5–15 individui; nidifica a terra fra maggio e giugno. Il richiamo, un «ciò-ciò-ciò-ciock» ripetuto, si sente soprattutto all’alba.</td></tr>' +
+    '<tr><th>Perché conta</th><td>Specie di interesse comunitario, in calo in tutto l’Appennino per l’abbandono dei pascoli e il disturbo: nella Riserva è fra le specie che si cerca di tutelare. In gara non si esce dal tracciato e si tengono i cani al guinzaglio.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026; Riserva Naturale Monte Velino.</p>');
 }
 function schedaAdonide(sS){
   const km = (sS / 1000).toFixed(1).replace('.', ',');
