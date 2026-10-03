@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v76';
+const VER = 'v77';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -2522,7 +2522,35 @@ async function buildAnimali(loader){
     scene.add(grp);
     grp.updateMatrixWorld(true);
     ANIMALI.push({ def: d, grp, bones, rest, root: g.scene, ph: Math.random() * 100 });
+    // cliccabili: sfera di tocco invisibile sul corpo
+    rendiCliccabile(grp, d.at === 'lupo' ? 0.9 * d.scale : 1.1 * d.scale, d.at === 'lupo' ? 0.55 * d.scale : 0.9 * d.scale, d.at === 'lupo' ? schedaLupo : schedaCervoStatico, d.at === 'lupo' ? 25600 : 7800);
   }
+}
+// sfera invisibile (raggio r, centro a quota h sopra l'origine del gruppo) che apre una scheda al tocco
+const hitMatC = new THREE.MeshBasicMaterial({ visible: false });
+function rendiCliccabile(grp, r, h, scheda, sS){
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), hitMatC);
+  hit.position.y = h; hit.userData.scheda = scheda; hit.userData.sS = sS; grp.add(hit);
+  CLICCABILI.push(hit);
+  return hit;
+}
+function schedaLupo(){
+  openCard('<h2>Lupo appenninico</h2><h3><i>Canis lupus italicus</i> · Pratoni di Massa d’Albe</h3>' +
+    '<p>Il grande predatore del Velino: più piccolo e snello del lupo delle Alpi, mantello grigio-fulvo con le tipiche bande nere sulle zampe anteriori. Vive in branchi familiari di 4–7 animali e si muove soprattutto all’alba e al crepuscolo; di giorno è quasi impossibile vederlo, ma le sue tracce sui sentieri fangosi e le fatte sulle creste sono frequenti.</p>' +
+    '<table><tr><th>Dove</th><td>Tutto il massiccio, dalle faggete ai pascoli d’altura: i valloni laterali della Riserva e i pratoni fra Massa d’Albe e Fonte Canale sono zone di caccia abituali.</td></tr>' +
+    '<tr><th>Di cosa vive</th><td>Soprattutto cinghiali, caprioli e cervi, che il ritorno della fauna ha reso di nuovo abbondanti; raramente bestiame, protetto dai cani da guardiania.</td></tr>' +
+    '<tr><th>Storia</th><td>Negli anni ’70 restavano in Italia poche centinaia di lupi, rifugiati proprio sugli Appennini abruzzesi. Protetto dal 1971, è tornato a occupare tutto l’arco appenninico e le Alpi.</td></tr>' +
+    '<tr><th>Se lo incontri</th><td>Non è un pericolo per chi corre: si allontana appena ti vede. Non lasciare cibo e tieni i cani al guinzaglio.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026; Riserva Naturale Monte Velino.</p>');
+}
+function schedaCervoStatico(){
+  openCard('<h2>Cervo nobile</h2><h3><i>Cervus elaphus</i> · bosco di Valle Porclaneta</h3>' +
+    '<p>Il più grande erbivoro del Velino: un maschio adulto pesa fino a 200 kg e porta palchi che rinnova ogni anno. In ottobre siamo alla fine del <b>bramito</b>: nelle sere di fine settembre e inizio ottobre i maschi ruggiscono dalle radure per contendersi le femmine, e il suono arriva fino al paese.</p>' +
+    '<table><tr><th>Dove</th><td>Faggete e margini dei boschi di Valle Porclaneta e dei valloni, pascoli alti all’alba e al tramonto; d’inverno scende verso i fondovalle.</td></tr>' +
+    '<tr><th>Storia</th><td>Scomparso dall’Appennino centrale nell’Ottocento, è stato reintrodotto in Abruzzo a partire dagli anni ’70; dal Parco Nazionale e dal Sirente ha ricolonizzato il Velino, dove oggi la popolazione è stabile.</td></tr>' +
+    '<tr><th>Tracce</th><td>Impronte a due unghie larghe 8–9 cm, cortecce scortecciate dai palchi, i «letti» nelle radure.</td></tr>' +
+    '<tr><th>In gara</th><td>Il tratto di Valle Porclaneta attraversa la sua zona: si corre in silenzio e si resta sul sentiero.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026; Riserva Naturale Monte Velino.</p>');
 }
 // rotazione di un osso attorno a un asse del modello (stessa formula di rotBone, ma per un rig qualsiasi)
 function rotBoneA(an, name, axis, ang, extraAxis, extraAng){
@@ -3049,13 +3077,13 @@ const ORDINE_SPECIE = ['grifone', 'aquila', 'falco', 'cervo'];
 // il cervo: stessa modalita' e stessi comandi, ma a terra (Meshy "Cervo animato": riggato, 49 ossa,
 // senza clip -> andature procedurali per ossa). Prua +z come gli uccelli, origine agli zoccoli.
 SPECIE.cervo = {
-  titolo: 'Cervo', breve: 'CERVO', file: 'assets/cervo2.glb', terra: true, scala: 6.2, cam: 1.0,   // 6,2: spalla a ~1,2 m rispetto a Lino (cervo nobile maschio)
-  map: { spine: ['Bone_001', 'Bone_003', 'Bone_002'], neck: ['Bone_010', 'Bone_009', 'Bone_008'], head: 'Bone_007',
-         tail: ['Bone_026', 'Bone_025', 'Bone_024'], earL: 'Bone_044', earR: 'Bone_046', pelvis: 'Bone_004',
-         // zampe: spalla/anca, gomito/ginocchio, carpo/garretto, nodello
-         FL: ['Bone_016', 'Bone_015', 'Bone_014', 'Bone_013'], FR: ['Bone_022', 'Bone_021', 'Bone_020', 'Bone_019'],
-         RL: ['Bone_032', 'Bone_031', 'Bone_030', 'Bone_029'], RR: ['Bone_038', 'Bone_037', 'Bone_036', 'Bone_035'] },
-  // velocita' di scena (il modello e' 4,4 volte un cervo vero, come Lino): passo, trotto, galoppo
+  titolo: 'Cervo', breve: 'CERVO', file: 'assets/cervo3.glb', terra: true, scala: 7.0, cam: 1.0,   // 7,0: spalla ~1,1 m e lunghezza ~2,6 m rispetto a Lino (cervo nobile maschio)
+  // Meshy "Cervo nuovo" (SmartRig, 43 ossa): +x = sinistra dell'animale, prua +z. Catene degli arti:
+  // spalla/anca, gomito/grassella, carpo/garretto, nodello, zoccolo
+  map: { spine: ['Bone_004', 'Bone_003', 'Bone_002'], neck: ['Bone_023', 'Bone_022', 'Bone_021', 'Bone_020'], head: 'Bone_019',
+         tail: ['Bone_008', 'Bone_007', 'Bone_006'], earL: 'Bone_041', earR: 'Bone_042', pelvis: 'Bone_001',
+         FL: ['Bone_033', 'Bone_032', 'Bone_031', 'Bone_030', 'Bone_029'], FR: ['Bone_028', 'Bone_027', 'Bone_026', 'Bone_025', 'Bone_024'],
+         RL: ['Bone_013', 'Bone_012', 'Bone_011', 'Bone_010', 'Bone_009'], RR: ['Bone_018', 'Bone_017', 'Bone_016', 'Bone_015', 'Bone_014'] },
   cc: { V_PASSO: 4, V_TROTTO: 10, V_GALOPPO: 19, ACC: 7, FRENO: 14, GIRO: 1.5, PEND_MAX: 0.95 }   // 14, 36, 68 km/h: come un cervo vero
 };
 const CER = { v: 0, ph: 0, gait: 0, gaitT: 0, bob: 0, pitch: 0, roll: 0, acc: 0, vPrev: 0, idleT: 0, pronto: false, hoofG: null, hoofR: null };
@@ -3072,37 +3100,23 @@ function prepRig(g, nome){
   if (sp.terra) {
     if (!skin || !bones[map.FL[0]]) throw new Error('rig non riconosciuto: ' + nome);
     skin.frustumCulled = false; skin.castShadow = true;
-    if (skin.material && skin.material.isMeshStandardMaterial) {
-      const mm = skin.material; mm.metalness = 0; mm.roughness = 0.85;
-      // la texture Meshy e' scura e grigiastra: si schiarisce e si scalda verso il bruno-rossiccio del
-      // manto autunnale, tenendo chiari ventre e specchio anale
-      mm.customProgramCacheKey = () => 'cervo-manto';
-      mm.onBeforeCompile = sh => {
-        // posizione nella posa di legatura (prima dello skinning): per riconoscere corna e muso
-        sh.vertexShader = sh.vertexShader
-          .replace('#include <common>', '#include <common>\nvarying vec3 vBind;')
-          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBind = position;');
-        sh.fragmentShader = sh.fragmentShader
-          .replace('#include <common>', '#include <common>\nvarying vec3 vBind;')
-          .replace('#include <color_fragment>', `#include <color_fragment>
-{ vec3 c = diffuseColor.rgb;
-  float l = dot(c, vec3(0.299, 0.587, 0.114));
-  c = pow(c, vec3(0.88)) * 1.10;                                   // un po' piu' chiaro
-  vec3 caldo = vec3(0.50, 0.33, 0.19) * (0.5 + 0.9 * pow(l, 0.6));   // bruno-rossiccio
-  c = mix(c, caldo, 0.40);
-  c *= vec3(1.05, 1.0, 0.93);
-  // corna: sopra la testa (y > 1,08, davanti): piu' chiare e meno rosse, punte quasi avorio
-  float corna = smoothstep(1.06, 1.14, vBind.y) * smoothstep(0.28, 0.36, vBind.z);
-  vec3 cCorna = mix(vec3(0.62, 0.52, 0.40), vec3(0.80, 0.74, 0.62), smoothstep(1.2, 1.6, vBind.y)) * (0.75 + 0.5 * l);
-  c = mix(c, cCorna, corna * 0.85);
-  // muso: la punta (z oltre 0,42, all'altezza della testa) schiarisce con sfumatura
-  float muso = smoothstep(0.40, 0.54, vBind.z) * smoothstep(0.78, 0.86, vBind.y) * (1.0 - smoothstep(1.04, 1.10, vBind.y));
-  c = mix(c, vec3(0.74, 0.62, 0.50) * (0.7 + 0.6 * l), muso * 0.55);
-  diffuseColor.rgb = clamp(c, 0.0, 1.0); }`);
-      };
+    if (skin.material && skin.material.isMeshStandardMaterial) { const mm = skin.material; mm.metalness = 0; mm.roughness = 0.85; }
+    // geometria degli arti misurata sul rig in posa di riposo (unita' di modello): quota dello zoccolo,
+    // posizione in pianta, lunghezza anca->zoccolo. Cosi' la locomozione non dipende da costanti a mano.
+    g.scene.updateMatrixWorld(true);
+    // La posa di riposo di Meshy e' un mezzo passo (zampe sfalsate): a0 e' la rotazione dell'anca che
+    // riporta ogni zoccolo sotto la propria anca, cosi' le andature partono da una posa neutra.
+    const geo = { hoofY: {}, off: {}, a0: {}, L: 0 };
+    const w = new THREE.Vector3(), w2 = new THREE.Vector3();
+    for (const k of ['FL', 'FR', 'RL', 'RR']) {
+      const ch = map[k]; bones[ch[ch.length - 1]].getWorldPosition(w); bones[ch[0]].getWorldPosition(w2);
+      const Lk = w2.y - w.y;
+      geo.hoofY[k] = w.y; geo.off[k] = [w.x, w2.z]; geo.L += Lk / 4;
+      geo.a0[k] = Math.asin(clamp((w.z - w2.z) / Lk, -0.9, 0.9));
     }
+    geo.zF = (geo.off.FL[1] + geo.off.FR[1]) / 2; geo.zR = (geo.off.RL[1] + geo.off.RR[1]) / 2;
     const rest = new Map(); for (const b of Object.values(bones)) rest.set(b, b.quaternion.clone());
-    return { nome, sp, root: g.scene, bones, rest, skin, map, ax: AX, qFix: new THREE.Quaternion(), sc: sp.scala, centro: new THREE.Vector3(0, 0, 0) };
+    return { nome, sp, root: g.scene, bones, rest, skin, map, geo, ax: AX, qFix: new THREE.Quaternion(), sc: sp.scala, centro: new THREE.Vector3(0, 0, 0) };
   }
   if (!skin || !bones[map.wings[0][0]] || !bones[map.wings[1][0]]) throw new Error('rig non riconosciuto: ' + nome);
   skin.frustumCulled = false; skin.castShadow = true;
@@ -3822,20 +3836,20 @@ function tickCervo(dt){
   // ---- appoggio dei quattro zoccoli: si campiona il suolo sotto ciascuno ----
   // Il corpo si inclina lungo il pendio (beccheggio dalla differenza anteriori/posteriori) ma NON
   // di lato: la differenza trasversale la assorbono le zampe (quelle a monte si flettono).
-  const sc = RIG.sc, L = CERVO_GEO.L * sc;
+  const sc = RIG.sc, GEO = RIG.geo, L = GEO.L * sc;
   const sideV = cTmp.set(fwdV.z, 0, -fwdV.x);   // destra del cervo
   const hoofG = C.hoofG || (C.hoofG = {}), hoofR = C.hoofR || (C.hoofR = {});
   for (const k of ['FL', 'FR', 'RL', 'RR']) {
-    const zo = CERVO_GEO.off[k][1] * sc, xo = CERVO_GEO.off[k][0] * sc;     // sideV = asse x del modello nel mondo
+    const zo = GEO.off[k][1] * sc, xo = GEO.off[k][0] * sc;     // sideV = asse x del modello nel mondo
     const x = f.pos.x + fwdV.x * zo + sideV.x * xo, z = f.pos.z + fwdV.z * zo + sideV.z * xo;
     let gg = suoloVolo(x, z, f.pos.y + 3); if (gg < -1e3) gg = gy > -1e3 ? gy : f.pos.y;
     hoofG[k] = gg;
   }
   const gF = (hoofG.FL + hoofG.FR) / 2, gH = (hoofG.RL + hoofG.RR) / 2, gC = (gF + gH) / 2;
-  const slope = (gF - gH) / ((CERVO_GEO.zF - CERVO_GEO.zR) * sc);
+  const slope = (gF - gH) / ((GEO.zF - GEO.zR) * sc);
   let rMin = 1e9;
   const hoofP = C.hoofP || (C.hoofP = {});
-  for (const k in hoofG) { const zo = CERVO_GEO.off[k][1] * sc; hoofP[k] = hoofG[k] - (gC + slope * zo); rMin = Math.min(rMin, hoofP[k]); }
+  for (const k in hoofG) { const zo = GEO.off[k][1] * sc; hoofP[k] = hoofG[k] - (gC + slope * zo); rMin = Math.min(rMin, hoofP[k]); }
   // stima a priori dell'accorciamento di ogni zampa (piano passante per gli zoccoli): serve agli arti
   // in sospensione, per arrivare a terra gia' con la flessione giusta; per quelli in appoggio la
   // flessione e' corretta in anello chiuso misurando gli zoccoli veri (sotto)
@@ -3874,14 +3888,13 @@ function tickCervo(dt){
   // funziona con qualunque posa delle ossa.
   grifP.updateMatrixWorld(true);
   {
-    const NHF = 0.268 * sc, NHR = 0.32 * sc;   // altezza del nodello sulla punta dello zoccolo (ant./post., misurata sul modello)
     const e = C.hoofE || (C.hoofE = {}); let aria = 0, flessi = 1e9, n = 0;
     const g1 = 1 - Math.exp(-25 * dt);
     for (const k of ['FL', 'FR', 'RL', 'RR']) {
-      const b = RIG.bones[RIG.map[k][3]]; if (!b) continue;
+      const ch = RIG.map[k], b = RIG.bones[ch[ch.length - 1]]; if (!b) continue;
       b.getWorldPosition(cTmp2);
       let gk = suoloVolo(cTmp2.x, cTmp2.z, cTmp2.y + 3); if (gk < -1e3) gk = hoofG[k];
-      e[k] = cTmp2.y - (k[0] === 'F' ? NHF : NHR) - gk;                               // + = zoccolo in aria, - = sotto terra
+      e[k] = cTmp2.y - GEO.hoofY[k] * sc - gk;                                     // + = zoccolo in aria, - = sotto terra
       // arto in sospensione: si prepara la flessione stimata dal piano degli zoccoli, corretta con lo
       // scarto (bias) imparato negli appoggi precedenti di quello stesso arto
       const bias = C.hoofB || (C.hoofB = { FL: 0, FR: 0, RL: 0, RR: 0 });
@@ -3927,7 +3940,7 @@ function tickCervo(dt){
 // ---- locomozione del cervo ----
 // Geometria del rig in unita' di modello (misurata alla posa di riposo, ×scala): lunghezza dell'arto
 // anca→suolo, posizione degli zoccoli anteriori/posteriori lungo la prua, scarto laterale.
-const CERVO_GEO = { L: 0.848, zF: 0.23, zR: -0.51, off: { FL: [-0.09, 0.22], FR: [0.075, 0.24], RL: [-0.18, -0.47], RR: [-0.085, -0.55] } };   // off = [x, z] del nodello di ogni arto nel modello
+// (la geometria degli arti e' in RIG.geo, misurata al caricamento)
 // Andature (zoologia dei quadrupedi): A = semiampiezza dell'oscillazione dell'arto, beta = frazione di
 // appoggio (duty factor), off = istante di appoggio di ogni arto nel ciclo (frazione).
 //  passo    = 4 tempi, sequenza laterale: post. sin., ant. sin., post. des., ant. des. (0, ¼, ½, ¾)
@@ -3983,19 +3996,23 @@ function posaCervo(dt, gp, L){
     // combinazione di rotazioni misurata sul rig che alza lo zoccolo senza spostarlo avanti/indietro
     // (anteriore: ~1,5 unita' di accorciamento per radiante; posteriore: ~1,2)
     const d = hoofR[k] || 0;
-    const phi = Math.min(0.7, d / (post ? 1.2 : 1.5) * (6.2 / RIG.sc));
-    const ch = m[k];
+    const phi = Math.min(0.8, d / ((post ? 2.3 : 1.45) * RIG.sc / 7.0));   // rad di "accovacciamento" per l'accorciamento richiesto
+    const ch = m[k], a0 = RIG.geo.a0[k];
     const vol = lift * B + shock;
-    // spalla/anca: oscillazione + compenso del beccheggio (le zampe restano circa verticali nel mondo)
-    rotBone(ch[0], AX.x, th * (post ? 1.0 : 0.92) + C.pitch * 0.7 + phi * (post ? 0.5 : -1.2));
+    // Rig "Cervo nuovo": catena spalla→gomito→carpo→nodello→zoccolo / anca→grassella→garretto→nodello→zoccolo.
+    // Sospensione (vol): anteriore = gomito che si chiude (avambraccio avanti/alto) e carpo che piega
+    // indietro lo stinco; posteriore = grassella che flette (gamba indietro) e garretto che chiude (stinco
+    // avanti). Accovacciamento (phi): anteriore spalla indietro + gomito chiuso; posteriore grassella +
+    // garretto chiusi (la Z si schiaccia). Direzioni e rapporti misurati sul rig.
+    rotBone(ch[0], AX.x, a0 + th * (post ? 1.0 : 0.92) + C.pitch * 0.7 + (post ? 0 : phi));
     if (!post) {
-      rotBone(ch[1], AX.x, vol * 0.55 + phi);                 // gomito
-      rotBone(ch[2], AX.x, vol * 0.70 + phi);                 // carpo
-      rotBone(ch[3], AX.x, vol * 0.35);                       // nodello
-    } else {
-      rotBone(ch[1], AX.x, vol * 0.50 - phi);                 // grassella avanti
-      rotBone(ch[2], AX.x, -vol * 0.75 + phi);                // garretto indietro (la zampa si "chiude" a Z)
+      rotBone(ch[1], AX.x, -vol * 0.90 - phi);                // gomito
+      rotBone(ch[2], AX.x, vol * 1.00 - phi * 0.5);           // carpo
       rotBone(ch[3], AX.x, vol * 0.40);                       // nodello
+    } else {
+      rotBone(ch[1], AX.x, vol * 0.80 + phi);                 // grassella
+      rotBone(ch[2], AX.x, -vol * 1.00 - phi * 2.0);          // garretto
+      rotBone(ch[3], AX.x, vol * 0.30);                       // nodello
     }
   };
   zampa('FL', false); zampa('FR', false); zampa('RL', true); zampa('RR', true);
