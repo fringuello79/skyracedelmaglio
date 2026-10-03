@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v69';
+const VER = 'v70';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -259,6 +259,25 @@ async function boot(){
       }
     });
     scene.add(g.scene);
+    // sette case "fantasma" dell'export a quota 1400 (2000 m reali) sopra Magliano: ogni vertice che
+    // sta piu' di 150 m sopra il suolo viene spinto sottoterra (le mesh dei borghi sono fuse, non si
+    // possono togliere singole case)
+    try {
+      const v = new THREE.Vector3(); let tolti = 0;
+      g.scene.traverse(o => {
+        if (!o.isMesh) return;
+        const p = o.geometry.attributes.position; if (!p) return;
+        o.updateMatrixWorld(true);
+        const inv = o.matrixWorld.clone().invert(); let n = 0;
+        for (let i = 0; i < p.count; i++) {
+          v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+          const gy = terraVera(v.x, v.z, v.y);
+          if (gy > -1e3 && v.y > gy + 150) { v.y = gy - 400; v.applyMatrix4(inv); p.setXYZ(i, v.x, v.y, v.z); n++; }
+        }
+        if (n) { p.needsUpdate = true; o.geometry.computeBoundingSphere(); o.geometry.computeBoundingBox(); tolti += n; }
+      });
+      if (tolti) console.log('borghi: case sospese rimosse (vertici):', tolti);
+    } catch (e) { console.warn('case sospese:', e); }
     try { arredaCase(g.scene); } catch (e) { console.warn('facciate borghi:', e); }
   }, undefined, () => console.warn('borghi assente'));
   // centro di Magliano curato a mano (magliano_centro.blend -> export_magliano.py)
@@ -305,6 +324,7 @@ async function boot(){
   if (h) st.s = clamp(parseFloat(h[1]) * 1000, 0, TOT);
   else st.s = S0_ARCO;
   applicaQualita(QUAL.liv); QUAL.avvio = performance.now();   // ora che alberi e nuvole esistono
+  try { if (!TIDX) TIDX = buildTerrIndex(); correggiGriglia(); } catch (e) { console.warn('griglia:', e); }
   st.ready = true; prog(1);
   {
     // Lino continua a girare con le targhette finche' non si preme il pulsante
@@ -323,7 +343,7 @@ async function boot(){
   window.SRMX = { st, scene: () => scene, route: () => route, vista: setView, terra: groundAt, cam: () => camera, ctrl: () => controls, lino: () => lino, terraV: (x, z, y) => terraVera(x, z, y),
                   look: (p, t) => { camera.position.set(p[0], p[1], p[2]); camTgt.set(t[0], t[1], t[2]); controls.target.copy(camTgt); controls.update(); },
                   y0arco: () => Y0_ARCO, pos: s => { posAt(s, tmpC); return [tmpC.x, tmpC.y, tmpC.z]; }, goto: km => { st.sTarget = clamp(km, 0, route.total_km) * 1000; },
-                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, cer: () => CER, sent: () => ({ SENT, SENT_ON, sentT }), tickS: dt => tickSentieri(dt), rb: (n, ax, a) => rotBone(n, AX[ax], a), vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
+                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, cer: () => CER, ext: () => EXT_TILES, tickE: dt => tickExtTiles(dt), sent: () => ({ SENT, SENT_ON, sentT }), tickS: dt => tickSentieri(dt), rb: (n, ax, a) => rotBone(n, AX[ax], a), vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
                   anim: () => action ? { t: +action.time.toFixed(3), ts: +mixer.timeScale.toFixed(2),
                                          dur: +action.getClip().duration.toFixed(2) } : null,
                   tracks: () => action ? action.getClip().tracks.map(t => t.name) : [],
@@ -588,6 +608,7 @@ let S0_ARCO = -15.0;
 let Y0_ARCO = null;      // quota del suolo vero sotto l'arco (raycast al caricamento)
 let YEXT = null;         // suolo campionato ogni metro da s=S0_ARCO a s=0
 let TAPPETO = null;
+const TAPPETO_SP = 0.45;   // spessore della pedana verde: Lino ci cammina sopra (YEXT alzato di altrettanto)
 function setArco(cx, cz){
   ARCO.x = cx; ARCO.z = cz;
   const dx = route.x[0] - cx, dz = -route.y[0] - cz;
@@ -609,6 +630,7 @@ function campionaTrattoArco(){
     ye.push(h0 ? h0.point.y + 0.05 : null);
   }
   for (let k = 0; k <= n; k++) if (ye[k] === null) ye[k] = k > 0 ? ye[k - 1] : (prev ? prev[0] : route.z[0]);
+  for (let k = 0; k <= n; k++) ye[k] += TAPPETO_SP;      // si cammina sulla pedana
   YEXT = ye; Y0_ARCO = ye[0];
 }
 // tappeto verde dall'arco all'inizio del tracciato: nastro di 5 m che segue il suolo campionato,
@@ -616,49 +638,61 @@ function campionaTrattoArco(){
 function buildTappeto(){
   if (TAPPETO) { TAPPETO.removeFromParent(); TAPPETO.geometry.dispose(); TAPPETO = null; }
   if (!YEXT) return;
-  // largo quanto la luce fra i piloni dell'arco (ARCO.W), da 3 m dietro l'arco fino a 10 m oltre
-  // l'inizio del tracciato (dove si sovrappone al nastro di gara), poi si stringe in 6 m
-  const W = ARCO.W || 12, SOPRA = 10, CODA = 6;
-  const pos = [], uv = [], idx = [];
+  // Pedana verde spessa (SP) larga quanto la luce fra i piloni, da 3 m dietro l'arco a 10 m oltre
+  // l'inizio del tracciato (dove copre il nastro di gara), poi si stringe in 6 m. Il piano di calpestio
+  // sta a SP sopra il suolo o 6 cm sopra il nastro, lisciato lungo la lunghezza: niente gradini.
+  const W = ARCO.W || 12, SOPRA = 10, CODA = 6, SP = TAPPETO_SP;
   let trailM = null; scene.traverse(o => { if (!trailM && o.isMesh && (o.name || '') === 'SRM_Trail') trailM = o; });
   const rcT = new THREE.Raycaster(), rcO = new THREE.Vector3(), rcD = new THREE.Vector3(0, -1, 0);
-  let k = 0;
+  const rows = [];
   for (let s = S0_ARCO - 3; s <= SOPRA + CODA + 0.01; s += 1) {
     posAt(s, tmpA); tanAt(Math.max(s, S0_ARCO), tmpB);
     let sx = -tmpB.z, sz = tmpB.x; const sl = Math.hypot(sx, sz) || 1; sx /= sl; sz /= sl;
-    if (s <= 0) { sx = -ARCO.dz; sz = ARCO.dx; }                      // sul tratto dell'arco: lato dell'arco
+    if (s <= 0) { sx = -ARCO.dz; sz = ARCO.dx; }
     const w = s <= SOPRA ? W : W * Math.max(0.15, 1 - (s - SOPRA) / CODA);
-    // quota: il punto piu' alto fra suolo e nastro di gara sotto la fascia del tappeto (+12 cm):
-    // cosi' il nastro non buca mai il tappeto
-    let y = tmpA.y + 0.035;
-    if (s > -6) {
-      for (let q = -0.5; q <= 0.5; q += 0.25) {
-        const px = tmpA.x + sx * w * q, pz = tmpA.z + sz * w * q;
-        rcT.set(rcO.set(px, tmpA.y + 25, pz), rcD);
-        const h = trailM ? rcT.intersectObject(trailM, false)[0] : null;
-        if (h && h.point.y + 0.22 > y) y = h.point.y + 0.22;
-        const g = terraVera(px, pz, tmpA.y + 5); if (g > -1e3 && g + 0.06 > y) y = g + 0.06;
-      }
+    let y = -1e9;
+    for (let q = -0.5; q <= 0.5; q += 0.25) {
+      const px = tmpA.x + sx * w * q, pz = tmpA.z + sz * w * q;
+      const g = terraVera(px, pz, tmpA.y + 5); if (g > -1e3) y = Math.max(y, g + SP);
+      if (trailM) { rcT.set(rcO.set(px, tmpA.y + 25, pz), rcD); const h = rcT.intersectObject(trailM, false)[0]; if (h) y = Math.max(y, h.point.y + 0.06); }
     }
-    pos.push(tmpA.x - sx * w / 2, y, tmpA.z - sz * w / 2, tmpA.x + sx * w / 2, y, tmpA.z + sz * w / 2);
-    uv.push(0, k, 1, k);
-    if (s + 1 <= SOPRA + CODA + 0.01) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-    k++;
+    if (y < -1e8) y = tmpA.y + SP;
+    rows.push({ x: tmpA.x, z: tmpA.z, sx, sz, w, y, s });
   }
+  // lisciatura del piano (media mobile a 5), poi di nuovo mai sotto il nastro
+  const ys = rows.map(r => r.y);
+  for (let k = 0; k < rows.length; k++) { let a = 0, n = 0; for (let d = -2; d <= 2; d++) { const j = k + d; if (j >= 0 && j < rows.length) { a += ys[j]; n++; } } rows[k].y = Math.max(a / n, ys[k] - 0.04); }
+  const pos = [], uv = [], idx = [];
+  const H = SP + 0.3;   // fianchi che scendono fin dentro il suolo
+  rows.forEach((r, k) => {
+    const lx = r.x - r.sx * r.w / 2, lz = r.z - r.sz * r.w / 2, rx = r.x + r.sx * r.w / 2, rz = r.z + r.sz * r.w / 2;
+    // 4 vertici per riga: sinistra alto, destra alto, sinistra basso, destra basso
+    pos.push(lx, r.y, lz, rx, r.y, rz, lx, r.y - H, lz, rx, r.y - H, rz);
+    uv.push(0, k, 1, k, -1, k, 2, k);          // i fianchi hanno u fuori [0,1]: niente riga bianca
+    if (k < rows.length - 1) {
+      const a = k * 4;
+      idx.push(a, a + 1, a + 4, a + 1, a + 5, a + 4);               // piano
+      idx.push(a + 2, a, a + 6, a, a + 4, a + 6);                   // fianco sinistro
+      idx.push(a + 1, a + 3, a + 5, a + 3, a + 7, a + 5);           // fianco destro
+    }
+  });
+  // testata dietro l'arco
+  idx.push(2, 3, 0, 3, 1, 0);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.MeshStandardMaterial({ color: 0x2f7a43, roughness: 0.95, metalness: 0, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+  const m = new THREE.MeshStandardMaterial({ color: 0x2f7a43, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
   m.onBeforeCompile = sh => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-{ float b = min(vUv.x, 1.0 - vUv.x);                               // bordo bianco di 18 cm
-  float riga = 1.0 - smoothstep(0.03, 0.045, b);
+{ float b = min(vUv.x, 1.0 - vUv.x);                               // bordo bianco di 18 cm sul piano
+  float riga = (vUv.x >= 0.0 && vUv.x <= 1.0) ? 1.0 - smoothstep(0.03, 0.045, b) : 0.0;
+  float fianco = (vUv.x < 0.0 || vUv.x > 1.0) ? 1.0 : 0.0;
   float grana = 0.94 + 0.12 * fract(sin(dot(floor(vUv * vec2(40.0, 2.0)), vec2(12.9898, 78.233))) * 43758.5453);
-  diffuseColor.rgb = mix(diffuseColor.rgb * grana, vec3(0.93, 0.92, 0.88), riga); }`);
+  diffuseColor.rgb = mix(diffuseColor.rgb * grana * (1.0 - 0.25 * fianco), vec3(0.93, 0.92, 0.88), riga); }`);
   };
   m.defines = { USE_UV: '' };
-  TAPPETO = new THREE.Mesh(g, m); TAPPETO.name = 'Tappeto'; TAPPETO.receiveShadow = true; TAPPETO.renderOrder = 2;
+  TAPPETO = new THREE.Mesh(g, m); TAPPETO.name = 'Tappeto'; TAPPETO.receiveShadow = true; TAPPETO.castShadow = true; TAPPETO.renderOrder = 2;
   scene.add(TAPPETO);
 }
 // legge il centro dell'arco dai piloni del glb e rifa' tratto, suolo e tappeto
@@ -1670,6 +1704,27 @@ async function loadHeights(){
     HG = Object.assign({}, j, { data: new Uint16Array(b) });
   } catch (e) { console.warn('height assente:', e.message); }
 }
+// La griglia height.bin ha zone sbagliate (una fascia a sud di Magliano segna 1400 dove la mesh sta a
+// -35: da li' le case "sospese"). Dopo l'avvio si confronta ogni cella con la mesh vera, a fette,
+// e si corregge dove lo scarto supera i 40 m.
+function correggiGriglia(){
+  if (!HG || !TIDX) return;
+  let j = 0, n = 0;
+  const passo = () => {
+    const t0 = performance.now();
+    for (; j < HG.ny && performance.now() - t0 < 6; j++) {
+      const yb = HG.y0 + (HG.y1 - HG.y0) * j / (HG.ny - 1);
+      for (let i = 0; i < HG.nx; i++) {
+        const xb = HG.x0 + (HG.x1 - HG.x0) * i / (HG.nx - 1);
+        const g = HG.data[j * HG.nx + i] * HG.scala;
+        const t = terraVera(xb, -yb, g);
+        if (t > -1e3 && t !== g && Math.abs(t - g) > 40) { HG.data[j * HG.nx + i] = Math.max(0, Math.round(t / HG.scala)); n++; }
+      }
+    }
+    if (j < HG.ny) setTimeout(passo, 30); else if (n) console.log('griglia quote corretta:', n, 'celle');
+  };
+  setTimeout(passo, 1500);
+}
 function groundAt(x, z){
   if (!HG) return -1e4;
   const xb = x, yb = -z;
@@ -1754,33 +1809,78 @@ function buildTerrenoEsterno(){
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = -y;
     uv[k * 2] = (x - G.x0) / (G.x1 - G.x0); uv[k * 2 + 1] = (y - G.y0) / (G.y1 - G.y0);
   }
-  const idx = [];
+  // un sotto-mesh per ogni tassello 4x4 della texture ad alta risoluzione (caricata quando ci si avvicina)
+  const NT = 4, idxT = []; for (let k = 0; k < NT * NT; k++) idxT.push([]);
   for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
     if (dentro(xs[i], ys[j]) && dentro(xs[i + 1], ys[j + 1])) continue;   // buco sotto il terreno interno
     const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1;
-    idx.push(a, b, c, b, d, c);
+    const cx = (xs[i] + xs[i + 1]) / 2, cy = (ys[j] + ys[j + 1]) / 2;
+    const ti = clamp(Math.floor((cx - G.x0) / (G.x1 - G.x0) * NT), 0, NT - 1), tj = clamp(Math.floor((cy - G.y0) / (G.y1 - G.y0) * NT), 0, NT - 1);
+    idxT[tj * NT + ti].push(a, b, c, b, d, c);
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  geo.setIndex(idx); geo.computeVertexNormals();
+  const posA = new THREE.BufferAttribute(pos, 3), uvA = new THREE.BufferAttribute(uv, 2);
   const tex = new THREE.TextureLoader().load('assets/ortho_ext.jpg?' + VER);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
   // tinta per la roccia procedurale: una miniatura della texture (canvas 128)
   const tinta = new THREE.CanvasTexture(document.createElement('canvas'));
   tinta.image.width = 128; tinta.image.height = 128;
   const ctx = tinta.image.getContext('2d'); ctx.fillStyle = '#8c8878'; ctx.fillRect(0, 0, 128, 128);
   const img = new Image(); img.onload = () => { ctx.drawImage(img, 0, 0, 128, 128); tinta.needsUpdate = true; }; img.src = 'assets/ortho_ext.jpg?' + VER;
   tinta.colorSpace = THREE.SRGBColorSpace;
-  mat.onBeforeCompile = sh => compilaTerreno(sh, tinta);
-  mat.customProgramCacheKey = () => 'terreno-ext';
-  const m = new THREE.Mesh(geo, mat);
-  m.name = 'TerrenoEsterno'; m.receiveShadow = false; m.castShadow = false; m.frustumCulled = false;
-  m.renderOrder = -1;
-  scene.add(m);
-  EXT = m;
-  console.log('anello esterno:', nx + 'x' + ny, 'vertici', nx * ny, 'triangoli', idx.length / 3);
+  const grp = new THREE.Group(); grp.name = 'TerrenoEsterno';
+  EXT_TILES = [];
+  let ntri = 0;
+  for (let k = 0; k < NT * NT; k++) {
+    if (!idxT[k].length) continue;
+    const ti = k % NT, tj = Math.floor(k / NT);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', posA); geo.setAttribute('uv', uvA);
+    geo.setIndex(idxT[k]); geo.computeVertexNormals(); geo.computeBoundingSphere();
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
+    const uUvA = { value: new THREE.Vector4(1, 1, 0, 0) };     // (scala, offset) sulle uv della mappa
+    mat.onBeforeCompile = sh => {
+      compilaTerreno(sh, tinta);
+      sh.uniforms.uUvA = uUvA;
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform vec4 uUvA;')
+        .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = (vMapUv - uUvA.zw) * uUvA.xy;\n#endif');
+    };
+    mat.customProgramCacheKey = () => 'terreno-ext';
+    const m = new THREE.Mesh(geo, mat);
+    m.name = 'TerrenoEsterno_' + ti + '_' + tj; m.receiveShadow = false; m.castShadow = false; m.frustumCulled = true;
+    m.renderOrder = -1;
+    grp.add(m);
+    const cx = G.x0 + (G.x1 - G.x0) * (ti + 0.5) / NT, cz = -(G.y0 + (G.y1 - G.y0) * (tj + 0.5) / NT);
+    EXT_TILES.push({ m, mat, uUvA, ti, tj, cx, cz, raggio: Math.hypot((G.x1 - G.x0) / NT, (G.y1 - G.y0) / NT) / 2, stato: 0 });
+    ntri += idxT[k].length / 3;
+  }
+  scene.add(grp);
+  EXT = grp;
+  console.log('anello esterno:', nx + 'x' + ny, 'vertici', nx * ny, 'triangoli', ntri, 'tasselli', EXT_TILES.length);
+}
+// texture ad alta risoluzione dell'anello (assets/ext/t_i_j.jpg, 1536 px, ~7 m/px come l'ortho interna):
+// si carica il tassello quando la camera e' entro ~7 km dal suo bordo, uno alla volta; sui livelli bassi
+// di qualita' resta la texture di base. Niente scaricamento: una volta caricato resta.
+let EXT_TILES = [], extT = 0, extLoading = false;
+const EXT_TEX_LOADER = new THREE.TextureLoader();
+function tickExtTiles(dt){
+  if (!EXT_TILES.length || QUAL.liv === 0) return;
+  extT += dt; if (extT < 0.5) return; extT = 0;
+  if (extLoading) return;
+  let best = null, bd = 1e12;
+  for (const t of EXT_TILES) {
+    if (t.stato) continue;
+    const d = Math.max(0, Math.hypot(camera.position.x - t.cx, camera.position.z - t.cz) - t.raggio);
+    if (d < 7000 && d < bd) { bd = d; best = t; }
+  }
+  if (!best) return;
+  best.stato = 1; extLoading = true;
+  EXT_TEX_LOADER.load('assets/ext/t_' + best.ti + '_' + best.tj + '.jpg?' + VER, tx => {
+    tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; tx.wrapS = tx.wrapT = THREE.ClampToEdgeWrapping;
+    best.mat.map = tx; best.mat.needsUpdate = false;
+    best.uUvA.value.set(4, 4, best.ti / 4, best.tj / 4);
+    best.stato = 2; extLoading = false;
+  }, undefined, () => { best.stato = 3; extLoading = false; });
 }
 // vette dei monti intorno: come quelle del Velino, con quota dal DEM esterno
 function aggiungiVetteEsterne(){
@@ -3956,7 +4056,7 @@ function tick(){
       m.position.set(g.c[0] + g.r * Math.cos(ph), g.c[2] + Math.sin(tNow0 * 0.6 + g.ph0) * 4, -(g.c[1] + g.r * Math.sin(ph)));
       m.rotation.y = ph + Math.PI / 2 + Math.PI;
     }
-    tickPeaks(dt); tickSentieri(dt);
+    tickPeaks(dt); tickSentieri(dt); tickExtTiles(dt);
     renderer.render(scene, camera);
     guardiaFps(dtReale);
     return;
@@ -4040,7 +4140,7 @@ function tick(){
     m.position.set(g.c[0] + g.r * Math.cos(ph), g.c[2] + Math.sin(tNow * 0.6 + g.ph0) * 4, -(g.c[1] + g.r * Math.sin(ph)));
     m.rotation.y = ph + Math.PI / 2 + Math.PI;
   }
-  tickPeaks(dt); tickSentieri(dt);
+  tickPeaks(dt); tickSentieri(dt); tickExtTiles(dt);
   updateHUD();
   renderer.render(scene, camera);
   guardiaFps(dtReale);
