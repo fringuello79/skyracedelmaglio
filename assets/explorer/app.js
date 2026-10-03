@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v70';
+const VER = 'v71';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -646,9 +646,19 @@ function buildTappeto(){
   const rcT = new THREE.Raycaster(), rcO = new THREE.Vector3(), rcD = new THREE.Vector3(0, -1, 0);
   const rows = [];
   for (let s = S0_ARCO - 3; s <= SOPRA + CODA + 0.01; s += 1) {
-    posAt(s, tmpA); tanAt(Math.max(s, S0_ARCO), tmpB);
-    let sx = -tmpB.z, sz = tmpB.x; const sl = Math.hypot(sx, sz) || 1; sx /= sl; sz /= sl;
-    if (s <= 0) { sx = -ARCO.dz; sz = ARCO.dx; }
+    posAt(s, tmpA);
+    if (s > 0 && s < 8) {   // il centro raccorda la retta dell'arco al tracciato
+      const t0 = s / 8, t1 = t0 * t0 * (3 - 2 * t0);
+      const lx = ARCO.x + ARCO.dx * (ARCO.L + s), lz = ARCO.z + ARCO.dz * (ARCO.L + s);
+      tmpA.x = lx * (1 - t1) + tmpA.x * t1; tmpA.z = lz * (1 - t1) + tmpA.z * t1;
+    } tanAt(Math.max(s, S0_ARCO), tmpB);
+    // lato: quello dell'arco sul tratto rettilineo, quello del tracciato oltre il km 0, fusi con una
+    // transizione morbida fra -10 e +6 m (niente piega ne' gradino alla giuntura)
+    let rx = -tmpB.z, rz = tmpB.x; const rl = Math.hypot(rx, rz) || 1; rx /= rl; rz /= rl;
+    const ax = -ARCO.dz, az = ARCO.dx;
+    if (rx * ax + rz * az < 0) { rx = -rx; rz = -rz; }           // stesso verso
+    let tt = clamp((s + 10) / 16, 0, 1); tt = tt * tt * (3 - 2 * tt);
+    let sx = ax * (1 - tt) + rx * tt, sz = az * (1 - tt) + rz * tt; const sl = Math.hypot(sx, sz) || 1; sx /= sl; sz /= sl;
     const w = s <= SOPRA ? W : W * Math.max(0.15, 1 - (s - SOPRA) / CODA);
     let y = -1e9;
     for (let q = -0.5; q <= 0.5; q += 0.25) {
