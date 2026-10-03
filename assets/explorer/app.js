@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v75';
+const VER = 'v76';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -1027,6 +1027,7 @@ function buildPins(){
   const ray = new THREE.Raycaster(), pt = new THREE.Vector2();
   let downXY = null;
   renderer.domElement.addEventListener('pointerdown', e => { downXY = [e.clientX, e.clientY]; });
+  setupCamCervo(renderer.domElement);
   renderer.domElement.addEventListener('pointerup', e => {
     if (!downXY) return;
     const moved = Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]); downXY = null;
@@ -3048,7 +3049,7 @@ const ORDINE_SPECIE = ['grifone', 'aquila', 'falco', 'cervo'];
 // il cervo: stessa modalita' e stessi comandi, ma a terra (Meshy "Cervo animato": riggato, 49 ossa,
 // senza clip -> andature procedurali per ossa). Prua +z come gli uccelli, origine agli zoccoli.
 SPECIE.cervo = {
-  titolo: 'Cervo', breve: 'CERVO', file: 'assets/cervo2.glb', terra: true, scala: 4.4, cam: 1.0,
+  titolo: 'Cervo', breve: 'CERVO', file: 'assets/cervo2.glb', terra: true, scala: 6.2, cam: 1.0,   // 6,2: spalla a ~1,2 m rispetto a Lino (cervo nobile maschio)
   map: { spine: ['Bone_001', 'Bone_003', 'Bone_002'], neck: ['Bone_010', 'Bone_009', 'Bone_008'], head: 'Bone_007',
          tail: ['Bone_026', 'Bone_025', 'Bone_024'], earL: 'Bone_044', earR: 'Bone_046', pelvis: 'Bone_004',
          // zampe: spalla/anca, gomito/ginocchio, carpo/garretto, nodello
@@ -3057,7 +3058,7 @@ SPECIE.cervo = {
   // velocita' di scena (il modello e' 4,4 volte un cervo vero, come Lino): passo, trotto, galoppo
   cc: { V_PASSO: 4, V_TROTTO: 10, V_GALOPPO: 19, ACC: 7, FRENO: 14, GIRO: 1.5, PEND_MAX: 0.95 }   // 14, 36, 68 km/h: come un cervo vero
 };
-const CER = { v: 0, ph: 0, gait: 0, bob: 0, pitch: 0, roll: 0, idleT: 0, pronto: false };
+const CER = { v: 0, ph: 0, gait: 0, gaitT: 0, bob: 0, pitch: 0, roll: 0, acc: 0, vPrev: 0, idleT: 0, pronto: false, hoofG: null, hoofR: null };
 const RIGS = {};          // rig pronti, per specie
 let RIG = null;           // rig della specie in volo
 let LOADER = null;
@@ -3217,13 +3218,13 @@ async function cambiaSpecie(nome){
     else if (eraTerra) {
       // dal cervo a un uccello: si decolla dal punto in cui si era, 25 m piu' in alto
       FLY.pos.y += 25; FLY.v = 22; FLY.pitch = FC.PITCH_GLIDE; FLY.roll = 0; FLY.mode = 'volo'; FLY.fold = 0; FLY.flapPow = 0.5;
-      document.body.classList.remove('cervo');
+      document.body.classList.remove('cervo'); if (OMBRA_C) OMBRA_C.visible = false;
     }
     FLY.v = Math.min(FLY.v, FC.VMAX);
     if (FLY.on) { $('zona-n').textContent = nomeVolo(); }
     { const lab = document.querySelectorAll('#bar .slot .lab'); if (lab[0]) { lab[0].textContent = rig.sp.terra ? 'A terra' : 'In volo'; lab[3].textContent = rig.sp.terra ? 'Pendenza' : 'Vario'; } }
     const bf = $('b-flap'); if (bf) bf.innerHTML = rig.sp.terra ? 'CORRI<small>GALOPPO</small>' : 'BATTI<small>LE ALI</small>';
-    const fh = $('fly-hint'); if (fh) fh.textContent = rig.sp.terra ? '▲ avanti · ▼ fermo · ◀ ▶ gira · SPAZIO galoppo · C cambia animale · ESC torna a Lino' : '▲ picchiata · ▼ cabrata · ◀ ▶ virata · SPAZIO batti le ali · C cambia uccello · ESC torna a Lino';
+    const fh = $('fly-hint'); if (fh) fh.textContent = rig.sp.terra ? '▲ avanti · ▼ fermo · ◀ ▶ gira · SPAZIO galoppo · trascina per girare la vista · C cambia animale · ESC torna a Lino' : '▲ picchiata · ▼ cabrata · ◀ ▶ virata · SPAZIO batti le ali · C cambia uccello · ESC torna a Lino';
     const bs = $('b-specie'); if (bs) bs.textContent = SPECIE[nome].breve + ' ▸';
     try { localStorage.setItem('srm-specie', nome); } catch (e) {}
   } catch (e) {
@@ -3339,7 +3340,7 @@ function flyStop(){
   FLY.on = false;
   sndWind(0, 0);
   if (FLY.mode === 'tour') { $('b-tour').classList.remove('on'); document.body.classList.remove('tour'); }
-  FLY.mode = 'volo'; grifP.visible = false; skirt.visible = false;
+  FLY.mode = 'volo'; grifP.visible = false; skirt.visible = false; if (OMBRA_C) OMBRA_C.visible = false;
   if (FLY.fogSaved) { scene.fog.near = FLY.fogSaved[0]; scene.fog.far = QUAL.liv === 0 ? 11000 : FLY.fogSaved[1]; FLY.fogSaved = null; }
   $('fade').style.opacity = 0; $('impatto').classList.remove('on');
   camera.fov = 55; camera.updateProjectionMatrix();
@@ -3760,11 +3761,11 @@ function cervoInizio(eraTerra){
   f.mode = 'cervo'; f.fold = 0; f.flapPow = 0; f.stall = false; f.roll = 0; f.pitch = 0;
   CER.v = 0; CER.ph = 0; CER.gait = 0; CER.pronto = false;
   if (!eraTerra && !(f.volato)) {
-    // partenza da Lino: se e' gia' sul percorso, 7 m a lato del sentiero; se e' ancora in paese,
-    // poco prima del Monte Rozza (km 11,8), dove il sentiero sale sulle creste
-    const sRef = st.s > 500 ? st.s : 11800;
+    // partenza da Lino: se e' gia' sul percorso, 3 m a lato del sentiero; se e' ancora in paese,
+    // al km 12,25 (sella erbosa prima del Balcone sulla Val di Teve, pendio dolce)
+    const sRef = st.s > 500 ? st.s : 12250;   // km 12,25: sella erbosa pianeggiante prima del Balcone sulla Val di Teve
     posAt(sRef, tmpA); tanAt(sRef, tmpB);
-    f.pos.set(tmpA.x - tmpB.z * 7, tmpA.y, tmpA.z + tmpB.x * 7);
+    f.pos.set(tmpA.x - tmpB.z * 3, tmpA.y, tmpA.z + tmpB.x * 3);   // 3 m a lato del sentiero (il pendio li' e' dolce)
     f.yaw = Math.atan2(tmpB.x, tmpB.z);
   }
   // a terra, sulla mesh vera, sotto il punto attuale
@@ -3773,6 +3774,8 @@ function cervoInizio(eraTerra){
   if (gy > -1e3) f.pos.y = gy;
   f.agl = 0; f.vario = 0; f.v = 0;
   document.body.classList.add('cervo');
+  buildOmbraCervo();
+  CAM_C.yaw = 0; CAM_C.pit = 0.33; CAM_C.zoom = 1; CAM_C.idle = 9; CER.hoofR = null; CER.hoofRok = false; CER.yOff = 0; CER.bob = 0; CER.gaitT = 0; CER.acc = 0; CER.vPrev = 0;
   if (f.mode === 'tour') tourStop();
   // camera dietro e un po' alta
   fwdV.set(Math.sin(f.yaw), 0, Math.cos(f.yaw));
@@ -3810,40 +3813,105 @@ function tickCervo(dt){
   f.pos.addScaledVector(fwdV, C.v * dt);
   let gy = suoloVolo(f.pos.x, f.pos.z, f.pos.y + 2);
   if (gy < -1e3) gy = groundAt(f.pos.x, f.pos.z);
-  if (gy > -1e3) f.pos.y += (gy - f.pos.y) * (1 - Math.exp(-14 * dt));
   f.agl = 0; f.lift = 0;
   f.vario += ((C.v * pend) - f.vario) * (1 - Math.exp(-3 * dt));
   // confine morbido come in volo
   const ex = (f.pos.x - FC.BC[0]) / FC.BR[0], ez = (f.pos.z - FC.BC[1]) / FC.BR[1];
   const er = Math.hypot(ex, ez);
   if (er > 1.0) { f.pos.x = FC.BC[0] + ex / er * FC.BR[0]; f.pos.z = FC.BC[1] + ez / er * FC.BR[1]; }
-  // assetto: beccheggio lungo il pendio, rollio col pendio trasversale (molle lente)
-  const gL = suoloVolo(f.pos.x + fwdV.z * 2.5, f.pos.z - fwdV.x * 2.5, f.pos.y + 3), gR = suoloVolo(f.pos.x - fwdV.z * 2.5, f.pos.z + fwdV.x * 2.5, f.pos.y + 3);
-  // il corpo resta verticale: al pendio trasversale si adattano le zampe (C.lat), in curva veloce
-  // c'e' solo una leggera piega verso l'interno
-  const pT = clamp(Math.atan(pend) * 0.6, -0.5, 0.5);
-  const latT = (gL > -1e3 && gR > -1e3) ? clamp(Math.atan((gL - gR) / 5), -0.45, 0.45) : 0;
-  const rT = -f.inX * 0.10 * clamp(C.v / cc.V_GALOPPO, 0, 1);
-  C.pitch += (pT - C.pitch) * (1 - Math.exp(-4 * dt));
+  // ---- appoggio dei quattro zoccoli: si campiona il suolo sotto ciascuno ----
+  // Il corpo si inclina lungo il pendio (beccheggio dalla differenza anteriori/posteriori) ma NON
+  // di lato: la differenza trasversale la assorbono le zampe (quelle a monte si flettono).
+  const sc = RIG.sc, L = CERVO_GEO.L * sc;
+  const sideV = cTmp.set(fwdV.z, 0, -fwdV.x);   // destra del cervo
+  const hoofG = C.hoofG || (C.hoofG = {}), hoofR = C.hoofR || (C.hoofR = {});
+  for (const k of ['FL', 'FR', 'RL', 'RR']) {
+    const zo = CERVO_GEO.off[k][1] * sc, xo = CERVO_GEO.off[k][0] * sc;     // sideV = asse x del modello nel mondo
+    const x = f.pos.x + fwdV.x * zo + sideV.x * xo, z = f.pos.z + fwdV.z * zo + sideV.z * xo;
+    let gg = suoloVolo(x, z, f.pos.y + 3); if (gg < -1e3) gg = gy > -1e3 ? gy : f.pos.y;
+    hoofG[k] = gg;
+  }
+  const gF = (hoofG.FL + hoofG.FR) / 2, gH = (hoofG.RL + hoofG.RR) / 2, gC = (gF + gH) / 2;
+  const slope = (gF - gH) / ((CERVO_GEO.zF - CERVO_GEO.zR) * sc);
+  let rMin = 1e9;
+  const hoofP = C.hoofP || (C.hoofP = {});
+  for (const k in hoofG) { const zo = CERVO_GEO.off[k][1] * sc; hoofP[k] = hoofG[k] - (gC + slope * zo); rMin = Math.min(rMin, hoofP[k]); }
+  // stima a priori dell'accorciamento di ogni zampa (piano passante per gli zoccoli): serve agli arti
+  // in sospensione, per arrivare a terra gia' con la flessione giusta; per quelli in appoggio la
+  // flessione e' corretta in anello chiuso misurando gli zoccoli veri (sotto)
+  for (const k in hoofP) hoofP[k] = clamp(hoofP[k] - rMin, 0, L * 0.45);
+  if (!C.hoofRok) { for (const k in hoofP) hoofR[k] = hoofP[k]; C.hoofRok = true; C.yOff = rMin; }
+  // quota del corpo: piano degli zoccoli + correzione appresa dagli zoccoli veri
+  if (gy > -1e3) { const yT = gC + (C.yOff || 0); f.pos.y += (yT - f.pos.y) * (1 - Math.exp(-14 * dt)); }
+  // accelerazione (per la piega del corpo in frenata/ripartenza)
+  C.acc = (C.acc || 0) + (((C.v - (C.vPrev === undefined ? C.v : C.vPrev)) / Math.max(dt, 1e-3)) - (C.acc || 0)) * (1 - Math.exp(-6 * dt));
+  C.vPrev = C.v;
+  const pT = clamp(Math.atan(slope) * 0.75, -0.5, 0.5) + clamp(C.acc * 0.012, -0.08, 0.06);
+  const rT = -f.inX * 0.06 * clamp((C.v - cc.V_TROTTO) / (cc.V_GALOPPO - cc.V_TROTTO), 0, 1);   // piega verso l'interno solo in curva al galoppo
+  C.pitch += (pT - C.pitch) * (1 - Math.exp(-5 * dt));
   C.roll += (rT - C.roll) * (1 - Math.exp(-4 * dt));
-  C.lat = (C.lat || 0) + (latT - (C.lat || 0)) * (1 - Math.exp(-4 * dt));
-  // andatura: 0 fermo, 1 passo, 2 trotto, 3 galoppo; fase dalla distanza percorsa
-  const gaitT = C.v < 0.2 ? 0 : C.v < cc.V_PASSO + 1.5 ? 1 : C.v < cc.V_TROTTO + 4 ? 2 : 3;
-  C.gait += (gaitT - C.gait) * (1 - Math.exp(-5 * dt));
-  const passo = [1, 4.6, 8.0, 14.5][gaitT] || 4.6;    // lunghezza della falcata in unita' di scena
-  if (C.v > 0.2) C.ph += dt * Math.PI * 2 * C.v / passo; else C.idleT += dt;
-  posaCervo(dt);
-  // posa del gruppo: inclinato come il suolo, con il "bob" della corsa
+  // andatura: 0 fermo, 1 passo, 2 trotto, 3 galoppo (con isteresi), fase = frazione del ciclo
+  // dalla distanza percorsa, con la falcata che discende dalla geometria (zoccolo che non slitta)
+  let gaitT = C.gaitT || 0;
+  if (C.v < 0.2) gaitT = 0;
+  else if (C.v < cc.V_PASSO * 1.35 - (gaitT >= 2 ? 1.2 : 0)) gaitT = 1;
+  else if (C.v < cc.V_TROTTO * 1.3 - (gaitT >= 3 ? 2 : 0)) gaitT = 2;
+  else gaitT = 3;
+  C.gaitT = gaitT;
+  C.gait += (gaitT - C.gait) * (1 - Math.exp(-4 * dt));
+  const gp = gaitParams(C.gait);
+  const falcata = 2 * L * Math.sin(gp.A) / gp.beta;
+  if (C.v > 0.2) { C.ph += dt * C.v / falcata; C.ph -= Math.floor(C.ph); C.idleT = 0; } else C.idleT += dt;
+  posaCervo(dt, gp, L);
+  // posa del gruppo: inclinato come il suolo lungo la prua, dritto di lato, con il "bob" della falcata
   gEul.set(-C.pitch, f.yaw, -C.roll, 'YXZ');   // muso in giu' in discesa
   grifP.quaternion.setFromEuler(gEul);
   grifP.position.copy(f.pos); grifP.position.y += C.bob;
-  // camera d'inseguimento
-  const back = 22 + C.v * 0.25, alto = 9 + C.v * 0.08;
-  cTmp.copy(f.pos).addScaledVector(fwdV, -back); cTmp.y += alto;
-  const gc = groundAt(cTmp.x, cTmp.z); if (gc > -1e3 && cTmp.y < gc + 4) cTmp.y = gc + 4;
+  // ---- anello chiuso sugli zoccoli: si misurano i nodelli veri dopo la posa ----
+  // Ogni arto in appoggio si flette (o si distende) quanto basta perche' il suo zoccolo stia sul suolo:
+  // la flessione a meta' appoggio e' la "molla" della zampa vera. Il corpo si muove piano: scende se un
+  // arto gia' disteso resta in aria, risale se tutti gli arti sono flessi. Nessuna geometria a mano:
+  // funziona con qualunque posa delle ossa.
+  grifP.updateMatrixWorld(true);
+  {
+    const NHF = 0.268 * sc, NHR = 0.32 * sc;   // altezza del nodello sulla punta dello zoccolo (ant./post., misurata sul modello)
+    const e = C.hoofE || (C.hoofE = {}); let aria = 0, flessi = 1e9, n = 0;
+    const g1 = 1 - Math.exp(-25 * dt);
+    for (const k of ['FL', 'FR', 'RL', 'RR']) {
+      const b = RIG.bones[RIG.map[k][3]]; if (!b) continue;
+      b.getWorldPosition(cTmp2);
+      let gk = suoloVolo(cTmp2.x, cTmp2.z, cTmp2.y + 3); if (gk < -1e3) gk = hoofG[k];
+      e[k] = cTmp2.y - (k[0] === 'F' ? NHF : NHR) - gk;                               // + = zoccolo in aria, - = sotto terra
+      // arto in sospensione: si prepara la flessione stimata dal piano degli zoccoli, corretta con lo
+      // scarto (bias) imparato negli appoggi precedenti di quello stesso arto
+      const bias = C.hoofB || (C.hoofB = { FL: 0, FR: 0, RL: 0, RR: 0 });
+      if (!C.stance[k]) { hoofR[k] += (Math.max(0, hoofP[k] + bias[k]) - hoofR[k]) * (1 - Math.exp(-8 * dt)); continue; }
+      n++;
+      hoofR[k] = clamp(hoofR[k] - e[k] * g1, 0, L * 0.45);
+      if (Math.abs(e[k]) < 0.1) bias[k] += ((hoofR[k] - hoofP[k]) - bias[k]) * (1 - Math.exp(-3 * dt));
+      if (hoofR[k] <= 0.001 && e[k] > aria) aria = e[k];      // arto disteso che non arriva a terra
+      flessi = Math.min(flessi, hoofR[k]);
+    }
+    if (n) {
+      let d = 0;
+      if (aria > 0.005) d = -aria * (1 - Math.exp(-9 * dt));                 // scende
+      else if (flessi > 0.05) d = (flessi - 0.05) * (1 - Math.exp(-4 * dt)); // risale, con calma
+      C.yOff = (C.yOff || 0) + d; f.pos.y += d; grifP.position.y += d;
+    }
+  }
+  if (OMBRA_C) { OMBRA_C.position.set(f.pos.x, gy > -1e3 ? gy + 0.06 : f.pos.y + 0.06, f.pos.z); OMBRA_C.rotation.y = f.yaw; OMBRA_C.visible = true; }
+  // camera: insegue da dietro; con il trascinamento si orbita intorno al cervo, con la rotella ci si
+  // avvicina; quando il cervo riparte la vista torna piano alle sue spalle
+  const K = sc / 4.4;
+  const oc = CAM_C;
+  oc.idle += dt;
+  if (!oc.drag && C.v > 0.5 && oc.idle > 1.5) { oc.yaw -= oc.yaw * (1 - Math.exp(-0.7 * dt)); oc.pit += (0.33 - oc.pit) * (1 - Math.exp(-0.5 * dt)); }
+  const dist = (24 + C.v * 0.25) * K * oc.zoom, dir = f.yaw + Math.PI + oc.yaw;
+  cTmp.set(f.pos.x + Math.sin(dir) * Math.cos(oc.pit) * dist, f.pos.y + Math.sin(oc.pit) * dist + 2 * K, f.pos.z + Math.cos(dir) * Math.cos(oc.pit) * dist);
+  { let gc = terraVera(cTmp.x, cTmp.z, cTmp.y + 20); if (gc < -1e3) gc = groundAt(cTmp.x, cTmp.z); if (gc > -1e3 && cTmp.y < gc + 2.5 * K) cTmp.y = gc + 2.5 * K; }
   if (!(window.SRMX && window.SRMX.freeze)) {
-    camera.position.lerp(cTmp, 1 - Math.exp(-3.2 * dt));
-    cTmp2.copy(f.pos); cTmp2.y += 4.5;
+    camera.position.lerp(cTmp, 1 - Math.exp(-(oc.drag ? 14 : 3.2) * dt));
+    cTmp2.copy(f.pos); cTmp2.y += 4.5 * K;
     camTgt.lerp(cTmp2, 1 - Math.exp(-6 * dt));
     camera.lookAt(camTgt);
   }
@@ -3856,53 +3924,144 @@ function tickCervo(dt){
   $('v-p').innerHTML = (pend * 100 > 0 ? '+' : '') + Math.round(pend * 100) + '<span class="unit"> %</span>';
   $('stallo').classList.remove('on');
 }
-// andature per ossa: passo (4 tempi, coppie diagonali sfalsate), trotto (diagonali insieme),
-// galoppo (anteriori quasi insieme, posteriori quasi insieme, schiena che si flette)
-function posaCervo(dt){
+// ---- locomozione del cervo ----
+// Geometria del rig in unita' di modello (misurata alla posa di riposo, ×scala): lunghezza dell'arto
+// anca→suolo, posizione degli zoccoli anteriori/posteriori lungo la prua, scarto laterale.
+const CERVO_GEO = { L: 0.848, zF: 0.23, zR: -0.51, off: { FL: [-0.09, 0.22], FR: [0.075, 0.24], RL: [-0.18, -0.47], RR: [-0.085, -0.55] } };   // off = [x, z] del nodello di ogni arto nel modello
+// Andature (zoologia dei quadrupedi): A = semiampiezza dell'oscillazione dell'arto, beta = frazione di
+// appoggio (duty factor), off = istante di appoggio di ogni arto nel ciclo (frazione).
+//  passo    = 4 tempi, sequenza laterale: post. sin., ant. sin., post. des., ant. des. (0, ¼, ½, ¾)
+//  trotto   = 2 tempi, coppie diagonali (PS+AD, PD+AS) con breve sospensione
+//  galoppo  = trasverso, guida destra: PS, PD, AS, AD poi sospensione raccolta (beta ~⅓)
+// La falcata viene dalla geometria: 2·L·sin(A)/beta, cosi' lo zoccolo in appoggio non slitta.
+const GAITS = [
+  { A: 0.00, beta: 0.62, B: 0.00, off: { RL: 0, FL: 0.25, RR: 0.5, FR: 0.75 } },
+  { A: 0.30, beta: 0.62, B: 0.45, off: { RL: 0, FL: 0.25, RR: 0.5, FR: 0.75 } },
+  { A: 0.38, beta: 0.45, B: 0.65, off: { RL: 0, FL: 0.5, RR: 0.5, FR: 1.0 } },
+  { A: 0.50, beta: 0.33, B: 0.90, off: { RL: 0, FL: 0.45, RR: 0.12, FR: 0.58 } }
+];
+const gpOut = { A: 0, beta: 0, B: 0, off: { RL: 0, FL: 0, RR: 0, FR: 0 } };
+function gaitParams(g){
+  g = clamp(g, 0, 3);
+  const i = Math.min(2, Math.floor(g)), t = g - i, a = GAITS[i], b = GAITS[i + 1];
+  // da fermo a passo l'ampiezza cresce ma falcata e sfasamenti restano quelli del passo
+  gpOut.A = a.A + (b.A - a.A) * t; gpOut.beta = a.beta + (b.beta - a.beta) * t; gpOut.B = a.B + (b.B - a.B) * t;
+  for (const k in gpOut.off) gpOut.off[k] = a.off[k] + (b.off[k] - a.off[k]) * t;
+  if (i === 0) { gpOut.A = Math.max(gpOut.A, 0.001); }
+  return gpOut;
+}
+// Posa per ossa. Per ogni arto, dalla fase u del ciclo:
+//  appoggio (u < beta): l'arto ruota all'indietro a velocita' costante da -A a +A (zoccolo fermo a terra);
+//  sospensione: torna avanti con accelerazione dolce, flettendo gomito/carpo (ant.) o grassella/garretto
+//  (post.), e si distende poco prima di toccare terra.
+// Il corpo scende quando gli arti in appoggio sono inclinati (pendolo inverso: altezza = L·cos θ) e si
+// solleva nella fase di sospensione del trotto e del galoppo; al galoppo la colonna si flette e si
+// distende con la falcata e il collo compensa; al passo la testa annuisce a ogni appoggio.
+function posaCervo(dt, gp, L){
   const C = CER, m = RIG.map, t = performance.now() / 1000;
   const g = C.gait, ph = C.ph;
   const wIdle = clamp(1 - g, 0, 1), wWalk = clamp(1 - Math.abs(g - 1), 0, 1), wTrot = clamp(1 - Math.abs(g - 2), 0, 1), wGal = clamp(g - 2, 0, 1);
-  // ampiezza dell'oscillazione dell'arto e flessione in volo per andatura
-  const A = 0.22 * wWalk + 0.32 * wTrot + 0.46 * wGal, B = 0.45 * wWalk + 0.60 * wTrot + 0.85 * wGal;
-  // sfasamenti: passo/trotto diagonali (FL+RR, FR+RL); galoppo per coppie trasversali
-  const offWalk = { FL: 0, RR: 0.35, FR: Math.PI, RL: Math.PI + 0.35 };
-  const offGal = { FL: 0, FR: 0.5, RL: Math.PI + 0.1, RR: Math.PI + 0.6 };
+  const A = gp.A, beta = gp.beta, B = gp.B;
+  const hoofR = C.hoofR || {}, stance = C.stance || (C.stance = {});
+  let drop = 0, nStance = 0;
   const zampa = (k, post) => {
-    const off = offWalk[k] * (1 - wGal) + offGal[k] * wGal;
-    const p = ph + off;
-    const sw = Math.sin(p);                                   // rotazione x positiva = arto indietro
-    const vol = Math.max(0, -Math.cos(p));                   // l'arto avanza (sospeso): si flette
-    const ch = m[k];
-    // spalla/anca: oscillazione. Anteriore: gomito e carpo si piegano all'indietro.
-    // Posteriore: grassella indietro, garretto in avanti, nodello indietro (zampa che si raccoglie)
-    rotBone(ch[0], AX.x, sw * A * (post ? 1.0 : 0.9) + C.pitch * 0.85, AX.z, -(C.lat || 0));   // compensi: zampe verticali col corpo inclinato in avanti, e piegate col pendio laterale
-    if (!post) {
-      rotBone(ch[1], AX.x, vol * B * 0.55);
-      rotBone(ch[2], AX.x, vol * B * 0.65);
-      rotBone(ch[3], AX.x, vol * B * 0.3);
+    const u = ((ph + gp.off[k]) % 1 + 1) % 1;
+    let th, lift = 0, shock = 0;
+    stance[k] = u < beta || wIdle > 0.5;     // da fermo tutti e quattro gli arti sono in appoggio
+    if (u < beta) {
+      const s = u / beta;
+      th = -A + 2 * A * s;                                   // rotazione x positiva = arto indietro
+      shock = Math.max(0, 1 - s / 0.3) * (0.05 * wTrot + 0.10 * wGal);   // ammortizza all'appoggio
+      drop += L * (1 - Math.cos(th)); nStance++;
     } else {
-      rotBone(ch[1], AX.x, vol * B * 0.5);
-      rotBone(ch[2], AX.x, -vol * B * 0.7);
-      rotBone(ch[3], AX.x, vol * B * 0.35);
+      const s = (u - beta) / (1 - beta);
+      th = A - 2 * A * (0.5 - 0.5 * Math.cos(Math.PI * s));
+      lift = Math.sin(Math.PI * s);
+      lift *= 1 - 0.5 * Math.max(0, s - 0.8) / 0.2;          // si distende prima del contatto
+    }
+    // flessione per accorciare la zampa (pendio trasversale, terreno irregolare, molla a meta' appoggio):
+    // combinazione di rotazioni misurata sul rig che alza lo zoccolo senza spostarlo avanti/indietro
+    // (anteriore: ~1,5 unita' di accorciamento per radiante; posteriore: ~1,2)
+    const d = hoofR[k] || 0;
+    const phi = Math.min(0.7, d / (post ? 1.2 : 1.5) * (6.2 / RIG.sc));
+    const ch = m[k];
+    const vol = lift * B + shock;
+    // spalla/anca: oscillazione + compenso del beccheggio (le zampe restano circa verticali nel mondo)
+    rotBone(ch[0], AX.x, th * (post ? 1.0 : 0.92) + C.pitch * 0.7 + phi * (post ? 0.5 : -1.2));
+    if (!post) {
+      rotBone(ch[1], AX.x, vol * 0.55 + phi);                 // gomito
+      rotBone(ch[2], AX.x, vol * 0.70 + phi);                 // carpo
+      rotBone(ch[3], AX.x, vol * 0.35);                       // nodello
+    } else {
+      rotBone(ch[1], AX.x, vol * 0.50 - phi);                 // grassella avanti
+      rotBone(ch[2], AX.x, -vol * 0.75 + phi);                // garretto indietro (la zampa si "chiude" a Z)
+      rotBone(ch[3], AX.x, vol * 0.40);                       // nodello
     }
   };
   zampa('FL', false); zampa('FR', false); zampa('RL', true); zampa('RR', true);
-  // schiena e bob: al galoppo il dorso si flette e si distende con la falcata
-  const flex = Math.sin(ph + 0.4) * (0.06 * wTrot + 0.16 * wGal);
-  m.spine.forEach((n, i) => rotBone(n, AX.x, flex * (0.6 + 0.4 * i)));
-  rotBone(m.pelvis, AX.x, -flex * 0.8);
-  C.bob = (Math.sin(ph * 2) * (0.05 * wWalk + 0.08 * wTrot) + Math.sin(ph) * 0.22 * wGal) * (RIG.sc / 4.4);
-  // collo e testa: fermo guarda in giro e bruca ogni tanto; in corsa il collo si allunga avanti
+  // quota del corpo
+  // (il saliscendi del pendolo inverso emerge da solo dall'anello chiuso sugli zoccoli; qui si aggiunge
+  // solo il sollevamento nella fase di sospensione, quando nessun arto tocca terra)
+  const bob = nStance ? 0 : L * (0.03 * wTrot + 0.07 * wGal);
+  C.bob += (bob - (C.bob || 0)) * (1 - Math.exp(-25 * dt));
+  // colonna: al trotto quasi rigida, al galoppo flessione/estensione lombare con la falcata
+  const cyc = Math.sin(2 * Math.PI * (ph + 0.1));
+  const flex = cyc * (0.03 * wTrot + 0.15 * wGal);
+  m.spine.forEach((n, i) => rotBone(n, AX.x, flex * (0.5 + 0.5 * i)));
+  rotBone(m.pelvis, AX.x, -flex * 0.9);
+  // collo e testa: da fermo guarda in giro e bruca; al passo annuisce; in corsa il collo si allunga
+  // avanti e compensa il beccheggio del tronco
   const look = Math.sin(t * 0.35) * 0.6 + Math.sin(t * 0.13 + 1) * 0.4;
   const graze = wIdle * clamp(Math.sin(t * 0.09 + C.idleT * 0.01) * 3 - 1.5, 0, 1);
-  const stretch = 0.12 * wTrot + 0.30 * wGal;
+  const stretch = 0.10 * wTrot + 0.30 * wGal;
+  const nod = Math.sin(2 * Math.PI * 2 * ph) * 0.05 * wWalk - cyc * 0.10 * wGal;
   const turnLook = -FLY.inX * 0.35;
-  m.neck.forEach((n, i) => rotBone(n, AX.y, (look * 0.25 * wIdle + turnLook * 0.4) * (i === 0 ? 1 : 0.6), AX.x, graze * 0.35 + stretch * 0.4 - Math.sin(ph) * 0.03 * wGal));
-  rotBone(m.head, AX.y, look * 0.3 * wIdle + turnLook * 0.3, AX.x, graze * 0.3 - stretch * 0.5 + Math.sin(t * 0.7) * 0.03);
+  m.neck.forEach((n, i) => rotBone(n, AX.y, (look * 0.25 * wIdle + turnLook * 0.4) * (i === 0 ? 1 : 0.6), AX.x, graze * 0.35 + stretch * 0.4 + nod * 0.5));
+  rotBone(m.head, AX.y, look * 0.3 * wIdle + turnLook * 0.3, AX.x, graze * 0.3 - stretch * 0.5 + nod * 0.6 + Math.sin(t * 0.7) * 0.03 * wIdle);
   // coda: su quando corre (allarme), ferma e penzolante da fermo; orecchie a scatti
   m.tail.forEach((n, i) => rotBone(n, AX.x, -(0.25 * wTrot + 0.55 * wGal) * (i === 0 ? 1 : 0.5) + Math.sin(t * 1.6 + i) * 0.04 * wIdle, AX.y, Math.sin(t * 1.3) * 0.08 * wIdle));
   const e1 = Math.sin(t * 3.3) > 0.9 ? 1 : 0, e2 = Math.sin(t * 2.7 + 2) > 0.9 ? 1 : 0;
   rotBone(m.earL, AX.z, e1 * 0.3 * wIdle); rotBone(m.earR, AX.z, -e2 * 0.3 * wIdle);
+}
+// ombra di contatto sotto il cervo: macchia morbida che resta anche quando le ombre vere sono spente
+// (qualita' bassa) e "incolla" l'animale al suolo
+let OMBRA_C = null;
+function buildOmbraCervo(){
+  if (OMBRA_C) return OMBRA_C;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const x = cv.getContext('2d'); const gr = x.createRadialGradient(64, 64, 4, 64, 64, 62);
+  gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.28)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(cv);
+  const sc = RIG ? RIG.sc : 4.4;
+  const geo = new THREE.PlaneGeometry(0.75 * sc, 1.25 * sc); geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  OMBRA_C = new THREE.Mesh(geo, mat); OMBRA_C.renderOrder = 1; OMBRA_C.visible = false; OMBRA_C.name = 'OmbraCervo';
+  scene.add(OMBRA_C);
+  return OMBRA_C;
+}
+// camera orbitale del cervo: trascinamento = gira intorno, rotella/pinch = distanza
+const CAM_C = { yaw: 0, pit: 0.33, zoom: 1, drag: false, idle: 9, px: 0, py: 0, pid: null, pinch: 0 };
+function setupCamCervo(el){
+  el.addEventListener('pointerdown', e => {
+    if (FLY.mode !== 'cervo' || CAM_C.pid !== null) return;
+    CAM_C.pid = e.pointerId; CAM_C.px = e.clientX; CAM_C.py = e.clientY; CAM_C.drag = true; CAM_C.idle = 0;
+  });
+  const fine = e => { if (e.pointerId === CAM_C.pid) { CAM_C.pid = null; CAM_C.drag = false; CAM_C.idle = 0; } };
+  el.addEventListener('pointermove', e => {
+    if (e.pointerId !== CAM_C.pid || !CAM_C.drag) return;
+    const dx = e.clientX - CAM_C.px, dy = e.clientY - CAM_C.py; CAM_C.px = e.clientX; CAM_C.py = e.clientY;
+    CAM_C.yaw -= dx * 0.006; if (CAM_C.yaw > Math.PI) CAM_C.yaw -= 2 * Math.PI; else if (CAM_C.yaw < -Math.PI) CAM_C.yaw += 2 * Math.PI; CAM_C.pit = clamp(CAM_C.pit + dy * 0.004, 0.04, 1.25); CAM_C.idle = 0;
+  });
+  el.addEventListener('pointerup', fine); el.addEventListener('pointercancel', fine);
+  el.addEventListener('wheel', e => { if (FLY.mode !== 'cervo') return; CAM_C.zoom = clamp(CAM_C.zoom * Math.exp(e.deltaY * 0.0012), 0.4, 2.6); CAM_C.idle = 0; }, { passive: true });
+  el.addEventListener('touchmove', e => {
+    if (FLY.mode !== 'cervo' || e.touches.length !== 2) return;
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    if (CAM_C.pinch) CAM_C.zoom = clamp(CAM_C.zoom * (CAM_C.pinch / d), 0.4, 2.6);
+    CAM_C.pinch = d; CAM_C.idle = 0;
+  }, { passive: true });
+  el.addEventListener('touchend', () => { CAM_C.pinch = 0; });
 }
 function tickTerra(dt){
   const f = FLY;
