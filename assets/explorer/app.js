@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const VER = 'v77';
+const VER = 'v78';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -2593,8 +2593,11 @@ function tickAnimali(dt){
 // Appoggiato con le QUATTRO ruote a terra: piano passante per le quote del suolo sotto le ruote.
 async function buildMezzoPC(loader){
   let vecchio = null; scene.traverse(o => { if (!vecchio && o.isMesh && o.name === 'PC_Meshy') vecchio = o; });
-  if (!vecchio) return;
-  const bbv = new THREE.Box3().setFromObject(vecchio); const cv = bbv.getCenter(new THREE.Vector3());
+  // parcheggiato sulla spianata al km 9,85, dentro la curva a destra del sentiero (14 m avanti e 16 m a
+  // destra del punto di curva, nel verso del tratto che precede la curva): e' li' che si piazzano
+  posAt(9850, tmpA); tanAt(9850, tmpB);
+  const cv = new THREE.Vector3(tmpA.x + tmpB.x * 14 + tmpB.z * 16, tmpA.y, tmpA.z + tmpB.z * 14 - tmpB.x * 16);
+  { const t = terraVera(cv.x, cv.z, cv.y + 30); cv.y = t > -1e3 ? t : groundAt(cv.x, cv.z); }
   const g = await loadGLB(loader, 'assets/pc2.glb?' + VER, () => {});
   g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { o.material.metalness = 0.1; o.material.roughness = 0.6; } } });
   const bb = new THREE.Box3().setFromObject(g.scene); const sz = bb.getSize(new THREE.Vector3());
@@ -2606,9 +2609,8 @@ async function buildMezzoPC(loader){
   g.scene.scale.setScalar(sc);
   grp.add(g.scene);
   // parcheggiato di fianco al sentiero, lungo la tangente (il modello e' lungo l'asse x)
-  let best = 0, bd = 1e9;
-  for (let sS = 9000; sS < 11000; sS += 10) { posAt(sS, tmpA); const d = Math.hypot(tmpA.x - cv.x, tmpA.z - cv.z); if (d < bd) { bd = d; best = sS; } }
-  tanAt(best, tmpB);
+  const best = 9850;
+  tanAt(9800, tmpB);                                        // nel verso del tratto prima della curva
   const yaw = Math.atan2(tmpB.x, tmpB.z) - Math.PI / 2;    // asse x del modello sulla tangente
   const L = LUNG * (sz.x >= sz.z ? 1 : sz.z / sz.x), Wd = LUNG * Math.min(sz.x, sz.z) / Math.max(sz.x, sz.z);
   const hx = L / 2 * 0.72, hz = Wd / 2 * 0.85;             // passo e carreggiata (circa)
@@ -2634,7 +2636,7 @@ async function buildMezzoPC(loader){
   grp.updateMatrixWorld(true);
   const res = ruote.map(([lx, lz]) => { wv.set(lx, 0, lz).applyMatrix4(grp.matrixWorld); const t = terraVera(wv.x, wv.z, wv.y + 5); return +(wv.y - t).toFixed(2); });
   grp.position.y += 0.03 - Math.min(...res);     // nessuna ruota sotto terra, la piu' bassa sfiora
-  vecchio.visible = false;
+  if (vecchio) vecchio.visible = false;
   console.log('mezzo PC: km', (best / 1000).toFixed(2), 'pendenze', (pitch * 57.3).toFixed(1), (roll * 57.3).toFixed(1), 'ruote', res.join(' '));
 }
 
@@ -3081,10 +3083,10 @@ SPECIE.cervo = {
   // Meshy "Cervo nuovo" (SmartRig, 43 ossa): +x = sinistra dell'animale, prua +z. Catene degli arti:
   // spalla/anca, gomito/grassella, carpo/garretto, nodello, zoccolo
   map: { spine: ['Bone_004', 'Bone_003', 'Bone_002'], neck: ['Bone_023', 'Bone_022', 'Bone_021', 'Bone_020'], head: 'Bone_019',
-         tail: ['Bone_008', 'Bone_007', 'Bone_006'], earL: 'Bone_041', earR: 'Bone_042', pelvis: 'Bone_001',
+         tail: ['Bone_008', 'Bone_007', 'Bone_006'], earL: null, earR: 'Bone_040', pelvis: 'Bone_001', colloYaw: 0.36,   // Bone_042 e' la mandibola (non orecchio); il collo del modello e' girato a destra di ~0,4 rad
          FL: ['Bone_033', 'Bone_032', 'Bone_031', 'Bone_030', 'Bone_029'], FR: ['Bone_028', 'Bone_027', 'Bone_026', 'Bone_025', 'Bone_024'],
          RL: ['Bone_013', 'Bone_012', 'Bone_011', 'Bone_010', 'Bone_009'], RR: ['Bone_018', 'Bone_017', 'Bone_016', 'Bone_015', 'Bone_014'] },
-  cc: { V_PASSO: 4, V_TROTTO: 10, V_GALOPPO: 19, ACC: 7, FRENO: 14, GIRO: 1.5, PEND_MAX: 0.95 }   // 14, 36, 68 km/h: come un cervo vero
+  cc: { V_PASSO: 5, V_TROTTO: 12, V_GALOPPO: 22, ACC: 13, FRENO: 16, GIRO: 1.5, PEND_MAX: 0.95 }   // 18, 43, 79 km/h: un po' sopra il vero, per leggibilita'
 };
 const CER = { v: 0, ph: 0, gait: 0, gaitT: 0, bob: 0, pitch: 0, roll: 0, acc: 0, vPrev: 0, idleT: 0, pronto: false, hoofG: null, hoofR: null };
 const RIGS = {};          // rig pronti, per specie
@@ -4032,13 +4034,16 @@ function posaCervo(dt, gp, L){
   const graze = wIdle * clamp(Math.sin(t * 0.09 + C.idleT * 0.01) * 3 - 1.5, 0, 1);
   const stretch = 0.10 * wTrot + 0.30 * wGal;
   const nod = Math.sin(2 * Math.PI * 2 * ph) * 0.05 * wWalk - cyc * 0.10 * wGal;
-  const turnLook = -FLY.inX * 0.35;
-  m.neck.forEach((n, i) => rotBone(n, AX.y, (look * 0.25 * wIdle + turnLook * 0.4) * (i === 0 ? 1 : 0.6), AX.x, graze * 0.35 + stretch * 0.4 + nod * 0.5));
-  rotBone(m.head, AX.y, look * 0.3 * wIdle + turnLook * 0.3, AX.x, graze * 0.3 - stretch * 0.5 + nod * 0.6 + Math.sin(t * 0.7) * 0.03 * wIdle);
+  // rotazioni di imbardata ripartite sulla catena (totale: sguardo in giro ±0,35, curva ±0,25) + la
+  // correzione costante del collo del modello (colloYaw), che altrimenti tiene la testa girata a destra
+  const nN = m.neck.length, yawC = (RIG.sp.map.colloYaw || 0) / (nN + 1);
+  const turnLook = -FLY.inX * 0.25 / (nN + 1), lookY = look * 0.35 * wIdle / (nN + 1);
+  m.neck.forEach((n, i) => rotBone(n, AX.y, yawC + lookY + turnLook, AX.x, (graze * 0.35 + stretch * 0.4 + nod * 0.5) * (3 / nN)));
+  rotBone(m.head, AX.y, yawC + lookY + turnLook, AX.x, graze * 0.3 - stretch * 0.5 + nod * 0.6 + Math.sin(t * 0.7) * 0.03 * wIdle);
   // coda: su quando corre (allarme), ferma e penzolante da fermo; orecchie a scatti
   m.tail.forEach((n, i) => rotBone(n, AX.x, -(0.25 * wTrot + 0.55 * wGal) * (i === 0 ? 1 : 0.5) + Math.sin(t * 1.6 + i) * 0.04 * wIdle, AX.y, Math.sin(t * 1.3) * 0.08 * wIdle));
   const e1 = Math.sin(t * 3.3) > 0.9 ? 1 : 0, e2 = Math.sin(t * 2.7 + 2) > 0.9 ? 1 : 0;
-  rotBone(m.earL, AX.z, e1 * 0.3 * wIdle); rotBone(m.earR, AX.z, -e2 * 0.3 * wIdle);
+  if (m.earL) rotBone(m.earL, AX.z, e1 * 0.3 * wIdle); if (m.earR) rotBone(m.earR, AX.z, -e2 * 0.3 * wIdle);
 }
 // ombra di contatto sotto il cervo: macchia morbida che resta anche quando le ombre vere sono spente
 // (qualita' bassa) e "incolla" l'animale al suolo
