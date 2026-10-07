@@ -40,7 +40,7 @@ async function avvia() {
 }
 
 /* =========================================================== accesso e archivio */
-// codice squadra: senza spazi e in maiuscolo, così «srm26» e «SRM26» sono la stessa squadra
+// codice squadra: senza spazi e in maiuscolo, così «abc12» e «ABC12» sono la stessa squadra
 const normCodice = c => String(c || '').trim().toUpperCase().replace(/\s+/g, '');
 // impronte SHA-256 dei codici non più in uso (il codice vero non compare nel sorgente pubblico)
 const CODICI_DISMESSI = ['6e639817d7af2a6881326d3a2eaaee00df41fa22c76f2de078bb553ba720380b'];
