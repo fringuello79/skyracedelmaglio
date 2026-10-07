@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Segnaletica SRM 2026: piano di posa</title>
+<meta name="theme-color" content="#153821">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Oswald:wght@500;700&display=swap">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/report.css">
+</head>
+<body>
+<div class="comandi no-stampa">
+  <a class="btn" href="./">Torna alla mappa</a>
+  <button class="btn btn-primario" id="btnStampa">Stampa o salva in PDF</button>
+</div>
+
+<header class="testata">
+  <img src="img/logo-srm.png" alt="Skyrace del Maglio" width="96" height="106">
+  <div>
+    <h1>Segnaletica temporanea</h1>
+    <p class="sotto">Skyrace del Maglio 2026, piano di posa e verifica</p>
+    <p class="data" id="dataReport"></p>
+  </div>
+</header>
+
+<main>
+  <section class="avviso">
+    <h2>Prima di piantare un paletto</h2>
+    <p>Le posizioni di questo piano sono <strong>calcolate dalla traccia GPX ufficiale</strong> a partire dai chilometri indicati in fase di pianificazione. Possono essere spostate di qualche decina di metri rispetto al bivio reale.</p>
+    <p><strong>Sul posto controlla sempre che nel punto ci sia davvero il bivio o il passaggio dubbio</strong>, e sposta il segnale dove serve: con lo strumento online usa «Metti qui» quando sei sul bivio giusto. Se un punto non ti convince, non piantare il paletto e avvisa Ale.</p>
+  </section>
+
+  <section class="regole">
+    <h2>Regole del Parco per la segnaletica</h2>
+    <ul>
+      <li>Frecce in legno verniciate all'acqua di rosso, con il logo SRM bianco, su paletto in legno di circa 60 cm, fissate con vite da legno.</li>
+      <li>Nessun nastro, bandierina o freccia in plastica.</li>
+      <li>Il paletto si pianta nel terreno: niente chiodi, legature strette o danni ad alberi, rocce e manufatti, e nessuna vernice su alberi o rocce.</li>
+      <li>Nel tratto percorso due volte (km 0–2,6 all'andata, km 27,1–29,7 al ritorno) lo stesso paletto porta due frecce: <b>A</b> per l'andata e <b>R</b> per il ritorno.</li>
+      <li>Rimozione completa entro <strong>mercoledì 21 ottobre alle 16:00</strong>, 72 ore dalla chiusura della gara (art. 11 del disciplinare del Parco Sirente Velino). La cauzione viene restituita dopo la verifica della pulizia.</li>
+    </ul>
+  </section>
+
+  <section class="panoramica">
+    <h2>Il percorso e i paletti</h2>
+    <div id="mappaPanoramica" class="mappa-grande" aria-label="Mappa del percorso con i paletti numerati"></div>
+    <table class="tabella" id="tabella">
+      <thead><tr><th>Paletto</th><th>km</th><th>Frecce</th><th>Sentiero</th><th>Quota</th><th>Stato</th><th>Dal piano di Ale</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="presidi-rep" id="presidiRep" hidden>
+    <h2>Presidi lungo il percorso</h2>
+    <table class="tabella" id="tabellaPresidi">
+      <thead><tr><th>km</th><th>Presidio</th><th>Persone e telefoni</th><th>Note</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="schede"></section>
+</main>
+
+<footer class="piede">
+  <p>Strumento online per verifica, posa e rimozione: <span id="linkApp"></span>. Report generato dai dati della squadra al momento dell'apertura.</p>
+</footer>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script type="module" src="js/report.js"></script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+[
+ {
+  "km": 0,
+  "nome": "Partenza / Arrivo",
+  "tipo": "start",
+  "desc": "Piazza della Repubblica, Magliano de' Marsi — partenza ore 09:00, chiusura ore 16:00",
+  "lat": 42.09237,
+  "lon": 13.3646,
+  "ele": 729
+ },
+ {
+  "km": 8.2,
+  "nome": "S. Maria in Valle Porclaneta",
+  "tipo": "acqua",
+  "desc": "Punto acqua e sali, prelievo bastoncini",
+  "lat": 42.136798,
+  "lon": 13.341167,
+  "ele": 1027
+ },
+ {
+  "km": 10,
+  "nome": "Passo Le Forche",
+  "tipo": "cancello",
+  "desc": "Cancello orario 1h45 (ore 10:45) — ponte radio Protezione Civile",
+  "lat": 42.150077,
+  "lon": 13.339192,
+  "ele": 1255
+ },
+ {
+  "km": 15,
+  "nome": "Rifugio Capanna di Sevice",
+  "tipo": "ristoro",
+  "desc": "Ristoro completo — cancello orario 3h45 (ore 12:45)",
+  "lat": 42.161015,
+  "lon": 13.370815,
+  "ele": 2114
+ },
+ {
+  "km": 18.3,
+  "nome": "Riserva idrica di emergenza",
+  "tipo": "riserva",
+  "desc": "Alle spalle del Monte Cafornia — scorta limitata, non è un punto di rifornimento. Quota massima 2.385 m",
+  "lat": 42.144636,
+  "lon": 13.395312,
+  "ele": 2370
+ },
+ {
+  "km": 24.3,
+  "nome": "Fonte Canale",
+  "tipo": "acqua",
+  "desc": "Punto acqua — fontanile (posizione da verificare sul posto)",
+  "lat": 42.123329,
+  "lon": 13.399889,
+  "ele": 1194
+ }
+]

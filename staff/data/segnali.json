@@ -1,0 +1,483 @@
+{
+ "meta": {
+  "gara": "Skyrace del Maglio 2026",
+  "data_gara": "2026-10-18",
+  "partenza": "09:00",
+  "fine": "2026-10-18T16:00:00+02:00",
+  "scadenza_rimozione": "2026-10-21T16:00:00+02:00",
+  "km_tot": 29.71,
+  "generato": "2026-10-01",
+  "fonte": "Traccia ufficiale skyrace-del-maglio-2026.gpx"
+ },
+ "segnali": [
+  {
+   "id": "S01",
+   "lat": 42.099857,
+   "lon": 13.370257,
+   "ele": 818,
+   "km": 1.0,
+   "frecce": [
+    {
+     "codice": "S01-A",
+     "verso": "andata",
+     "km": 1.0,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 1 sx",
+     "sentiero": "E1",
+     "bearing": 26,
+     "analisi": {
+      "esito": "spostare",
+      "testo": "La svolta a sinistra (44°) della traccia è 40 m più avanti, al km 1,04."
+     }
+    },
+    {
+     "codice": "S01-R",
+     "verso": "ritorno",
+     "km": 28.71,
+     "dir": "dx",
+     "origine": "proposta",
+     "ex": null,
+     "sentiero": "E1",
+     "bearing": 218,
+     "analisi": {
+      "esito": "spostare",
+      "testo": "Freccia PROPOSTA: il paletto è nel tratto percorso due volte, quindi serve anche la freccia per l'altro senso. La svolta a destra (44°) della traccia è 40 m più indietro, al km 28,67."
+     }
+    }
+   ],
+   "doppio": true,
+   "suggerimento": {
+    "km": 1.04,
+    "lat": 42.100156,
+    "lon": 13.370523,
+    "dist": 40,
+    "ang": 44,
+    "freccia": "S01-A"
+   },
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S02",
+   "lat": 42.104759,
+   "lon": 13.374505,
+   "ele": 886,
+   "km": 1.71,
+   "frecce": [
+    {
+     "codice": "S02-A",
+     "verso": "andata",
+     "km": 1.71,
+     "dir": "dx",
+     "origine": "proposta",
+     "ex": null,
+     "sentiero": "E1",
+     "bearing": 56,
+     "analisi": {
+      "esito": "dritto",
+      "testo": "Freccia PROPOSTA: il paletto è nel tratto percorso due volte, quindi serve anche la freccia per l'altro senso. La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa)."
+     }
+    },
+    {
+     "codice": "S02-R",
+     "verso": "ritorno",
+     "km": 28.0,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 28 sx",
+     "sentiero": "E1",
+     "bearing": 228,
+     "analisi": {
+      "esito": "dritto",
+      "testo": "La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa)."
+     }
+    }
+   ],
+   "doppio": true,
+   "suggerimento": null,
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S03",
+   "lat": 42.110732,
+   "lon": 13.379923,
+   "ele": 899,
+   "km": 2.6,
+   "frecce": [
+    {
+     "codice": "S03-A",
+     "verso": "andata",
+     "km": 2.6,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 2,6 sx",
+     "sentiero": "E1",
+     "bearing": 331,
+     "analisi": {
+      "esito": "coerente",
+      "testo": "La traccia svolta a sinistra di circa 91° proprio qui."
+     }
+    },
+    {
+     "codice": "S03-R",
+     "verso": "ritorno",
+     "km": 27.14,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 27 sx",
+     "sentiero": "E1",
+     "bearing": 240,
+     "analisi": {
+      "esito": "coerente",
+      "testo": "Il tuo «km 27 sx» cade 130 m prima di questo bivio, dove il ritorno rientra nel tratto comune: è lo stesso paletto del km 2,6. La traccia svolta a sinistra di circa 61° proprio qui."
+     }
+    }
+   ],
+   "doppio": true,
+   "suggerimento": null,
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S04",
+   "lat": 42.11584,
+   "lon": 13.375628,
+   "ele": 964,
+   "km": 3.3,
+   "frecce": [
+    {
+     "codice": "S04",
+     "verso": "unico",
+     "km": 3.3,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 3,3 sx",
+     "sentiero": "E1",
+     "bearing": 298,
+     "analisi": {
+      "esito": "coerente",
+      "testo": "La traccia svolta a sinistra di circa 46° proprio qui."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": null,
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S05",
+   "lat": 42.118672,
+   "lon": 13.373744,
+   "ele": 1018,
+   "km": 4,
+   "frecce": [
+    {
+     "codice": "S05",
+     "verso": "unico",
+     "km": 4,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 4 sx",
+     "sentiero": "E1",
+     "bearing": 19,
+     "analisi": {
+      "esito": "spostare",
+      "testo": "La svolta a sinistra (68°) della traccia è 40 m più indietro, al km 3,96."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": {
+    "km": 3.96,
+    "lat": 42.118321,
+    "lon": 13.37379,
+    "dist": 40,
+    "ang": 68,
+    "freccia": "S05"
+   },
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S06",
+   "lat": 42.129882,
+   "lon": 13.360159,
+   "ele": 1103,
+   "km": 5.8,
+   "frecce": [
+    {
+     "codice": "S06",
+     "verso": "unico",
+     "km": 5.8,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 5,8 sx",
+     "sentiero": "E1",
+     "bearing": 289,
+     "analisi": {
+      "esito": "coerente",
+      "testo": "La traccia svolta a sinistra di circa 108° proprio qui."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": null,
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S07",
+   "lat": 42.127553,
+   "lon": 13.351143,
+   "ele": 933,
+   "km": 6.7,
+   "frecce": [
+    {
+     "codice": "S07",
+     "verso": "unico",
+     "km": 6.7,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 6,7 sx",
+     "sentiero": "E1",
+     "bearing": 343,
+     "analisi": {
+      "esito": "spostare",
+      "testo": "La svolta a sinistra (67°) della traccia è 70 m più avanti, al km 6,77."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": {
+    "km": 6.77,
+    "lat": 42.12814,
+    "lon": 13.351022,
+    "dist": 70,
+    "ang": 67,
+    "freccia": "S07"
+   },
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S08",
+   "lat": 42.13606,
+   "lon": 13.342373,
+   "ele": 1018,
+   "km": 8,
+   "frecce": [
+    {
+     "codice": "S08",
+     "verso": "unico",
+     "km": 8,
+     "dir": "dx",
+     "origine": "ale",
+     "ex": "km 8 dx",
+     "sentiero": "E1",
+     "bearing": 279,
+     "analisi": {
+      "esito": "spostare",
+      "testo": "La svolta a destra (96°) della traccia è 150 m più avanti, al km 8,15. Cambio sentiero E1 → 3 previsto al km 8,2."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": {
+    "km": 8.15,
+    "lat": 42.136478,
+    "lon": 13.34074,
+    "dist": 150,
+    "ang": 96,
+    "freccia": "S08"
+   },
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S09",
+   "lat": 42.159692,
+   "lon": 13.362737,
+   "ele": 2068,
+   "km": 14.2,
+   "frecce": [
+    {
+     "codice": "S09",
+     "verso": "unico",
+     "km": 14.2,
+     "dir": "dx",
+     "origine": "ale",
+     "ex": "km 14,2 dx",
+     "sentiero": "3B",
+     "bearing": 85,
+     "analisi": {
+      "esito": "dritto",
+      "testo": "La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa). Cambio sentiero 3B → 3 previsto al km 14,5."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": null,
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S10",
+   "lat": 42.160985,
+   "lon": 13.374111,
+   "ele": 2178,
+   "km": 15.3,
+   "frecce": [
+    {
+     "codice": "S10",
+     "verso": "unico",
+     "km": 15.3,
+     "dir": "dx",
+     "origine": "ale",
+     "ex": "km 15,3 dx",
+     "sentiero": "3",
+     "bearing": 111,
+     "analisi": {
+      "esito": "coerente",
+      "testo": "La traccia svolta a destra di circa 57° proprio qui."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": null,
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S11",
+   "lat": 42.146112,
+   "lon": 13.396432,
+   "ele": 2340,
+   "km": 18.5,
+   "frecce": [
+    {
+     "codice": "S11",
+     "verso": "unico",
+     "km": 18.5,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 18,5 sx",
+     "sentiero": "7",
+     "bearing": 33,
+     "analisi": {
+      "esito": "spostare",
+      "testo": "La svolta a sinistra (67°) della traccia è 200 m più indietro, al km 18,30. Cambio sentiero 1 → 7 previsto al km 18,5."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": {
+    "km": 18.3,
+    "lat": 42.144636,
+    "lon": 13.395312,
+    "dist": 200,
+    "ang": 67,
+    "freccia": "S11"
+   },
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S12",
+   "lat": 42.139664,
+   "lon": 13.41243,
+   "ele": 1806,
+   "km": 21,
+   "frecce": [
+    {
+     "codice": "S12",
+     "verso": "unico",
+     "km": 21,
+     "dir": "sx",
+     "origine": "ale",
+     "ex": "km 21 sx",
+     "sentiero": "7",
+     "bearing": 214,
+     "analisi": {
+      "esito": "coerente",
+      "testo": "La traccia svolta a sinistra di circa 66° proprio qui."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": null,
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S13",
+   "lat": 42.124117,
+   "lon": 13.399917,
+   "ele": 1211,
+   "km": 24.2,
+   "frecce": [
+    {
+     "codice": "S13",
+     "verso": "unico",
+     "km": 24.2,
+     "dir": "dx",
+     "origine": "ale",
+     "ex": "km 24,2 dx",
+     "sentiero": "7",
+     "bearing": 186,
+     "analisi": {
+      "esito": "spostare",
+      "testo": "La svolta a destra (92°) della traccia è 90 m più avanti, al km 24,29. Cambio sentiero 7 → E1 previsto al km 24,3."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": {
+    "km": 24.29,
+    "lat": 42.123368,
+    "lon": 13.399978,
+    "dist": 90,
+    "ang": 92,
+    "freccia": "S13"
+   },
+   "stato": "da_verificare",
+   "origine": "piano"
+  },
+  {
+   "id": "S14",
+   "lat": 42.114584,
+   "lon": 13.389183,
+   "ele": 915,
+   "km": 26,
+   "frecce": [
+    {
+     "codice": "S14",
+     "verso": "unico",
+     "km": 26,
+     "dir": "dx",
+     "origine": "ale",
+     "ex": "km 26 dx",
+     "sentiero": "E1",
+     "bearing": 137,
+     "analisi": {
+      "esito": "spostare",
+      "testo": "La svolta a destra (54°) della traccia è 180 m più avanti, al km 26,18."
+     }
+    }
+   ],
+   "doppio": false,
+   "suggerimento": {
+    "km": 26.18,
+    "lat": 42.113329,
+    "lon": 13.390443,
+    "dist": 180,
+    "ang": 54,
+    "freccia": "S14"
+   },
+   "stato": "da_verificare",
+   "origine": "piano"
+  }
+ ]
+}

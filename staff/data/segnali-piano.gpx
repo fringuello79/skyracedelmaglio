@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="SRM Segnaletica" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>SRM 2026 — segnaletica (piano, da verificare)</name></metadata>
+<wpt lat="42.099857" lon="13.370257"><ele>818</ele><name>S01</name><desc>S01-A SX km 1.0 / S01-R DX km 28.71 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.104759" lon="13.374505"><ele>886</ele><name>S02</name><desc>S02-A DX km 1.71 / S02-R SX km 28.0 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.110732" lon="13.379923"><ele>899</ele><name>S03</name><desc>S03-A SX km 2.6 / S03-R SX km 27.14 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.11584" lon="13.375628"><ele>964</ele><name>S04</name><desc>S04 SX km 3.3 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.118672" lon="13.373744"><ele>1018</ele><name>S05</name><desc>S05 SX km 4 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.129882" lon="13.360159"><ele>1103</ele><name>S06</name><desc>S06 SX km 5.8 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.127553" lon="13.351143"><ele>933</ele><name>S07</name><desc>S07 SX km 6.7 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.13606" lon="13.342373"><ele>1018</ele><name>S08</name><desc>S08 DX km 8 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.159692" lon="13.362737"><ele>2068</ele><name>S09</name><desc>S09 DX km 14.2 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.160985" lon="13.374111"><ele>2178</ele><name>S10</name><desc>S10 DX km 15.3 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.146112" lon="13.396432"><ele>2340</ele><name>S11</name><desc>S11 SX km 18.5 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.139664" lon="13.41243"><ele>1806</ele><name>S12</name><desc>S12 SX km 21 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.124117" lon="13.399917"><ele>1211</ele><name>S13</name><desc>S13 DX km 24.2 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+<wpt lat="42.114584" lon="13.389183"><ele>915</ele><name>S14</name><desc>S14 DX km 26 — DA VERIFICARE</desc><sym>Flag, Red</sym></wpt>
+</gpx>
