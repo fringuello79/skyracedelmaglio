@@ -87,6 +87,8 @@ header.nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);
 .nav-links a.nav-explorer{color:var(--avorio);display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(244,149,31,.45)}
 .nav-links a.nav-explorer:hover{border-color:var(--brace)}
 .explorer-ico{width:9px;height:9px;border:1.5px solid var(--brace);transform:rotate(45deg);border-radius:1px}
+.nav-links a.nav-staff{display:inline-flex;align-items:center;gap:6px}
+.staff-ico{width:14px;height:14px;flex:none;opacity:.85}
 /* Desktop: il menu parte all'altezza della "A" di SKYRACE nel titolo e si allarga fino a Iscriviti;
    scritte adattive alla larghezza dello schermo */
 @media(min-width:981px){
@@ -582,6 +584,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
       <a href="#info">Info</a>
       <a class="nav-explorer" href="explorer.html"><span class="explorer-ico" aria-hidden="true"></span>SRM Explorer</a>
       <a class="nav-live" href="live.html"><span class="live-dot"></span>Live</a>
+      <a class="nav-staff" href="staff/" rel="nofollow"><svg class="staff-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>Accesso staff</a>
       <a class="cta" href="#iscrizioni">Iscriviti</a>
     </nav>
     <a class="cta nav-desktop-cta" href="#iscrizioni">Iscriviti</a>

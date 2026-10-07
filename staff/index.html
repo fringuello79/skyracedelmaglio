@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Segnaletica SRM 2026</title>
+<meta name="description" content="Posa, verifica e rimozione della segnaletica temporanea della Skyrace del Maglio 2026">
+<meta name="theme-color" content="#153821">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Oswald:wght@500;700&display=swap">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="barra">
+  <img class="barra-logo" src="img/logo-srm.png" alt="Skyrace del Maglio" width="40" height="44">
+  <div class="barra-titolo">
+    <h1>Segnaletica</h1>
+    <p>Skyrace del Maglio</p>
+  </div>
+  <div class="avanzamento" id="avanzamento" aria-live="polite"></div>
+  <button class="btn-icona" id="btnMenu" aria-label="Menu" aria-haspopup="dialog">
+    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  </button>
+</header>
+<div class="sync" id="sync" role="status"></div>
+
+<main class="layout" data-pannello="basso">
+  <div id="mappa" aria-label="Mappa del percorso con i segnali"></div>
+  <div class="mirino" id="mirino" hidden aria-hidden="true"></div>
+
+  <div class="comandi-mappa">
+    <button class="btn-mappa" id="btnLivelli" aria-label="Livelli della mappa">
+      <svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 3 2 8l10 5 10-5-10-5Zm-10 9 10 5 10-5M2 16l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="btn-mappa" id="btnPosizione" aria-label="Centra sulla mia posizione">
+      <svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+    </button>
+    <button class="btn-mappa btn-presidio" id="btnPresidio" aria-label="Aggiungi un presidio" title="Aggiungi un presidio">
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="11" cy="6" r="3.4" fill="currentColor"/><path d="M4.5 21v-4.2A6.5 6.5 0 0 1 11 10.3a6.5 6.5 0 0 1 4.6 1.9" fill="currentColor"/><path d="M18 13.5v7M14.5 17h7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
+    <button class="btn-mappa btn-aggiungi" id="btnAggiungi" aria-label="Aggiungi un segnale">
+      <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <aside class="pannello" id="pannello" data-altezza="basso">
+    <button class="maniglia" id="maniglia" aria-label="Espandi o riduci il pannello"><span></span></button>
+    <nav class="schede" role="tablist">
+      <button role="tab" data-scheda="segnale" aria-selected="true">Segnale</button>
+      <button role="tab" data-scheda="elenco" aria-selected="false">Elenco</button>
+      <button role="tab" data-scheda="presidi" aria-selected="false">Presidi</button>
+      <button role="tab" data-scheda="squadra" aria-selected="false">Squadra</button>
+    </nav>
+    <div class="pannello-corpo">
+      <section class="scheda" id="scheda-segnale" role="tabpanel"></section>
+      <section class="scheda" id="scheda-elenco" role="tabpanel" hidden></section>
+      <section class="scheda" id="scheda-presidi" role="tabpanel" hidden></section>
+      <section class="scheda" id="scheda-squadra" role="tabpanel" hidden></section>
+    </div>
+  </aside>
+</main>
+
+<!-- Accesso -->
+<dialog id="dlgAccesso" class="dlg">
+  <form method="dialog" id="formAccesso">
+    <img src="img/logo-srm.png" alt="" width="64" height="70" class="dlg-logo">
+    <h2>Segnaletica SRM 2026</h2>
+    <p class="dlg-testo" id="accessoTesto">Ogni posa, spostamento e rimozione viene registrata con il tuo nome.</p>
+    <p class="gps-stato debole" id="accessoAvviso" hidden></p>
+    <label class="campo">Il tuo nome
+      <input name="nome" id="inNome" autocomplete="given-name" required maxlength="30" placeholder="Es. Marco">
+    </label>
+    <label class="campo" id="campoSquadra">Codice squadra
+      <input name="squadra" id="inSquadra" autocomplete="off" autocapitalize="characters" minlength="4" maxlength="40" placeholder="Te lo manda Ale">
+      <small>È lo stesso per tutti i volontari: scrivilo esattamente come ti è stato dato.</small>
+    </label>
+    <button class="btn btn-primario" value="ok">Entra</button>
+  </form>
+</dialog>
+
+<!-- Livelli -->
+<dialog id="dlgLivelli" class="dlg">
+  <form method="dialog">
+    <h2>Mappa</h2>
+    <fieldset class="gruppo">
+      <legend>Sfondo</legend>
+      <label class="opzione"><input type="radio" name="base" value="satellite" checked> Satellite ad alta risoluzione</label>
+      <label class="opzione"><input type="radio" name="base" value="topo"> Topografica (curve di livello)</label>
+      <label class="opzione"><input type="radio" name="base" value="osm"> OpenStreetMap</label>
+    </fieldset>
+    <fieldset class="gruppo">
+      <legend>Sovrapposizioni</legend>
+      <p class="dlg-nota">Il percorso di gara è l'unica linea arancione.</p>
+      <label class="opzione"><input type="checkbox" name="ov" value="cai" checked> Sentieri segnati, in rosso scuro (CAI, E1 e altri itinerari)</label>
+      <label class="opzione"><input type="checkbox" name="ov" value="osm"> Sentieri e bivi da OpenStreetMap (azzurri, bivi gialli)</label>
+      <label class="opzione"><input type="checkbox" name="ov" value="svolte" checked> Svolte della traccia GPX</label>
+      <label class="opzione"><input type="checkbox" name="ov" value="poi" checked> Ristori, cancelli e punti acqua</label>
+      <label class="opzione"><input type="checkbox" name="ov" value="presidi" checked> Presidi (omini verdi)</label>
+      <label class="opzione"><input type="checkbox" name="ov" value="squadra" checked> Volontari sul percorso</label>
+    </fieldset>
+    <div class="gruppo">
+      <h3>Mappa senza campo</h3>
+      <p class="dlg-testo" id="offlineTesto">Scarica ora le immagini satellitari lungo il percorso: in quota la mappa resta visibile anche senza rete.</p>
+      <progress id="offlineProg" max="100" value="0" hidden></progress>
+      <button type="button" class="btn" id="btnOffline">Scarica il satellite del percorso</button>
+    </div>
+    <button class="btn btn-primario" value="ok">Fatto</button>
+  </form>
+</dialog>
+
+<!-- Menu -->
+<dialog id="dlgMenu" class="dlg">
+  <form method="dialog">
+    <h2>Menu</h2>
+    <div class="menu-voci">
+      <a class="btn" href="report.html" target="_blank" rel="noopener">Apri il report per i volontari</a>
+      <button type="button" class="btn" id="btnGpx">Scarica i segnali (GPX per orologio o GPS)</button>
+      <button type="button" class="btn" id="btnCsv">Scarica l'inventario (CSV)</button>
+      <button type="button" class="btn" id="btnGuida">Come si usa</button>
+      <button type="button" class="btn" id="btnRinumera">Rinumera in ordine di chilometro</button>
+      <button type="button" class="btn" id="btnCambiaNome">Cambia nome o squadra</button>
+    </div>
+    <p class="dlg-nota" id="menuInfo"></p>
+    <button class="btn btn-primario" value="ok">Chiudi</button>
+  </form>
+</dialog>
+
+<!-- Azione con conferma (posa / rimozione / metti qui) -->
+<dialog id="dlgAzione" class="dlg">
+  <form method="dialog" id="formAzione">
+    <h2 id="azioneTitolo"></h2>
+    <div id="azioneCorpo"></div>
+    <label class="campo">Nota (facoltativa)
+      <input id="azioneNota" maxlength="200" placeholder="Es. legata al palo CAI, bivio con fontanile">
+    </label>
+    <div class="foto-riga" id="azioneFotoRiga">
+      <label class="btn">
+        <input type="file" accept="image/*" capture="environment" id="azioneFoto" hidden>
+        Scatta una foto
+      </label>
+      <img id="azioneAnteprima" alt="Anteprima foto" hidden>
+    </div>
+    <div class="riga-btn">
+      <button class="btn" value="annulla" formnovalidate>Annulla</button>
+      <button class="btn btn-primario" value="ok" id="azioneOk">Conferma</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Nuovo segnale -->
+<dialog id="dlgNuovo" class="dlg">
+  <form method="dialog" id="formNuovo">
+    <h2>Nuovo segnale</h2>
+    <p class="dlg-testo">Scegli dove metterlo, il numero e il senso della freccia.</p>
+    <label class="campo">Numero da scrivere sul paletto
+      <span class="num-campo"><b>S</b><input id="nuovoNum" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="6" placeholder="16A"></span>
+      <small>Tra due paletti esistenti propone il numero del precedente con una lettera (16A, 16B); in fondo, il prossimo numero libero. Puoi cambiarlo.</small>
+    </label>
+    <p class="gps-stato debole" id="nuovoNumErr" hidden></p>
+    <fieldset class="gruppo">
+      <legend>Posizione</legend>
+      <label class="opzione"><input type="radio" name="dove" value="gps" checked> La mia posizione GPS</label>
+      <label class="opzione"><input type="radio" name="dove" value="centro"> Il centro della mappa (mirino)</label>
+    </fieldset>
+    <fieldset class="gruppo">
+      <legend id="legendaDir1">Freccia per chi arriva</legend>
+      <div class="scelta-dir" data-nome="dir1">
+        <button type="button" data-v="sx">Sinistra</button><button type="button" data-v="dritto">Dritto</button><button type="button" data-v="dx" class="on">Destra</button>
+      </div>
+    </fieldset>
+    <fieldset class="gruppo" id="nuovoRitorno" hidden>
+      <legend>Tratto percorso due volte: freccia per il ritorno</legend>
+      <div class="scelta-dir" data-nome="dir2">
+        <button type="button" data-v="sx" class="on">Sinistra</button><button type="button" data-v="dritto">Dritto</button><button type="button" data-v="dx">Destra</button><button type="button" data-v="no">Nessuna</button>
+      </div>
+    </fieldset>
+    <p class="dlg-nota" id="nuovoInfo"></p>
+    <div class="riga-btn">
+      <button class="btn" value="annulla" formnovalidate>Annulla</button>
+      <button class="btn btn-primario" value="ok" id="nuovoOk">Aggiungi</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Presidio: nuovo o modifica -->
+<dialog id="dlgPresidio" class="dlg dlg-largo">
+  <form method="dialog" id="formPresidio">
+    <h2 id="presidioTitolo">Nuovo presidio</h2>
+    <label class="campo">Nome del presidio
+      <input id="prNome" maxlength="80" autocomplete="off" placeholder="Es. Ristoro Fonte Canale, Bivio km 14">
+    </label>
+    <label class="campo">Funzione
+      <input id="prFunzione" maxlength="80" autocomplete="off" list="prFunzioni" placeholder="Es. Ristoro, Soccorso, Controllo passaggio">
+      <datalist id="prFunzioni">
+        <option value="Ristoro"><option value="Soccorso sanitario"><option value="Controllo passaggio"><option value="Cancello orario">
+        <option value="Incrocio con strada"><option value="Radio e comunicazioni"><option value="Chiusura gara (scopa)"><option value="Parcheggio"><option value="Partenza e arrivo">
+      </datalist>
+    </label>
+    <fieldset class="gruppo">
+      <legend>Persone presenti</legend>
+      <div id="prPersone" class="persone"></div>
+      <button type="button" class="btn btn-piccolo" id="prAggiungiPersona">+ Aggiungi persona</button>
+    </fieldset>
+    <label class="campo">Note
+      <textarea id="prNote" class="nota" maxlength="600" placeholder="Es. tenda gialla vicino al fontanile, raggiungibile dalla strada bianca"></textarea>
+    </label>
+    <fieldset class="gruppo">
+      <legend>Posizione</legend>
+      <label class="opzione" id="prDoveResta"><input type="radio" name="prDove" value="resta"> Lascialo dov'è</label>
+      <label class="opzione"><input type="radio" name="prDove" value="gps"> La mia posizione GPS</label>
+      <label class="opzione"><input type="radio" name="prDove" value="centro"> Il centro della mappa (mirino)</label>
+      <label class="opzione"><input type="radio" name="prDove" value="coord"> Coordinate precise</label>
+      <input id="prCoord" class="campo-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="42.139664, 13.412430 oppure 42°08'22.8&quot;N 13°24'44.7&quot;E" hidden>
+      <p class="dlg-nota" id="prDoveInfo"></p>
+    </fieldset>
+    <p class="gps-stato debole" id="prErrore" hidden></p>
+    <div class="riga-btn">
+      <button class="btn" value="annulla" formnovalidate>Annulla</button>
+      <button class="btn btn-primario" value="ok" id="prOk">Salva</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Spostamento su coordinate -->
+<dialog id="dlgCoord" class="dlg">
+  <form method="dialog">
+    <h2>Sposta <span id="coordNum"></span> su coordinate</h2>
+    <p class="dlg-nota">Ora è a <span id="coordAttuali"></span>.</p>
+    <label class="campo">Nuove coordinate
+      <input id="coordTesto" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="42.139664, 13.412430">
+      <small>Scrivile o incollale da Google Maps, dal GPS o da un messaggio: 42.139664, 13.412430 · 42°08'22.8"N 13°24'44.7"E · link di Google Maps.</small>
+    </label>
+    <div id="coordEsito"></div>
+    <div class="riga-btn">
+      <button class="btn" value="annulla" formnovalidate>Annulla</button>
+      <button class="btn btn-primario" value="ok" id="coordOk">Sposta qui</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Cambio del numero di un paletto -->
+<dialog id="dlgNumero" class="dlg">
+  <form method="dialog">
+    <h2>Cambia numero a <span id="numeroVecchio"></span></h2>
+    <label class="campo">Nuovo numero
+      <span class="num-campo"><b>S</b><input id="numeroNuovo" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="6" placeholder="16A"></span>
+      <small>Numero, con una lettera se serve: 16, 16A, 16B. La «S» si aggiunge da sola.</small>
+    </label>
+    <div id="numeroAvvisi"></div>
+    <div class="riga-btn">
+      <button class="btn" value="annulla" formnovalidate>Annulla</button>
+      <button class="btn btn-primario" value="ok" id="numeroOk">Cambia numero</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Rinumerazione -->
+<dialog id="dlgRinumera" class="dlg">
+  <form method="dialog">
+    <h2>Rinumera i paletti</h2>
+    <div id="rinumeraCorpo"></div>
+    <div class="riga-btn">
+      <button class="btn" value="annulla" formnovalidate>Annulla</button>
+      <button class="btn btn-primario" value="ok" id="rinumeraOk">Rinumera</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Guida -->
+<dialog id="dlgGuida" class="dlg">
+  <form method="dialog">
+    <h2>Come si usa</h2>
+    <ol class="guida">
+      <li><strong>Ogni freccia rossa sulla mappa è un paletto.</strong> Punta dove deve andare il corridore. Tocca la freccia per aprire la scheda.</li>
+      <li><strong>Prima si verifica.</strong> Le posizioni del piano sono calcolate dalla traccia: vanno portate sul bivio vero. Quando sei sul bivio usa «Metti qui», oppure trascina la freccia con «Sposta sulla mappa». Poi «Conferma posizione».</li>
+      <li><strong>Poi si posa.</strong> Il sabato, piantato il paletto, tocca «Segna come posato» e scatta una foto.</li>
+      <li><strong>Infine si rimuove.</strong> Dopo il passaggio dell'ultimo atleta tocca «Segna come rimosso». Tutto va tolto entro mercoledì 21 ottobre alle 16:00 (72 ore, art. 11 del disciplinare del Parco).</li>
+      <li><strong>Senza campo funziona lo stesso.</strong> Le modifiche partono appena torna la rete.</li>
+      <li><strong>Serve un paletto in più?</strong> Tocca il pulsante + e aggiungilo: riceve il numero successivo.</li>
+    </ol>
+    <button class="btn btn-primario" value="ok">Ho capito</button>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
