@@ -1,5 +1,5 @@
 // Service worker: l'app e la mappa restano disponibili anche senza campo
-const VERSIONE = 'srmseg-app-v11';
+const VERSIONE = 'srmseg-app-v12';
 const TILES = 'srmseg-tiles';
 const LIB = 'srmseg-lib';
 const APP = ['./', 'index.html', 'report.html', 'css/app.css', 'css/report.css', 'js/app.js', 'js/geo.js', 'js/frecce.js', 'js/store.js', 'js/report.js',
