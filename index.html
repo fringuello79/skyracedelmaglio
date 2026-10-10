@@ -561,6 +561,19 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--brace);outline-offs
 .faq details>div{padding-top:14px}
 
 </style>
+<script data-goatcounter="https://skyracedelmaglio.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<script>
+/* Statistiche GoatCounter (senza cookie). Oltre alle pagine viste, conta i clic su:
+   link con data-gc="nome", download .gpx/.pdf, link esterni, mailto/tel, Explorer e Live. */
+document.addEventListener('click',function(e){var a=e.target.closest('a[href]');if(!a||!window.goatcounter||!goatcounter.count)return;
+ var n=a.getAttribute('data-gc'),h=a.getAttribute('href')||'';
+ if(!n){if(/\.(gpx|pdf)(\?|$)/i.test(h))n='download/'+h.split('/').pop();
+  else if(/^https?:\/\//.test(h)&&h.indexOf(location.host)<0)n='esterno/'+h.replace(/^https?:\/\/(www\.)?/,'').split(/[\/?#]/)[0];
+  else if(/^(mailto|tel):/.test(h))n=h.split(':')[0];
+  else if(/^(explorer|live)\.html/.test(h))n='apri/'+h.replace('.html','');
+  else return;}
+ goatcounter.count({path:'click/'+n,title:n,event:true});},true);
+</script>
 </head>
 <body>
 
