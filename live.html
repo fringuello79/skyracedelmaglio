@@ -52,19 +52,26 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
    Sorgenti HLS provate in ordine: se la prima non risponde si passa alla seconda.
    Nessuna chiave o credenziale di trasmissione va scritta in questo file.        */
 const SOURCES = [
-  'https://usb.bozztv.com/srmlive2026/index.m3u8',                   // "HLS (m3u8) URL" del canale srmlive2026
-  'https://lbgo.bozztv.com/ssh101/ssh101/srmlive2026/playlist.m3u8'  // indirizzo usato dalla pagina SSH101 del canale
+  'https://lbgo.bozztv.com/ssh101/ssh101/srmlive2026/playlist.m3u8', // usato dal player SSH101; permessi CORS verificati (serve a hls.js su PC)
+  'https://usb.bozztv.com/srmlive2026/index.m3u8'                    // "HLS (m3u8) URL" del canale srmlive2026, di riserva
 ];
 /* Inquadratura del cerchio ottico dentro il fotogramma (percentuali del video).
    Misurate sulla ripresa reale 1280x720: centro 50% / 48%, diametro 74,4% dell'altezza.
    ZOOM > 1 ingrandisce per nascondere il bordo nero esterno.
    Per provare valori diversi senza toccare il file: live.html?cx=50&cy=48&d=74.4&zoom=1.06 */
 const FRAME = { cx:50, cy:48, d:74.4, zoom:1.06 };
-const RETRY_MS = 15000, START_TIMEOUT_MS = 20000, FALLBACK_TIMEOUT_MS = 12000, STALL_MS = 35000;
+/* L'attesa di avvio si azzera a ogni pezzo di video ricevuto: scade solo se non arriva più nulla */
+const RETRY_MS = 15000, START_TIMEOUT_MS = 30000, FALLBACK_TIMEOUT_MS = 15000, STALL_MS = 35000;
 const HLS_JS = 'https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js';
 
 const glass=document.getElementById('glass'), feed=document.getElementById('feed'),
       label=document.getElementById('statusLabel'), tapBtn=document.getElementById('tapPlay');
+/* Diagnostica facoltativa: live.html?diag=1 mostra motore, sorgente e ultimo errore */
+const DIAG=new URLSearchParams(location.search).has('diag');
+let diagEl=null, lastErr='';
+function diag(msg){ if(msg) lastErr=msg; if(!DIAG) return;
+  if(!diagEl){diagEl=document.createElement('p');diagEl.style.cssText='font:500 10px JetBrains Mono,monospace;color:#f4951f;letter-spacing:.05em;word-break:break-all';label.closest('.status').append(diagEl);}
+  diagEl.textContent=`motore: ${native?'HLS nativo':'hls.js'} · sorgente ${srcIdx+1}/${SOURCES.length}: ${(SOURCES[srcIdx]||'').split('/')[2]} · stato: ${state} · ultimo errore: ${lastErr||'nessuno'}`; }
 const LABELS={loading:'La live sta per partire…', off:'In attesa della diretta', live:'Diretta in corso', tap:'Diretta pronta · tocca per guardare'};
 
 /* -- regolazioni da indirizzo (solo numeri, entro limiti ragionevoli) -- */
@@ -85,13 +92,13 @@ fit();
 /* -- stato della lente -- */
 let state='';
 function setState(s){
-  state=s; label.textContent=LABELS[s];
+  state=s; label.textContent=LABELS[s]; diag();
   for(const c of ['live','off','tap']) glass.classList.toggle(c,s===c);
 }
 
 /* -- riproduttore: una sola connessione alla volta -- */
 const native = !!feed.canPlayType('application/vnd.apple.mpegurl');
-let hls=null, session=0, srcIdx=0, startT=0, retryT=0, lastT=-1, lastMove=0, hlsLoading=null;
+let armStart=()=>{}, hls=null, session=0, srcIdx=0, startT=0, retryT=0, lastT=-1, lastMove=0, hlsLoading=null;
 
 function teardown(){
   clearTimeout(startT);
@@ -123,17 +130,22 @@ async function connect(i){
   clearTimeout(retryT); teardown();
   const tok=++session; srcIdx=i;
   if(state!=='off') setState('loading');
-  startT=setTimeout(()=>fail(tok),i<SOURCES.length-1?FALLBACK_TIMEOUT_MS:START_TIMEOUT_MS);
+  const wait=i<SOURCES.length-1?FALLBACK_TIMEOUT_MS:START_TIMEOUT_MS;
+  armStart=()=>{ if(tok!==session||state==='live'||state==='tap') return; clearTimeout(startT); startT=setTimeout(()=>{diag('nessun video entro '+wait/1000+' s');fail(tok);},wait); };
+  armStart(); diag();
   const url=SOURCES[i];
   if(native){ feed.src=url; tryPlay(tok); return; }
-  try{ await loadHlsJs(); }catch(e){ fail(tok); return; }
+  try{ await loadHlsJs(); }catch(e){ diag('hls.js non caricato'); fail(tok); return; }
   if(tok!==session) return;
-  if(!Hls.isSupported()){ fail(tok); return; }
+  if(!Hls.isSupported()){ diag('hls.js non supportato'); fail(tok); return; }
   let netTries=0, mediaTries=0;
-  hls=new Hls({liveSyncDurationCount:3, manifestLoadingTimeOut:8000, manifestLoadingMaxRetry:i<SOURCES.length-1?0:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3});
-  hls.on(Hls.Events.MANIFEST_PARSED,()=>{ if(tok===session) tryPlay(tok); });
+  hls=new Hls({liveSyncDurationCount:3, manifestLoadingTimeOut:10000, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3});
+  hls.on(Hls.Events.MANIFEST_PARSED,()=>{ if(tok===session){ armStart(); tryPlay(tok); } });
+  hls.on(Hls.Events.FRAG_LOADED,()=>armStart());
   hls.on(Hls.Events.ERROR,(_,d)=>{
-    if(tok!==session||!d.fatal) return;
+    if(tok!==session) return;
+    diag(d.details+(d.response&&d.response.code!==undefined?' (HTTP '+d.response.code+')':'')+(d.fatal?' · fatale':''));
+    if(!d.fatal) return;
     if(state==='live'&&d.type===Hls.ErrorTypes.NETWORK_ERROR&&netTries++<2){hls.startLoad();return;}
     if(d.type===Hls.ErrorTypes.MEDIA_ERROR&&mediaTries++<1){hls.recoverMediaError();return;}
     fail(tok);
@@ -143,7 +155,8 @@ async function connect(i){
 
 /* «Diretta in corso» solo quando le immagini scorrono davvero */
 feed.addEventListener('playing',()=>{ if(!feed.src&&!hls) return; clearTimeout(startT); lastT=feed.currentTime; lastMove=Date.now(); setState('live'); fit(); });
-feed.addEventListener('error',()=>{ if(native&&feed.getAttribute('src')) fail(session); });
+feed.addEventListener('error',()=>{ if(native&&feed.getAttribute('src')){ diag('errore video '+(feed.error?feed.error.code:'')); fail(session); } });
+feed.addEventListener('progress',()=>{ if(native) armStart(); });
 feed.addEventListener('ended',()=>fail(session));
 /* interruzione: se il video resta fermo troppo a lungo si torna in attesa e si riprova */
 setInterval(()=>{
