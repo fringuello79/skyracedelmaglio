@@ -53,7 +53,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
    Nessuna chiave o credenziale di trasmissione va scritta in questo file.        */
 const SOURCES = [
   'https://lbgo.bozztv.com/ssh101/ssh101/srmlive2026/playlist.m3u8', // usato dal player SSH101; permessi CORS verificati (serve a hls.js su PC)
-  'https://usb.bozztv.com/srmlive2026/index.m3u8'                    // "HLS (m3u8) URL" del canale srmlive2026, di riserva
+  'https://usb.bozztv.com/srmlive2026/index.m3u8'                    // "HLS (m3u8) URL" del canale; senza CORS: utile solo con HLS nativo (Safari/iPhone)
 ];
 /* Inquadratura del cerchio ottico dentro il fotogramma (percentuali del video).
    Misurate sulla ripresa reale 1280x720: centro 50% / 48%, diametro 74,4% dell'altezza.
@@ -61,7 +61,7 @@ const SOURCES = [
    Per provare valori diversi senza toccare il file: live.html?cx=50&cy=48&d=74.4&zoom=1.06 */
 const FRAME = { cx:50, cy:48, d:74.4, zoom:1.06 };
 /* L'attesa di avvio si azzera a ogni pezzo di video ricevuto: scade solo se non arriva più nulla */
-const RETRY_MS = 15000, START_TIMEOUT_MS = 30000, FALLBACK_TIMEOUT_MS = 15000, STALL_MS = 35000;
+const RETRY_MS = 15000, START_TIMEOUT_MS = 30000, FALLBACK_TIMEOUT_MS = 30000, STALL_MS = 35000;
 const HLS_JS = 'https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js';
 
 const glass=document.getElementById('glass'), feed=document.getElementById('feed'),
@@ -97,7 +97,9 @@ function setState(s){
 }
 
 /* -- riproduttore: una sola connessione alla volta -- */
-const native = !!feed.canPlayType('application/vnd.apple.mpegurl');
+/* HLS nativo solo su Safari/iPhone (o dove non c'e' alternativa): Chrome 15x dichiara un HLS
+   nativo che con questa diretta fallisce subito (errore 4), mentre hls.js funziona. */
+const native = !!feed.canPlayType('application/vnd.apple.mpegurl') && (/Apple/.test(navigator.vendor||'') || !window.MediaSource);
 let armStart=()=>{}, hls=null, session=0, srcIdx=0, startT=0, retryT=0, lastT=-1, lastMove=0, hlsLoading=null;
 
 function teardown(){
