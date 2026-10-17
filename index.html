@@ -88,6 +88,10 @@ header.nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);
 .nav-links a.nav-explorer:hover{border-color:var(--brace)}
 .explorer-ico{width:9px;height:9px;border:1.5px solid var(--brace);transform:rotate(45deg);border-radius:1px}
 .nav-links a.nav-staff{display:inline-flex;align-items:center;gap:6px}
+.nav-links a.nav-dove{display:inline-flex;align-items:center;gap:6px}
+.dove-ico{width:14px;height:14px;flex:none;color:var(--brace)}
+/* PC medi: con «Dove sono» il menu non ci sta, l'accesso staff resta solo come lucchetto */
+@media(min-width:981px) and (max-width:1439px){.nav-links a.nav-staff .staff-txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.nav-links a.nav-staff .staff-ico{width:17px;height:17px}}
 .staff-ico{width:14px;height:14px;flex:none;opacity:.85}
 /* Desktop: il menu parte all'altezza della "A" di SKYRACE nel titolo e si allarga fino a Iscriviti;
    scritte adattive alla larghezza dello schermo */
@@ -597,7 +601,8 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
       <a href="#info">Info</a>
       <a class="nav-explorer" href="explorer.html"><span class="explorer-ico" aria-hidden="true"></span>SRM Explorer</a>
       <a class="nav-live" href="live.html"><span class="live-dot"></span>Live</a>
-      <a class="nav-staff" href="staff/" rel="nofollow"><svg class="staff-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>Accesso staff</a>
+      <a class="nav-dove" href="posizione/"><svg class="dove-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z" fill="currentColor"/></svg>Dove sono</a>
+      <a class="nav-staff" href="staff/" rel="nofollow" title="Accesso staff"><svg class="staff-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="staff-txt">Accesso staff</span></a>
       <a class="cta" href="#iscrizioni">Iscriviti</a>
     </nav>
     <a class="cta nav-desktop-cta" href="#iscrizioni">Iscriviti</a>
@@ -877,6 +882,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
         <a class="btn-ghost" style="margin-top:18px" href="https://loc.wiki/t/281221104?wa=share&amp;og=JzFsGY63NQ8" target="_blank" rel="noopener">↗ Traccia 2026 su Wikiloc</a>
         <a class="btn-ghost" style="margin-top:18px" href="https://www.strava.com/routes/3525925866103106096" target="_blank" rel="noopener">↗ Percorso su Strava</a>
         <a class="btn-ghost" style="margin-top:18px;border-color:var(--brace);color:var(--brace)" href="explorer.html">◆ Apri SRM Explorer</a>
+        <a class="btn-ghost" style="margin-top:18px;border-color:var(--brace);color:var(--brace)" href="posizione/">◉ Dove sono rispetto al percorso</a>
         <a href="https://loc.wiki/t/281221104?wa=share&amp;og=JzFsGY63NQ8" target="_blank" rel="noopener" title="Apri la traccia su Wikiloc" style="display:inline-flex;align-items:center;gap:10px;margin-top:16px;background:var(--avorio);border-radius:12px;padding:9px 16px;text-decoration:none;box-shadow:0 10px 26px -16px rgba(0,0,0,.6)"><img src="assets/img/Wikiloc-M-C-RGB.svg" alt="Wikiloc" style="height:32px;width:auto;display:block"></a>
         <!-- MAPPA WIKILOC INCORPORATA (opzionale, attualmente SPENTA): per mostrarla nella pagina, elimina questa riga di apertura del commento e la riga finale del commento qui sotto.
         <div style="margin-top:18px">
