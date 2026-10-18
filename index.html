@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="it" class="iscrizioni-chiuse">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -95,6 +95,10 @@ header.nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);
 /* PC medi: con «Dove sono» il menu non ci sta, l'accesso staff resta solo come lucchetto */
 @media(min-width:981px) and (max-width:1439px){.nav-links a.nav-staff .staff-txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.nav-links a.nav-staff .staff-ico{width:17px;height:17px}}
 .staff-ico{width:14px;height:14px;flex:none;opacity:.85}
+/* ISCRIZIONI CHIUSE: con la classe "iscrizioni-chiuse" su <html> i pulsanti «Iscriviti» (classe .iscr) restano nascosti
+   e compaiono quelli del dopo gara (classe .solo-chiuse). Per riaprire le iscrizioni basta togliere la classe da <html>. */
+html.iscrizioni-chiuse .iscr{display:none!important}
+html:not(.iscrizioni-chiuse) .solo-chiuse{display:none!important}
 /* Desktop: il menu parte all'altezza della "A" di SKYRACE nel titolo e si allarga fino a Iscriviti;
    scritte adattive alla larghezza dello schermo */
 @media(min-width:981px){
@@ -606,9 +610,9 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
       <a class="nav-foto" href="foto/"><svg class="foto-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13.2" r="3.3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Foto</a>
       <a class="nav-dove" href="posizione/"><svg class="dove-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z" fill="currentColor"/></svg>Dove sono</a>
       <a class="nav-staff" href="staff/" rel="nofollow" title="Accesso staff"><svg class="staff-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="staff-txt">Accesso staff</span></a>
-      <a class="cta" href="#iscrizioni">Iscriviti</a>
+      <a class="cta iscr" href="#iscrizioni">Iscriviti</a>
     </nav>
-    <a class="cta nav-desktop-cta" href="#iscrizioni">Iscriviti</a>
+    <a class="cta nav-desktop-cta iscr" href="#iscrizioni">Iscriviti</a>
   </div>
 </header>
 
@@ -626,7 +630,8 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
       <h1 class="hero-title-img"><img src="assets/img/titolo.png" width="1493" height="725" alt="Skyrace del Maglio" fetchpriority="high"></h1>
       <p class="sub">30 km e <b>2.079 m di dislivello</b> alle spalle delle tre vette del Massiccio del Velino — Sevice, Velino e Cafornia. Partenza e arrivo davanti al <b>Municipio di Magliano de' Marsi</b>.</p>
       <div class="hero-cta-row">
-        <a class="cta big" href="#iscrizioni">Iscriviti alla gara</a>
+        <a class="cta big iscr" href="#iscrizioni">Iscriviti alla gara</a>
+        <a class="cta big solo-chiuse" href="foto/">Guarda le foto della gara</a>
         <a class="btn-ghost" href="#percorso">▾ Scopri il percorso</a>
       </div>
       <div class="count-label">— Al via mancano</div>
@@ -998,7 +1003,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
       </ul>
     </div>
 
-    <div style="margin-top:22px" class="reveal"><a class="cta big" href="https://www.digitalrace.it/gare.php" target="_blank" rel="noopener">Iscriviti su digitalrace.it →</a> <a class="btn-ghost" style="margin-left:12px" href="assets/doc/regolamento-srm-2026.pdf" target="_blank" rel="noopener">↓ Regolamento 2026 (PDF)</a> <span style="font-family:'JetBrains Mono';font-size:12px;color:var(--ferro);margin-left:10px">servizio iscrizioni gare</span></div>
+    <div style="margin-top:22px" class="reveal"><a class="cta big iscr" href="https://www.digitalrace.it/gare.php" target="_blank" rel="noopener">Iscriviti su digitalrace.it →</a> <a class="btn-ghost" style="margin-left:12px" href="assets/doc/regolamento-srm-2026.pdf" target="_blank" rel="noopener">↓ Regolamento 2026 (PDF)</a> <span style="font-family:'JetBrains Mono';font-size:12px;color:var(--ferro);margin-left:10px">servizio iscrizioni gare</span></div>
     <div class="steps-ins reveal" style="margin-top:24px">
       <div class="card"><div class="k">01 · Iscriviti</div><h3><a href="https://www.digitalrace.it/gare.php" target="_blank" rel="noopener" style="color:inherit">Online su digitalrace.it</a></h3><p>Entro venerdì 16/10/2026, ore 23:59. Pagamento con bonifico (ASD Usa Sporting Club Avezzano) o sul posto.</p></div>
       <div class="card"><div class="k">02 · Documenti</div><h3>Certificato &amp; tessera</h3><p>Certificato di idoneità agonistica per l'atletica leggera, tesseramento valido e liberatoria firmata.</p></div>
@@ -1156,8 +1161,8 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
   </div>
 </section>
 
-<!-- CTA BAND -->
-<div class="band">
+<!-- CTA BAND (solo con iscrizioni aperte) -->
+<div class="band iscr">
   <div class="wrap">
     <h2 class="reveal">Pronto a <em>battere</em> il ferro?</h2>
     <p class="reveal">Duecento pettorali, una cresta, una medaglia da forgiare. Domenica 18 ottobre 2026, Magliano de' Marsi.</p>
