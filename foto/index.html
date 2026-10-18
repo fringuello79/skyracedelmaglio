@@ -81,7 +81,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-betw
 footer a:hover{color:var(--brace)}
 
 /* visualizzatore */
-.lb{position:fixed;inset:0;z-index:100;background:rgba(5,12,8,.97);display:grid;grid-template-rows:auto 1fr auto;touch-action:pan-y}
+.lb{position:fixed;inset:0;height:100vh;height:100dvh;z-index:100;background:#050c08;display:grid;grid-template-rows:auto minmax(0,1fr) auto;touch-action:pan-y}
 .lb[hidden]{display:none}
 .lb-top,.lb-bot{display:flex;align-items:center;gap:10px;padding:10px clamp(10px,2vw,22px)}
 .lb-top{padding-top:max(10px,env(safe-area-inset-top))}
@@ -91,10 +91,12 @@ footer a:hover{color:var(--brace)}
 .lb-cred{font:italic 500 14px Fraunces,Georgia,serif;color:var(--avorio-2);margin-left:auto}
 .lb-x{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:none;cursor:pointer;display:grid;place-items:center;flex:none}
 .lb-x:hover{border-color:var(--brace)}
-.lb-stage{position:relative;min-height:0;display:grid;place-items:center;overflow:hidden}
-.lb-stage img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;user-select:none;-webkit-user-drag:none;transition:opacity .25s}
+.lb-stage{position:relative;min-height:0;overflow:hidden}
+/* l'immagine riempie l'area disponibile e viene adattata senza tagli, verticale o orizzontale */
+.lb-stage img{position:absolute;inset:clamp(4px,1.2vw,14px) clamp(4px,5vw,88px);width:calc(100% - 2*clamp(4px,5vw,88px));height:calc(100% - 2*clamp(4px,1.2vw,14px));object-fit:contain;user-select:none;-webkit-user-drag:none;transition:opacity .25s}
+@media(hover:none){.lb-stage img{inset:0;width:100%;height:100%}}
 .lb-stage img.carica{opacity:.35}
-.lb-spin{position:absolute;width:34px;height:34px;border-radius:50%;border:2px solid rgba(243,239,226,.18);border-top-color:var(--brace);animation:gira 1s linear infinite}
+.lb-spin{position:absolute;left:calc(50% - 17px);top:calc(50% - 17px);width:34px;height:34px;border-radius:50%;border:2px solid rgba(243,239,226,.18);border-top-color:var(--brace);animation:gira 1s linear infinite}
 .lb-spin[hidden]{display:none}
 @keyframes gira{to{transform:rotate(360deg)}}
 .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;border:1px solid var(--line);
