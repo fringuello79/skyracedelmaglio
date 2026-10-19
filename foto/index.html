@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Le foto della gara · Skyrace del Maglio 2026</title>
-<meta name="description" content="Le foto della Skyrace del Maglio 2026 (domenica 18 ottobre, Magliano de' Marsi) scattate da Michele Stoduto. Libere da scaricare.">
+<meta name="description" content="Le foto della Skyrace del Maglio 2026 (domenica 18 ottobre, Magliano de' Marsi), divise per album e con ricerca per pettorale e nome. Libere da scaricare.">
 <meta name="theme-color" content="#0c1f14">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Le foto della Skyrace del Maglio 2026">
-<meta property="og:description" content="Foto di Michele Stoduto · domenica 18 ottobre 2026, Magliano de' Marsi">
+<meta property="og:description" content="Cerca il tuo pettorale · domenica 18 ottobre 2026, Magliano de' Marsi">
 <meta property="og:url" content="https://www.skyracedelmaglio.it/foto/">
 <meta property="og:image" content="https://lh3.googleusercontent.com/d/1UMgPYQjhPG8nHBhU1N1zgUADD6Wy2hUo=w1200">
 <link rel="icon" type="image/png" href="logo-srm.png">
@@ -117,6 +117,56 @@ footer a:hover{color:var(--brace)}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:110;background:var(--bosco);
   border:1px solid rgba(244,149,31,.5);padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s}
 .toast.vis{opacity:1}
+
+/* caricamento: il maglio che batte */
+.carica-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:56px 0 30px;color:var(--avorio-2)}
+.carica-box[hidden]{display:none}
+.maglio{width:84px;height:84px;overflow:visible}
+.maglio .testa-manico{transform-origin:22px 70px;animation:batti 1.05s cubic-bezier(.55,0,.35,1) infinite}
+.maglio .scintille{opacity:0;transform-origin:62px 70px;animation:sprizza 1.05s ease-out infinite}
+@keyframes batti{0%{transform:rotate(-58deg)}55%{transform:rotate(4deg)}62%{transform:rotate(-3deg)}100%{transform:rotate(-58deg)}}
+@keyframes sprizza{0%,50%{opacity:0;transform:scale(.4)}58%{opacity:1;transform:scale(1)}80%{opacity:0;transform:scale(1.35)}100%{opacity:0}}
+.carica-box p{margin:0;font:500 12px 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase}
+.carica-box small{font-size:13.5px;color:var(--ferro)}
+
+/* ricerca */
+.cerca-bar{position:sticky;top:68px;z-index:15;background:rgba(12,31,20,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line-2);padding:12px 0}
+.cerca-in{display:flex;gap:10px;align-items:center}
+.cerca-campo{position:relative;flex:1}
+.cerca-campo svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ferro);pointer-events:none}
+#cerca{width:100%;min-height:48px;background:var(--bosco2);border:1px solid var(--line);border-radius:10px;padding:10px 40px 10px 42px;font:16px Inter,system-ui,sans-serif;color:var(--avorio)}
+#cerca::placeholder{color:var(--ferro)}
+#cerca::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+#cerca:focus-visible{outline:3px solid var(--brace);outline-offset:2px}
+.cerca-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:8px;background:none;cursor:pointer;color:var(--ferro);display:grid;place-items:center}
+.cerca-x[hidden]{display:none}
+.cerca-x:hover{color:var(--avorio)}
+.cerca-esito{margin:10px 0 0;font-size:14.5px;color:var(--avorio-2);min-height:1.2em}
+.cerca-esito b{color:var(--avorio)}
+.cerca-esito .stato{display:block;font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:.08em;color:var(--ferro);margin-top:4px}
+.esempi{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.esempi button{border:1px solid var(--line);background:none;border-radius:999px;padding:4px 11px;font:500 12.5px Inter,sans-serif;color:var(--avorio-2);cursor:pointer}
+.esempi button:hover{border-color:var(--brace);color:var(--brace)}
+
+/* album */
+h2.sez{margin:clamp(26px,4vw,40px) 0 14px;font:700 clamp(20px,2.6vw,28px)/1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.03em}
+h2.sez em{font-style:normal;color:var(--brace)}
+.album{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;list-style:none;margin:0;padding:0}
+@media(max-width:620px){.album{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.album li{flex:0 0 72%;scroll-snap-align:start}}
+.album button{position:relative;display:block;width:100%;aspect-ratio:16/10;border:0;padding:0;border-radius:12px;overflow:hidden;cursor:pointer;background:var(--bosco2);box-shadow:0 0 0 1px var(--line-2);text-align:left}
+.album img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
+.album button:hover img{transform:scale(1.04)}
+.album .didas{position:absolute;inset:auto 0 0 0;padding:28px 14px 12px;background:linear-gradient(180deg,transparent,rgba(8,20,12,.9))}
+.album .didas b{display:block;font:600 16px/1.2 Oswald,sans-serif;letter-spacing:.03em;text-transform:uppercase}
+.album .didas small{font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--avorio-2)}
+.album button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--brace)}
+.album button:focus-visible{outline:3px solid var(--brace);outline-offset:3px}
+.album .tutte{display:grid;place-items:center;background:linear-gradient(135deg,var(--bosco),var(--bosco2))}
+.album .tutte .didas{position:static;background:none;padding:0;text-align:center}
+.galleria .pett{position:absolute;left:8px;top:8px;display:flex;gap:4px;flex-wrap:wrap;pointer-events:none}
+.galleria .pett span{font:700 11px 'JetBrains Mono',monospace;background:rgba(12,31,20,.82);border:1px solid rgba(244,149,31,.55);color:var(--avorio);padding:2px 6px;border-radius:5px}
+.lb-pett{font:500 12px 'JetBrains Mono',monospace;color:var(--brace)}
+
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -131,20 +181,59 @@ footer a:hover{color:var(--brace)}
     <div class="wrap">
       <p class="eyebrow">Domenica 18 ottobre 2026</p>
       <h1>Le foto <span>della gara</span></h1>
-      <p class="lead">Gli scatti di <b>Michele Stoduto</b> alla Skyrace del Maglio 2026. Tocca una foto per vederla grande: puoi scaricarla o condividerla.</p>
-      <div class="meta"><span><b id="conta">—</b> foto</span><span>Magliano de' Marsi</span></div>
+      <p class="lead">Gli scatti dei fotografi della Skyrace del Maglio 2026, divisi per album. Cerca il tuo <b>pettorale</b> o il tuo <b>nome</b>, oppure quello che c'è nella foto. Toccala per vederla grande, scaricarla o condividerla.</p>
+      <div class="meta"><span><b id="conta">—</b> foto</span><span><b id="nAlbum">—</b> album</span><span>Magliano de' Marsi</span></div>
       <a class="btn-ghost" href="../classifica/" style="margin-top:22px">🏆 Classifica 2026</a>
     </div>
   </section>
 
+  <div class="cerca-bar" role="search">
+    <div class="wrap">
+      <div class="cerca-in">
+        <label class="cerca-campo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          <input type="search" id="cerca" placeholder="Pettorale, nome o cosa c'è nella foto (es. 169, Pelosi, arrivo)" aria-label="Cerca nelle foto: pettorale, nome o cosa c'è nella foto" autocomplete="off" enterkeyhint="search">
+          <button type="button" class="cerca-x" id="cercaX" aria-label="Cancella la ricerca" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+        </label>
+      </div>
+      <p class="cerca-esito" id="esito" aria-live="polite"></p>
+    </div>
+  </div>
+
   <div class="wrap">
     <p class="avviso" id="avviso" hidden></p>
+
+    <div class="carica-box" id="carica" role="status">
+      <svg class="maglio" viewBox="0 0 84 84" aria-hidden="true">
+        <rect x="8" y="72" width="70" height="7" rx="2" fill="#5b6b60"/>
+        <path d="M14 72h56l-5-9H19z" fill="#3c4a40"/>
+        <g class="scintille" fill="#f4951f"><circle cx="54" cy="60" r="2.2"/><circle cx="70" cy="58" r="1.8"/><circle cx="62" cy="52" r="2"/><circle cx="76" cy="64" r="1.5"/><circle cx="48" cy="64" r="1.5"/></g>
+        <g class="testa-manico">
+          <rect x="19" y="20" width="6" height="52" rx="3" fill="#a9612f"/>
+          <rect x="8" y="12" width="28" height="15" rx="3" fill="#9aa6a0"/>
+          <rect x="8" y="12" width="28" height="4" rx="2" fill="#cfd4c8"/>
+        </g>
+      </svg>
+      <p>Foto in caricamento…</p>
+      <small>Un attimo: stiamo battendo il ferro.</small>
+    </div>
+
+    <section id="secAlbum" hidden>
+      <h2 class="sez">Gli <em>album</em></h2>
+      <ul class="album" id="album" aria-label="Album fotografici"></ul>
+    </section>
+
+    <h2 class="sez" id="titoloGriglia" hidden></h2>
     <ul class="galleria" id="galleria" aria-label="Foto della Skyrace del Maglio 2026"></ul>
 
     <div class="note">
       <div>
         <h2>Libere da scaricare</h2>
-        <p>Le foto si possono scaricare e usare liberamente. Se le pubblichi sui social, cita il fotografo: <b>Michele Stoduto</b>.</p>
+        <p>Le foto si possono scaricare e usare liberamente. Se le pubblichi sui social, cita il fotografo indicato sulla foto.</p>
+      </div>
+      <div>
+        <h2>Come funziona la ricerca</h2>
+        <p>Pettorali e contenuto delle foto sono riconosciuti in automatico: se il numero è coperto o poco leggibile la foto può sfuggire, quindi sfoglia anche gli album.</p>
       </div>
       <div>
         <h2>Ti riconosci e preferisci di no?</h2>
@@ -156,7 +245,7 @@ footer a:hover{color:var(--brace)}
 
 <footer>
   <div class="wrap">
-    <span>© 2026 Skyrace del Maglio · A.S.D. USA Sporting Club Avezzano · Foto Michele Stoduto</span>
+    <span>© 2026 Skyrace del Maglio · A.S.D. USA Sporting Club Avezzano · Foto dei fotografi indicati negli album</span>
     <a href="../">www.skyracedelmaglio.it</a>
   </div>
 </footer>
@@ -164,7 +253,7 @@ footer a:hover{color:var(--brace)}
 <div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Foto ingrandita">
   <div class="lb-top">
     <span class="lb-cont" id="lbCont"></span>
-    <span class="lb-cred">Foto Michele Stoduto</span>
+    <span class="lb-cred" id="lbCred"></span>
     <button class="lb-x" id="lbX" aria-label="Chiudi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   </div>
   <div class="lb-stage" id="lbStage">
@@ -183,23 +272,30 @@ footer a:hover{color:var(--brace)}
 <script>
 (function(){
   'use strict';
-  /* Le immagini arrivano dalla cartella Drive del club già ridimensionate da Google:
-     miniatura ~640 px, visualizzatore ~2000 px. L'elenco delle foto è in elenco.json. */
-  var MINI = 640, GRANDE = 2048;
-  /* Elenco automatico: indirizzo della web app Google Apps Script (account del club) che legge la cartella Drive.
-     Se è vuoto o non risponde, la pagina usa l'elenco fisso elenco.json. Codice dello script: apps-script-elenco.gs */
+  /* L'elenco di album e foto arriva dalla web app Google Apps Script dell'account del club
+     (codice in apps-script-elenco.gs), che legge la cartella Drive e l'indice dei pettorali.
+     Se non risponde si usa elenco.json. Le immagini sono ridimensionate da Google: miniatura ~640 px, grande ~2000 px. */
   var FONTE_LIVE = 'https://script.google.com/macros/s/AKfycbw07sNjNBh9YbAFbFejL9vm-8fsqlIK1pN1h9PP-UcQjkSRwS8W8kKjKjyb0fWkzIsF/exec';
+  var ALBUM_PREDEFINITO = 'Michele Stoduto – Gara';   // per elenchi senza album
+  var DNF = [11, 32, 38, 55, 69, 143, 145, 150];       // partiti e non classificati: pettorali comunque validi
+  var MINI = 640, GRANDE = 2048, CHIAVE_CACHE = 'srm-foto-elenco-v2';
   function urlImg(id, w){ return 'https://lh3.googleusercontent.com/d/' + id + '=w' + w; }
   function urlRiserva(id, w){ return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + w; }
   function urlScarica(id){ return 'https://drive.google.com/uc?export=download&id=' + id; }
 
   var $ = function(id){ return document.getElementById(id); };
   var gal = $('galleria'), lb = $('lb'), lbImg = $('lbImg'), lbSpin = $('lbSpin');
-  var FOTO = [], cur = -1, ultimoFocus = null, falliti = 0;
+  var ALBUM = [], FOTO = [], VISTE = [], ATLETI = [], VALIDI = null;
+  var stato = {album: -1, q: ''}, cur = -1, ultimoFocus = null, firma = '';
 
   function avviso(t){ var a = $('avviso'); a.textContent = t; a.hidden = !t; }
   function toast(t){ var el = $('toast'); el.textContent = t; el.classList.add('vis'); clearTimeout(toast._t); toast._t = setTimeout(function(){ el.classList.remove('vis'); }, 2200); }
   function conta(){ try { if (window.goatcounter && goatcounter.count) goatcounter.count.apply(goatcounter, arguments); } catch(e){} }
+  function esc(t){ return String(t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function norm(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function fotografo(nomeAlbum){ return String(nomeAlbum).split(/\s+[–—-]\s+/)[0]; }
+  function leggiCache(){ try { return JSON.parse(localStorage.getItem(CHIAVE_CACHE) || 'null'); } catch(e){ return null; } }
+  function scriviCache(d){ try { localStorage.setItem(CHIAVE_CACHE, JSON.stringify(d)); } catch(e){} }
 
   function caricaImg(img, id, w, ok){
     img.onerror = function(){
@@ -210,70 +306,150 @@ footer a:hover{color:var(--brace)}
     img.src = urlImg(id, w);
   }
 
-  function costruisci(){
-    $('conta').textContent = FOTO.length;
-    var frag = document.createDocumentFragment();
-    FOTO.forEach(function(f, i){
-      var li = document.createElement('li');
-      var b = document.createElement('button');
+  /* --- dati --- */
+  function prepara(d){
+    var album = d.album && d.album.length ? d.album : [{nome: ALBUM_PREDEFINITO}];
+    ALBUM = album.map(function(a, i){ return {nome: a.nome, cover: a.cover, n: 0, i: i}; });
+    FOTO = (d.foto || []).map(function(f){
+      var a = ALBUM[f.a || 0] || ALBUM[0]; a.n++;
+      var p = (f.p || []).filter(function(x){ return !VALIDI || VALIDI[x]; });
+      return {id: f.id, n: f.n, a: a.i, p: p, t: norm(f.t), i: !!f.i};
+    });
+    ALBUM.forEach(function(a){ if (!a.cover){ var f = FOTO.filter(function(x){ return x.a === a.i; })[0]; a.cover = f && f.id; } });
+    $('conta').textContent = FOTO.length; $('nAlbum').textContent = ALBUM.length;
+    disegnaAlbum(); applica();
+  }
+
+  function disegnaAlbum(){
+    $('secAlbum').hidden = ALBUM.length < 2 || !!stato.q;
+    var h = '';
+    if (ALBUM.length > 1) h += '<li><button type="button" class="tutte" data-a="-1" aria-pressed="' + (stato.album < 0) + '"><span class="didas"><b>Tutti gli album</b><small>' + FOTO.length + ' foto</small></span></button></li>';
+    ALBUM.forEach(function(a){
+      h += '<li><button type="button" data-a="' + a.i + '" aria-pressed="' + (stato.album === a.i) + '">' +
+        (a.cover ? '<img src="' + urlImg(a.cover, MINI) + '" alt="" loading="lazy">' : '') +
+        '<span class="didas"><b>' + esc(a.nome) + '</b><small>' + a.n + ' foto</small></span></button></li>';
+    });
+    $('album').innerHTML = h;
+  }
+
+  /* --- ricerca --- */
+  function cerca(q){
+    var s = norm(q);
+    if (!s) return null;
+    var res = {pett: [], atleti: [], perTesto: false};
+    if (/^\d{1,3}$/.test(s)){
+      res.pett = [+s];
+      ATLETI.forEach(function(a){ if (a.b === +s) res.atleti.push(a); });
+    } else {
+      var parole = s.split(' ');
+      ATLETI.forEach(function(a){
+        var nome = norm(a.n + ' ' + a.c);
+        var tutte = parole.every(function(p){ return (' ' + nome).indexOf(' ' + p) >= 0; });
+        if (tutte){ res.atleti.push(a); res.pett.push(a.b); }
+      });
+      res.perTesto = true; res.parole = parole;
+    }
+    return res;
+  }
+  function corrisponde(f, r){
+    for (var i = 0; i < r.pett.length; i++) if (f.p.indexOf(r.pett[i]) >= 0) return true;
+    if (r.perTesto && f.t){
+      var t = ' ' + f.t;
+      return r.parole.every(function(p){ return t.indexOf(' ' + p) >= 0; });
+    }
+    return false;
+  }
+
+  function applica(){
+    var r = cerca(stato.q);
+    VISTE = FOTO.filter(function(f){
+      if (stato.album >= 0 && f.a !== stato.album) return false;
+      return r ? corrisponde(f, r) : true;
+    });
+    var analizzate = FOTO.filter(function(f){ return f.i; }).length;
+    var e = '';
+    if (r){
+      var chi = r.atleti.slice(0, 3).map(function(a){ return '<b>' + esc(a.n + ' ' + a.c) + '</b> (' + a.b + ')'; }).join(', ');
+      if (r.atleti.length > 3) chi += ' e altri ' + (r.atleti.length - 3);
+      if (/^\d+$/.test(norm(stato.q)) && !r.atleti.length) chi = 'pettorale <b>' + esc(norm(stato.q)) + '</b>';
+      e = (VISTE.length ? '<b>' + VISTE.length + '</b> foto' : 'Nessuna foto trovata') + (chi ? ' · ' + chi : '') +
+          (stato.album >= 0 ? ' · nell\'album «' + esc(ALBUM[stato.album].nome) + '»' : '');
+      if (!VISTE.length) e += ' — prova a sfogliare gli album: il pettorale potrebbe non essere leggibile.';
+    }
+    if (FOTO.length && analizzate < FOTO.length)
+      e += '<span class="stato">Riconoscimento automatico in corso: ' + analizzate + ' foto analizzate su ' + FOTO.length + '. Le altre arrivano a breve.</span>';
+    $('esito').innerHTML = e;
+    $('cercaX').hidden = !stato.q;
+    $('secAlbum').hidden = ALBUM.length < 2 || !!r;
+    var t = $('titoloGriglia');
+    t.hidden = ALBUM.length < 2 && !r;
+    t.innerHTML = r ? 'Risultati <em>della ricerca</em>' : (stato.album >= 0 ? esc(ALBUM[stato.album].nome) : 'Tutte <em>le foto</em>');
+    Array.prototype.forEach.call($('album').querySelectorAll('button'), function(b){ b.setAttribute('aria-pressed', String(+b.dataset.a === stato.album)); });
+    disegnaGriglia();
+    var url = location.pathname + (stato.q ? '?q=' + encodeURIComponent(stato.q) : '') + (stato.album >= 0 ? (stato.q ? '&' : '?') + 'album=' + stato.album : '');
+    history.replaceState(null, '', url + location.hash);
+  }
+
+  function disegnaGriglia(){
+    gal.innerHTML = '';
+    var frag = document.createDocumentFragment(), falliti = 0;
+    VISTE.forEach(function(f, i){
+      var li = document.createElement('li'), b = document.createElement('button');
       b.type = 'button';
-      b.setAttribute('aria-label', 'Apri la foto ' + (i + 1) + ' di ' + FOTO.length);
+      b.setAttribute('aria-label', 'Apri la foto ' + (i + 1) + ' di ' + VISTE.length + (f.p.length ? ', pettorali ' + f.p.join(', ') : ''));
       var img = document.createElement('img');
       img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.width = 640; img.height = 427;
       caricaImg(img, f.id, MINI, function(ok){
         if (ok) return;
-        falliti++;
-        b.innerHTML = '<span class="ko">' + f.n + '</span>';
+        falliti++; b.innerHTML = '<span class="ko">' + esc(f.n) + '</span>';
         if (falliti >= 6) avviso('Alcune foto non si caricano in questo momento. Riprova tra poco.');
       });
       b.appendChild(img);
+      if (stato.q && f.p.length){
+        var tag = document.createElement('span'); tag.className = 'pett';
+        tag.innerHTML = f.p.slice(0, 4).map(function(x){ return '<span>' + x + '</span>'; }).join('');
+        b.appendChild(tag);
+      }
       b.addEventListener('click', function(){ apri(i); });
-      li.appendChild(b);
-      frag.appendChild(li);
+      li.appendChild(b); frag.appendChild(li);
     });
     gal.appendChild(frag);
   }
 
-  /* visualizzatore */
+  /* --- visualizzatore --- */
   function mostra(i){
-    cur = (i + FOTO.length) % FOTO.length;
-    var f = FOTO[cur];
-    $('lbCont').innerHTML = '<b>' + (cur + 1) + '</b> / ' + FOTO.length + ' · ' + f.n;
+    cur = (i + VISTE.length) % VISTE.length;
+    var f = VISTE[cur], alb = ALBUM[f.a];
+    $('lbCont').innerHTML = '<b>' + (cur + 1) + '</b> / ' + VISTE.length + ' · ' + esc(f.n) + (f.p.length ? ' <span class="lb-pett">· pett. ' + f.p.join(', ') + '</span>' : '');
+    $('lbCred').textContent = 'Foto ' + fotografo(alb.nome);
     $('lbScarica').href = urlScarica(f.id);
     $('lbScarica').setAttribute('download', 'SRM2026_' + f.n + '.jpg');
     lbImg.classList.add('carica'); lbSpin.hidden = false;
-    lbImg.alt = 'Foto ' + (cur + 1) + ' di ' + FOTO.length + ', Skyrace del Maglio 2026';
+    lbImg.alt = 'Foto ' + (cur + 1) + ' di ' + VISTE.length + ', Skyrace del Maglio 2026';
     delete lbImg.dataset.riserva;
     var richiesta = cur;
     caricaImg(lbImg, f.id, GRANDE, function(){ if (richiesta === cur){ lbImg.classList.remove('carica'); lbSpin.hidden = true; } });
-    if (location.hash !== '#' + f.n) history.replaceState(null, '', '#' + f.n);
-    [cur + 1, cur - 1].forEach(function(k){ var p = FOTO[(k + FOTO.length) % FOTO.length]; (new Image()).src = urlImg(p.id, GRANDE); });
+    if (location.hash !== '#' + f.n) history.replaceState(null, '', location.pathname + location.search + '#' + f.n);
+    [cur + 1, cur - 1].forEach(function(k){ var p = VISTE[(k + VISTE.length) % VISTE.length]; (new Image()).src = urlImg(p.id, GRANDE); });
   }
-  function apri(i){
-    ultimoFocus = document.activeElement;
-    lb.hidden = false; document.body.style.overflow = 'hidden';
-    mostra(i); $('lbX').focus();
-  }
+  function apri(i){ ultimoFocus = document.activeElement; lb.hidden = false; document.body.style.overflow = 'hidden'; mostra(i); $('lbX').focus(); }
   function chiudi(){
     lb.hidden = true; document.body.style.overflow = ''; lbImg.removeAttribute('src');
     history.replaceState(null, '', location.pathname + location.search);
     var btn = gal.querySelectorAll('button')[cur];
     if (btn){ btn.scrollIntoView({block: 'nearest'}); btn.focus(); } else if (ultimoFocus) ultimoFocus.focus();
   }
-
   $('lbX').addEventListener('click', chiudi);
   $('lbPrev').addEventListener('click', function(){ mostra(cur - 1); });
   $('lbNext').addEventListener('click', function(){ mostra(cur + 1); });
   $('lbStage').addEventListener('click', function(e){ if (e.target === this) chiudi(); });
-  $('lbScarica').addEventListener('click', function(){ conta({path: 'foto/scarica/' + FOTO[cur].n, title: 'Scarica foto', event: true}); });
+  $('lbScarica').addEventListener('click', function(){ conta({path: 'foto/scarica/' + VISTE[cur].n, title: 'Scarica foto', event: true}); });
   $('lbCondividi').addEventListener('click', function(){
-    var f = FOTO[cur], url = location.origin + location.pathname + '#' + f.n;
+    var f = VISTE[cur], url = location.origin + location.pathname + '#' + f.n;
     conta({path: 'foto/condividi/' + f.n, title: 'Condividi foto', event: true});
-    if (navigator.share){
-      navigator.share({title: 'Skyrace del Maglio 2026 · foto Michele Stoduto', url: url}).catch(function(){});
-    } else if (navigator.clipboard){
-      navigator.clipboard.writeText(url).then(function(){ toast('Link copiato'); }, function(){ prompt('Copia il link', url); });
-    } else { prompt('Copia il link', url); }
+    if (navigator.share) navigator.share({title: 'Skyrace del Maglio 2026 · foto ' + fotografo(ALBUM[f.a].nome), url: url}).catch(function(){});
+    else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function(){ toast('Link copiato'); }, function(){ prompt('Copia il link', url); });
+    else prompt('Copia il link', url);
   });
   document.addEventListener('keydown', function(e){
     if (lb.hidden) return;
@@ -287,7 +463,6 @@ footer a:hover{color:var(--brace)}
       else if (!e.shiftKey && document.activeElement === u){ e.preventDefault(); p.focus(); }
     }
   });
-  /* scorrimento col dito */
   var x0 = null, y0 = null;
   $('lbStage').addEventListener('touchstart', function(e){ if (e.touches.length === 1){ x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, {passive: true});
   $('lbStage').addEventListener('touchend', function(e){
@@ -297,22 +472,55 @@ footer a:hover{color:var(--brace)}
     else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) chiudi();
   }, {passive: true});
 
+  /* --- comandi --- */
+  var attesa;
+  $('cerca').addEventListener('input', function(){
+    var v = this.value; clearTimeout(attesa);
+    attesa = setTimeout(function(){ stato.q = v.trim(); applica(); if (stato.q) conta({path: 'foto/cerca', title: 'Ricerca foto', event: true}); }, 220);
+  });
+  $('cercaX').addEventListener('click', function(){ $('cerca').value = ''; stato.q = ''; applica(); $('cerca').focus(); });
+  $('album').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    stato.album = +b.dataset.a; applica();
+    $('titoloGriglia').scrollIntoView({behavior: 'smooth', block: 'start'});
+  });
+
   function daHash(){
-    var n = decodeURIComponent(location.hash.slice(1));
-    if (!n) return;
-    for (var i = 0; i < FOTO.length; i++) if (FOTO[i].n === n){ apri(i); return; }
+    var n = decodeURIComponent(location.hash.slice(1)); if (!n) return;
+    for (var i = 0; i < VISTE.length; i++) if (VISTE[i].n === n){ apri(i); return; }
+    for (var j = 0; j < FOTO.length; j++) if (FOTO[j].n === n){ stato.q = ''; stato.album = -1; $('cerca').value = ''; applica(); apri(VISTE.indexOf(FOTO[j])); return; }
   }
+
+  /* --- avvio --- */
+  var par = new URLSearchParams(location.search);
+  stato.q = par.get('q') || ''; $('cerca').value = stato.q;
+  if (par.get('album') !== null && /^\d+$/.test(par.get('album'))) stato.album = +par.get('album');
 
   function leggi(url, ms){
     return Promise.race([
       fetch(url, {cache: 'no-cache'}).then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); }),
       new Promise(function(_, no){ setTimeout(function(){ no(new Error('timeout')); }, ms); })
-    ]).then(function(d){ if (!d || !d.foto || !d.foto.length) throw new Error('vuoto'); return d; });
+    ]);
   }
-  var statico = function(){ return leggi('elenco.json', 15000); };
-  (FONTE_LIVE ? leggi(FONTE_LIVE, 10000).catch(statico) : statico())
-    .then(function(d){ FOTO = d.foto; costruisci(); daHash(); })
-    .catch(function(){ avviso('Non riesco a caricare l\'elenco delle foto. Ricarica la pagina tra poco.'); });
+  var classifica = leggi('../classifica/classifica-2026.json', 15000).then(function(d){
+    ATLETI = d.atleti.map(function(a){ return {b: a.b, c: a.c, n: a.n}; });
+    VALIDI = {}; ATLETI.forEach(function(a){ VALIDI[a.b] = 1; }); DNF.forEach(function(b){ VALIDI[b] = 1; });
+  }).catch(function(){ ATLETI = []; VALIDI = null; });
+
+  var mostrato = false;
+  function usa(d){
+    var f = JSON.stringify([d.album, (d.foto || []).length, d.aggiornato]);
+    if (mostrato && f === firma) return;
+    firma = f; $('carica').hidden = true; prepara(d);
+    if (!mostrato){ mostrato = true; daHash(); }
+  }
+  var cache = leggiCache();
+  classifica.then(function(){
+    if (cache && cache.foto && cache.foto.length) usa(cache);
+    var vivo = leggi(FONTE_LIVE, 25000).then(function(d){ if (!d || !d.foto || !d.foto.length) throw new Error('vuoto'); scriviCache(d); return d; });
+    return vivo.catch(function(){ return mostrato ? null : leggi('elenco.json', 15000); });
+  }).then(function(d){ if (d) usa(d); })
+    .catch(function(){ if (!mostrato){ $('carica').hidden = true; avviso('Non riesco a caricare le foto in questo momento. Ricarica la pagina tra poco.'); } });
 })();
 </script>
 <script data-goatcounter="https://skyracedelmaglio.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
