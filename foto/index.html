@@ -181,6 +181,9 @@ footer a:hover{color:var(--brace)}
   /* Le immagini arrivano dalla cartella Drive del club già ridimensionate da Google:
      miniatura ~640 px, visualizzatore ~2000 px. L'elenco delle foto è in elenco.json. */
   var MINI = 640, GRANDE = 2048;
+  /* Elenco automatico: indirizzo della web app Google Apps Script (account del club) che legge la cartella Drive.
+     Se è vuoto o non risponde, la pagina usa l'elenco fisso elenco.json. Codice dello script: apps-script-elenco.gs */
+  var FONTE_LIVE = '';
   function urlImg(id, w){ return 'https://lh3.googleusercontent.com/d/' + id + '=w' + w; }
   function urlRiserva(id, w){ return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + w; }
   function urlScarica(id){ return 'https://drive.google.com/uc?export=download&id=' + id; }
@@ -295,9 +298,15 @@ footer a:hover{color:var(--brace)}
     for (var i = 0; i < FOTO.length; i++) if (FOTO[i].n === n){ apri(i); return; }
   }
 
-  fetch('elenco.json', {cache: 'no-cache'})
-    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function(d){ FOTO = d.foto || []; costruisci(); daHash(); })
+  function leggi(url, ms){
+    return Promise.race([
+      fetch(url, {cache: 'no-cache'}).then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); }),
+      new Promise(function(_, no){ setTimeout(function(){ no(new Error('timeout')); }, ms); })
+    ]).then(function(d){ if (!d || !d.foto || !d.foto.length) throw new Error('vuoto'); return d; });
+  }
+  var statico = function(){ return leggi('elenco.json', 15000); };
+  (FONTE_LIVE ? leggi(FONTE_LIVE, 10000).catch(statico) : statico())
+    .then(function(d){ FOTO = d.foto; costruisci(); daHash(); })
     .catch(function(){ avviso('Non riesco a caricare l\'elenco delle foto. Ricarica la pagina tra poco.'); });
 })();
 </script>
