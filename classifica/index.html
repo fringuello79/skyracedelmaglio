@@ -172,6 +172,7 @@ footer a:hover{color:var(--brace)}
     </table>
 
     <div class="note">
+      <p>Il pettorale 200 è la scopa, che ha chiuso la gara: arrivo senza tempo.</p>
       <p>Ritmo in minuti al chilometro. I primi tre assoluti uomini e le prime tre donne sono premiati nella classifica assoluta e non compaiono nel podio di categoria.</p>
       <p>Hai notato un errore nei tuoi dati? Scrivici a <a href="mailto:usasportingclub@gmail.com?subject=Classifica%20SRM%202026">usasportingclub@gmail.com</a> indicando il pettorale.</p>
     </div>
@@ -237,16 +238,17 @@ footer a:hover{color:var(--brace)}
       var pos = filtro.k ? (a.kp || null) : perSesso ? a.g : a.p;
       var posTxt = pos == null ? '' : pos;
       var cls = (!filtro.k && pos && pos <= 3 && (perSesso || a.p <= 3)) ? ' p' + pos : '';
-      var catPos = a.kp ? '<small>' + a.kp + '°</small>' : '<small class="ass" title="Premiato nella classifica assoluta">ass.</small>';
+      if (a.scopa) posTxt = '';
+      var catPos = a.scopa ? '<small>scopa</small>' : a.kp ? '<small>' + a.kp + '°</small>' : '<small class="ass" title="Premiato nella classifica assoluta">ass.</small>';
       h += '<tr><td class="n pos' + cls + '">' + posTxt + '</td>' +
         '<td class="pett col-pett">' + a.b + '</td>' +
         '<td class="atleta"><b>' + esc(a.c + ' ' + a.n) + '</b><span class="soc">' + esc(a.q || '—') + '</span></td>' +
         '<td class="cat"><span class="tag ' + a.s + '">' + a.k + '</span>' + catPos + '</td>' +
         '<td class="soc-col col-soc">' + esc(a.q || '—') + '</td>' +
         '<td class="anno col-anno">' + a.a + '</td>' +
-        '<td class="n tempo">' + hms(a.t) + '</td>' +
-        '<td class="n ritmo col-ritmo">' + esc(a.v) + '</td>' +
-        '<td class="n dist col-dist">' + dist(a.d) + '</td></tr>';
+        '<td class="n tempo">' + (a.scopa ? '—' : hms(a.t)) + '</td>' +
+        '<td class="n ritmo col-ritmo">' + (a.v ? esc(a.v) : '—') + '</td>' +
+        '<td class="n dist col-dist">' + (a.scopa ? '—' : dist(a.d)) + '</td></tr>';
     });
     $('righe').innerHTML = h || '<tr><td colspan="9" class="vuoto">Nessun atleta corrisponde alla ricerca.</td></tr>';
     $('conta').textContent = L.length === A.length ? A.length + ' atleti' : L.length + ' di ' + A.length;
