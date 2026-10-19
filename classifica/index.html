@@ -172,7 +172,7 @@ footer a:hover{color:var(--brace)}
     </table>
 
     <div class="note">
-      <p>Il pettorale 200 è la scopa, che ha chiuso la gara: arrivo senza tempo.</p>
+      <p>Il pettorale 200 è la scopa, che ha chiuso la gara arrivando oltre il tempo massimo: per questo è in classifica senza tempo.</p>
       <p>Ritmo in minuti al chilometro. I primi tre assoluti uomini e le prime tre donne sono premiati nella classifica assoluta e non compaiono nel podio di categoria.</p>
       <p>Hai notato un errore nei tuoi dati? Scrivici a <a href="mailto:usasportingclub@gmail.com?subject=Classifica%20SRM%202026">usasportingclub@gmail.com</a> indicando il pettorale.</p>
     </div>
@@ -238,7 +238,6 @@ footer a:hover{color:var(--brace)}
       var pos = filtro.k ? (a.kp || null) : perSesso ? a.g : a.p;
       var posTxt = pos == null ? '' : pos;
       var cls = (!filtro.k && pos && pos <= 3 && (perSesso || a.p <= 3)) ? ' p' + pos : '';
-      if (a.scopa) posTxt = '';
       var catPos = a.scopa ? '<small>scopa</small>' : a.kp ? '<small>' + a.kp + '°</small>' : '<small class="ass" title="Premiato nella classifica assoluta">ass.</small>';
       h += '<tr><td class="n pos' + cls + '">' + posTxt + '</td>' +
         '<td class="pett col-pett">' + a.b + '</td>' +
