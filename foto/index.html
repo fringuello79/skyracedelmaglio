@@ -229,7 +229,7 @@ h2.sez em{font-style:normal;color:var(--brace)}
     <div class="note">
       <div>
         <h2>Libere da scaricare</h2>
-        <p>Le foto si possono scaricare e usare liberamente. Se le pubblichi sui social, cita il fotografo indicato sulla foto.</p>
+        <p>Le foto si possono scaricare e usare liberamente. Se le pubblichi sui social, cita il fotografo indicato nel nome dell'album (lo vedi anche in alto quando apri la foto).</p>
       </div>
       <div>
         <h2>Come funziona la ricerca</h2>
@@ -293,7 +293,8 @@ h2.sez em{font-style:normal;color:var(--brace)}
   function conta(){ try { if (window.goatcounter && goatcounter.count) goatcounter.count.apply(goatcounter, arguments); } catch(e){} }
   function esc(t){ return String(t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function norm(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
-  function fotografo(nomeAlbum){ return String(nomeAlbum).split(/\s+[–—-]\s+/)[0]; }
+  /* il nome dell'album contiene il fotografo (es. «Villaggio gara - Michele Stoduto»): lo si mostra per intero come credito */
+  function fotografo(nomeAlbum){ return String(nomeAlbum).replace(/\s+-\s+/g, ' – '); }
   function leggiCache(){ try { return JSON.parse(localStorage.getItem(CHIAVE_CACHE) || 'null'); } catch(e){ return null; } }
   function scriviCache(d){ try { localStorage.setItem(CHIAVE_CACHE, JSON.stringify(d)); } catch(e){} }
 
@@ -327,7 +328,7 @@ h2.sez em{font-style:normal;color:var(--brace)}
     ALBUM.forEach(function(a){
       h += '<li><button type="button" data-a="' + a.i + '" aria-pressed="' + (stato.album === a.i) + '">' +
         (a.cover ? '<img src="' + urlImg(a.cover, MINI) + '" alt="" loading="lazy">' : '') +
-        '<span class="didas"><b>' + esc(a.nome) + '</b><small>' + a.n + ' foto</small></span></button></li>';
+        '<span class="didas"><b>' + esc(fotografo(a.nome)) + '</b><small>' + a.n + ' foto</small></span></button></li>';
     });
     $('album').innerHTML = h;
   }
@@ -383,7 +384,7 @@ h2.sez em{font-style:normal;color:var(--brace)}
     $('secAlbum').hidden = ALBUM.length < 2 || !!r;
     var t = $('titoloGriglia');
     t.hidden = ALBUM.length < 2 && !r;
-    t.innerHTML = r ? 'Risultati <em>della ricerca</em>' : (stato.album >= 0 ? esc(ALBUM[stato.album].nome) : 'Tutte <em>le foto</em>');
+    t.innerHTML = r ? 'Risultati <em>della ricerca</em>' : (stato.album >= 0 ? esc(fotografo(ALBUM[stato.album].nome)) : 'Tutte <em>le foto</em>');
     Array.prototype.forEach.call($('album').querySelectorAll('button'), function(b){ b.setAttribute('aria-pressed', String(+b.dataset.a === stato.album)); });
     disegnaGriglia();
     var url = location.pathname + (stato.q ? '?q=' + encodeURIComponent(stato.q) : '') + (stato.album >= 0 ? (stato.q ? '&' : '?') + 'album=' + stato.album : '');
@@ -421,7 +422,7 @@ h2.sez em{font-style:normal;color:var(--brace)}
     cur = (i + VISTE.length) % VISTE.length;
     var f = VISTE[cur], alb = ALBUM[f.a];
     $('lbCont').innerHTML = '<b>' + (cur + 1) + '</b> / ' + VISTE.length + ' · ' + esc(f.n) + (f.p.length ? ' <span class="lb-pett">· pett. ' + f.p.join(', ') + '</span>' : '');
-    $('lbCred').textContent = 'Foto ' + fotografo(alb.nome);
+    $('lbCred').textContent = fotografo(alb.nome);
     $('lbScarica').href = urlScarica(f.id);
     $('lbScarica').setAttribute('download', 'SRM2026_' + f.n + '.jpg');
     lbImg.classList.add('carica'); lbSpin.hidden = false;
@@ -447,7 +448,7 @@ h2.sez em{font-style:normal;color:var(--brace)}
   $('lbCondividi').addEventListener('click', function(){
     var f = VISTE[cur], url = location.origin + location.pathname + '#' + f.n;
     conta({path: 'foto/condividi/' + f.n, title: 'Condividi foto', event: true});
-    if (navigator.share) navigator.share({title: 'Skyrace del Maglio 2026 · foto ' + fotografo(ALBUM[f.a].nome), url: url}).catch(function(){});
+    if (navigator.share) navigator.share({title: 'Skyrace del Maglio 2026 · ' + fotografo(ALBUM[f.a].nome), url: url}).catch(function(){});
     else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function(){ toast('Link copiato'); }, function(){ prompt('Copia il link', url); });
     else prompt('Copia il link', url);
   });
