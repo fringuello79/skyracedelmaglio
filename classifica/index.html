@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Classifica 2026 · Skyrace del Maglio</title>
+<meta name="description" content="Classifica generale della Skyrace del Maglio 2026 (30 km, domenica 18 ottobre, Magliano de' Marsi): assoluta, uomini, donne e categorie.">
+<meta name="theme-color" content="#0c1f14">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Classifica Skyrace del Maglio 2026">
+<meta property="og:description" content="147 arrivati · 30 km · domenica 18 ottobre 2026, Magliano de' Marsi">
+<meta property="og:url" content="https://www.skyracedelmaglio.it/classifica/">
+<link rel="icon" type="image/png" href="logo-srm.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Fraunces:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --forgia:#0c1f14;--bosco:#11301f;--bosco2:#0f2819;--felce:#4f9239;--brace:#f4951f;--brace-h:#ffae3d;
+  --ferro:#9aa6a0;--avorio:#f3efe2;--avorio-2:#cfd4c8;--line:rgba(243,239,226,.14);--line-2:rgba(243,239,226,.08);
+  --oro:#f4c430;--argento:#c9d1cc;--bronzo:#c98a4b;--maxw:1180px;
+}
+*{box-sizing:border-box}
+html{background:var(--forgia)}
+body{margin:0;background:var(--forgia);color:var(--avorio);font:16px/1.55 Inter,system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button,input,select{font:inherit;color:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+
+.topbar{position:sticky;top:0;z-index:20;height:68px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:0 clamp(16px,4vw,64px);padding-top:env(safe-area-inset-top);border-bottom:1px solid var(--line);background:rgba(12,31,20,.92);backdrop-filter:blur(10px)}
+.brand{display:flex;gap:12px;align-items:center;min-width:0}
+.brand img{height:42px;width:42px;object-fit:contain;flex:none}
+.brand strong{display:block;font:700 18px/1 Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.brand em{display:block;font:italic 500 12.5px Fraunces,Georgia,serif;color:var(--ferro);margin-top:3px;white-space:nowrap}
+.back{font:500 13px Oswald,sans-serif;text-transform:uppercase;letter-spacing:.12em;border:1px solid var(--line);padding:10px 16px;border-radius:7px;white-space:nowrap;transition:.18s}
+.back:hover{border-color:var(--brace);color:var(--brace)}
+@media(max-width:520px){.brand em{display:none}.brand strong{font-size:16px}.back{padding:9px 12px;font-size:12px}}
+@media(max-width:440px){.brand div{display:none}}
+
+.head{position:relative;isolation:isolate;overflow:hidden;padding:clamp(44px,8vw,96px) 0 clamp(30px,5vw,54px);
+  background:radial-gradient(120% 80% at 80% 0%,rgba(244,149,31,.14),transparent 55%),radial-gradient(90% 70% at 10% 100%,rgba(79,146,57,.14),transparent 60%),linear-gradient(180deg,#0d2316,#0a1a10)}
+.head::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.28;background:url('../assets/img/montagne.png') center 70%/cover no-repeat;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 55%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0%,#000 55%,transparent 100%)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,3vw,28px)}
+.eyebrow{font:italic 600 19px Fraunces,Georgia,serif;color:var(--brace);margin:0 0 14px;display:flex;align-items:center;gap:12px}
+.eyebrow::before{content:"";width:26px;height:2px;background:var(--brace)}
+h1{margin:0;font:400 clamp(44px,8vw,104px)/.92 Anton,Impact,sans-serif;letter-spacing:.02em;text-transform:uppercase}
+h1 span{color:var(--brace)}
+.lead{color:var(--avorio-2);font-size:clamp(16.5px,1.6vw,19px);max-width:660px;margin:18px 0 0}
+.numeri{display:flex;flex-wrap:wrap;gap:10px 34px;margin-top:26px}
+.numeri div{display:flex;flex-direction:column}
+.numeri b{font:700 clamp(26px,3.4vw,38px)/1 Oswald,sans-serif;letter-spacing:.02em}
+.numeri span{font:500 11px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--ferro);margin-top:6px}
+.azioni{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.btn-ghost{font:600 14px Oswald,sans-serif;text-transform:uppercase;letter-spacing:.08em;padding:11px 18px;border-radius:8px;border:1px solid var(--line);display:inline-flex;align-items:center;gap:8px;transition:.18s}
+.btn-ghost:hover{border-color:var(--brace);color:var(--brace)}
+
+/* podi */
+h2.sez{margin:clamp(34px,5vw,56px) 0 18px;font:700 clamp(24px,3.2vw,34px)/1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.02em}
+h2.sez em{font-style:normal;color:var(--brace)}
+.podi{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(max-width:820px){.podi{grid-template-columns:1fr}}
+.podio{background:linear-gradient(180deg,var(--bosco),var(--bosco2));border:1px solid var(--line-2);border-radius:14px;padding:18px 18px 8px}
+.podio h3{margin:0 0 10px;font:600 13px 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--brace)}
+.podio ol{list-style:none;margin:0;padding:0}
+.podio li{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line-2)}
+.podio li:first-child{border-top:0}
+.med{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font:700 17px Oswald,sans-serif;color:#1b1406}
+.m1{background:var(--oro)}.m2{background:var(--argento)}.m3{background:var(--bronzo)}
+.podio .chi b{display:block;font:600 17.5px/1.2 Oswald,sans-serif;letter-spacing:.02em;text-transform:uppercase}
+.podio .chi small{display:block;color:var(--ferro);font-size:13.5px;line-height:1.35;margin-top:2px}
+.podio .tm{text-align:right;font:700 17px 'JetBrains Mono',monospace}
+.podio .tm small{display:block;font:500 12px 'JetBrains Mono',monospace;color:var(--ferro)}
+
+/* filtri */
+.filtri{position:sticky;top:68px;z-index:10;background:rgba(12,31,20,.96);backdrop-filter:blur(8px);padding:12px 0;margin-top:6px;border-bottom:1px solid var(--line-2);
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:none;padding:9px 14px;cursor:pointer;font:500 13.5px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--avorio-2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--brace);color:#241200}
+.seg button span{opacity:.7;font-family:'JetBrains Mono',monospace;font-size:11.5px;margin-left:4px}
+select,input[type=search]{background:var(--bosco2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;min-height:40px}
+select{cursor:pointer}
+input[type=search]{flex:1 1 220px;min-width:0}
+input[type=search]::placeholder{color:var(--ferro)}
+select:focus-visible,input:focus-visible,.seg button:focus-visible{outline:3px solid var(--brace);outline-offset:2px}
+.conta{font:500 12px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--ferro);margin-left:auto;white-space:nowrap}
+
+/* tabella */
+table{width:100%;border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}
+thead th{text-align:left;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--ferro);padding:12px 10px;border-bottom:1px solid var(--line)}
+tbody td{padding:11px 10px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+tbody tr:hover{background:rgba(243,239,226,.035)}
+th.n,td.n{text-align:right}
+.pos{font:700 18px Oswald,sans-serif;width:52px}
+.pos.p1{color:var(--oro)}.pos.p2{color:var(--argento)}.pos.p3{color:var(--bronzo)}
+.pett{font:500 13px 'JetBrains Mono',monospace;color:var(--ferro)}
+.atleta b{font-weight:600}
+.atleta .soc{display:none;color:var(--ferro);font-size:13px}
+.cat{white-space:nowrap}
+.tag{display:inline-block;font:600 11.5px 'JetBrains Mono',monospace;letter-spacing:.06em;padding:3px 7px;border-radius:5px;background:rgba(243,239,226,.07);border:1px solid var(--line-2)}
+.tag.F{background:rgba(244,149,31,.12);border-color:rgba(244,149,31,.35)}
+.cat small{color:var(--ferro);font:500 12px 'JetBrains Mono',monospace;margin-left:6px}
+.cat small.ass{color:var(--brace)}
+.soc-col{color:var(--avorio-2);font-size:14.5px}
+.tempo{font:700 15.5px 'JetBrains Mono',monospace;white-space:nowrap}
+.dist,.ritmo,.anno{font:500 13px 'JetBrains Mono',monospace;color:var(--ferro);white-space:nowrap}
+.vuoto{padding:30px 10px;text-align:center;color:var(--ferro)}
+@media(max-width:860px){.col-anno,.col-ritmo{display:none}}
+@media(max-width:700px){
+  .col-soc,.col-dist,.col-pett{display:none}
+  .atleta .soc{display:block}
+  tbody td{padding:10px 6px}
+  .pos{width:38px;font-size:17px}
+  .conta{margin-left:0;width:100%}
+  .filtri{position:static}
+  .seg button{padding:9px 11px}
+}
+
+.note{margin:clamp(30px,4vw,46px) 0 0;color:var(--ferro);font-size:14px;max-width:820px}
+.note p{margin:0 0 8px}
+.note a{color:var(--brace);border-bottom:1px solid rgba(244,149,31,.4)}
+footer{margin-top:40px;padding:22px 0 calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line-2);color:var(--ferro);font-size:13.5px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between}
+footer a:hover{color:var(--brace)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="../" class="brand"><img src="logo-srm.png" alt="" width="42" height="42"><div><strong>Skyrace del Maglio</strong><em>Dove il ferro incontra il cielo</em></div></a>
+  <a class="back" href="../">← Torna al sito</a>
+</header>
+
+<main>
+  <section class="head">
+    <div class="wrap">
+      <p class="eyebrow">Domenica 18 ottobre 2026</p>
+      <h1>Classifica <span>2026</span></h1>
+      <p class="lead">La classifica generale della Skyrace del Maglio: 30 km e 2.079 m di dislivello, partenza alle 9:00 dal Municipio di Magliano de' Marsi.</p>
+      <div class="numeri" id="numeri"></div>
+      <div class="azioni">
+        <a class="btn-ghost" href="../foto/">◎ Le foto della gara</a>
+        <a class="btn-ghost" href="classifica-skyrace-del-maglio-2026.xlsx" download>↓ Classifica in Excel</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <h2 class="sez">I <em>podi</em></h2>
+    <div class="podi" id="podi"></div>
+
+    <h2 class="sez" id="generale">Classifica <em>generale</em></h2>
+    <div class="filtri" role="search">
+      <div class="seg" id="seg" aria-label="Filtra per sesso">
+        <button type="button" data-s="" aria-pressed="true">Tutti<span id="nT"></span></button>
+        <button type="button" data-s="M" aria-pressed="false">Uomini<span id="nM"></span></button>
+        <button type="button" data-s="F" aria-pressed="false">Donne<span id="nF"></span></button>
+      </div>
+      <select id="cat" aria-label="Categoria"><option value="">Tutte le categorie</option></select>
+      <input type="search" id="cerca" placeholder="Cerca nome, società o pettorale" aria-label="Cerca nome, società o pettorale" autocomplete="off">
+      <span class="conta" id="conta"></span>
+    </div>
+    <table>
+      <thead><tr>
+        <th class="n">Pos.</th><th class="col-pett">Pett.</th><th>Atleta</th><th>Cat.</th><th class="col-soc">Società</th>
+        <th class="col-anno">Anno</th><th class="n">Tempo</th><th class="n col-ritmo">Ritmo</th><th class="n col-dist">Distacco</th>
+      </tr></thead>
+      <tbody id="righe"><tr><td colspan="9" class="vuoto">Caricamento della classifica…</td></tr></tbody>
+    </table>
+
+    <div class="note">
+      <p>Ritmo in minuti al chilometro. I primi tre assoluti uomini e le prime tre donne sono premiati nella classifica assoluta e non compaiono nel podio di categoria.</p>
+      <p>Hai notato un errore nei tuoi dati? Scrivici a <a href="mailto:usasportingclub@gmail.com?subject=Classifica%20SRM%202026">usasportingclub@gmail.com</a> indicando il pettorale.</p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Skyrace del Maglio · A.S.D. USA Sporting Club Avezzano</span>
+    <a href="../">www.skyracedelmaglio.it</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var A = [], filtro = {s: '', k: '', q: ''};
+
+  function hms(s){ var h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60; return h + ':' + (m<10?'0':'') + m + ':' + (x<10?'0':'') + x; }
+  function dist(s){ if (s <= 0) return '—'; var h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+    return '+' + (h ? h + ':' + (m<10?'0':'') + m : m) + ':' + (x<10?'0':'') + x; }
+  function esc(t){ return String(t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function norm(t){ return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+  function podio(titolo, lista, rif){
+    var h = '<div class="podio"><h3>' + titolo + '</h3><ol>';
+    lista.forEach(function(a, i){
+      h += '<li><span class="med m' + (i+1) + '">' + (i+1) + '</span><span class="chi"><b>' + esc(a.n + ' ' + a.c) + '</b><small>' + esc(a.q || '—') +
+        ' · ' + a.k + '</small></span><span class="tm">' + hms(a.t) + '<small>' + (i ? dist(a.d - rif) : '') + '</small></span></li>';
+    });
+    return h + '</ol></div>';
+  }
+
+  function prepara(d){
+    A = d.atleti;
+    var t0 = A[0].t, M = A.filter(function(a){ return a.s === 'M'; }), F = A.filter(function(a){ return a.s === 'F'; });
+    A.forEach(function(a){ a.cerca = norm(a.c + ' ' + a.n + ' ' + a.n + ' ' + a.c + ' ' + a.q + ' #' + a.b + ' ' + a.b); });
+    $('numeri').innerHTML =
+      '<div><b>' + d.arrivati + '</b><span>arrivati su ' + d.iscritti + '</span></div>' +
+      '<div><b>' + M.length + ' · ' + F.length + '</b><span>uomini · donne</span></div>' +
+      '<div><b>' + hms(t0) + '</b><span>tempo migliore</span></div>';
+    $('nT').textContent = A.length; $('nM').textContent = M.length; $('nF').textContent = F.length;
+    $('podi').innerHTML = podio('Assoluta uomini', M.slice(0,3), M[0].d) + podio('Assoluta donne', F.slice(0,3), F[0].d);
+    var cats = {}; A.forEach(function(a){ cats[a.k] = (cats[a.k] || 0) + 1; });
+    Object.keys(cats).sort(function(x, y){ return x[0] === y[0] ? x.localeCompare(y) : (x[0] === 'F' ? 1 : -1); }).forEach(function(k){
+      var o = document.createElement('option'); o.value = k; o.textContent = k + ' (' + cats[k] + ')'; $('cat').appendChild(o);
+    });
+    disegna();
+  }
+
+  function disegna(){
+    var q = norm(filtro.q.trim()), parole = q ? q.split(/\s+/) : [];
+    var L = A.filter(function(a){
+      if (filtro.s && a.s !== filtro.s) return false;
+      if (filtro.k && a.k !== filtro.k) return false;
+      for (var i = 0; i < parole.length; i++) if (a.cerca.indexOf(parole[i]) < 0) return false;
+      return true;
+    });
+    var perSesso = !!filtro.s && !filtro.k;
+    var h = '';
+    L.forEach(function(a){
+      var pos = filtro.k ? (a.kp || null) : perSesso ? a.g : a.p;
+      var posTxt = pos == null ? '' : pos;
+      var cls = (!filtro.k && pos && pos <= 3 && (perSesso || a.p <= 3)) ? ' p' + pos : '';
+      var catPos = a.kp ? '<small>' + a.kp + '°</small>' : '<small class="ass" title="Premiato nella classifica assoluta">ass.</small>';
+      h += '<tr><td class="n pos' + cls + '">' + posTxt + '</td>' +
+        '<td class="pett col-pett">' + a.b + '</td>' +
+        '<td class="atleta"><b>' + esc(a.c + ' ' + a.n) + '</b><span class="soc">' + esc(a.q || '—') + '</span></td>' +
+        '<td class="cat"><span class="tag ' + a.s + '">' + a.k + '</span>' + catPos + '</td>' +
+        '<td class="soc-col col-soc">' + esc(a.q || '—') + '</td>' +
+        '<td class="anno col-anno">' + a.a + '</td>' +
+        '<td class="n tempo">' + hms(a.t) + '</td>' +
+        '<td class="n ritmo col-ritmo">' + esc(a.v) + '</td>' +
+        '<td class="n dist col-dist">' + dist(a.d) + '</td></tr>';
+    });
+    $('righe').innerHTML = h || '<tr><td colspan="9" class="vuoto">Nessun atleta corrisponde alla ricerca.</td></tr>';
+    $('conta').textContent = L.length === A.length ? A.length + ' atleti' : L.length + ' di ' + A.length;
+  }
+
+  $('seg').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    filtro.s = b.dataset.s;
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function(x){ x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    if (filtro.k && filtro.s && filtro.k[0] !== filtro.s){ filtro.k = ''; $('cat').value = ''; }
+    disegna();
+  });
+  $('cat').addEventListener('change', function(){ filtro.k = this.value; disegna(); });
+  $('cerca').addEventListener('input', function(){ filtro.q = this.value; disegna(); });
+
+  fetch('classifica-2026.json', {cache: 'no-cache'})
+    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(prepara)
+    .catch(function(){ $('righe').innerHTML = '<tr><td colspan="9" class="vuoto">Non riesco a caricare la classifica. Ricarica la pagina tra poco.</td></tr>'; });
+})();
+</script>
+<script data-goatcounter="https://skyracedelmaglio.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

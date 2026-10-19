@@ -40,6 +40,7 @@ img{display:block;max-width:100%}
 .back{font:500 13px Oswald,sans-serif;text-transform:uppercase;letter-spacing:.12em;border:1px solid var(--line);padding:10px 16px;border-radius:7px;white-space:nowrap;transition:.18s}
 .back:hover{border-color:var(--brace);color:var(--brace)}
 @media(max-width:520px){.brand em{display:none}.brand strong{font-size:16px}.back{padding:9px 12px;font-size:12px}}
+@media(max-width:440px){.brand div{display:none}}
 
 /* testata */
 .head{position:relative;isolation:isolate;overflow:hidden;padding:clamp(44px,8vw,96px) 0 clamp(30px,5vw,54px);
@@ -55,6 +56,8 @@ h1 span{color:var(--brace)}
 .lead b{color:var(--avorio);font-weight:600}
 .meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:22px;font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--ferro)}
 .meta b{color:var(--avorio);font-weight:700}
+.btn-ghost{font:600 14px Oswald,sans-serif;text-transform:uppercase;letter-spacing:.08em;padding:11px 18px;border-radius:8px;border:1px solid var(--line);display:inline-flex;align-items:center;gap:8px;transition:.18s}
+.btn-ghost:hover{border-color:var(--brace);color:var(--brace)}
 
 /* griglia */
 .galleria{list-style:none;margin:0;padding:clamp(18px,3vw,30px) 0 0;display:grid;gap:clamp(6px,1vw,12px);grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
@@ -130,6 +133,7 @@ footer a:hover{color:var(--brace)}
       <h1>Le foto <span>della gara</span></h1>
       <p class="lead">Gli scatti di <b>Michele Stoduto</b> alla Skyrace del Maglio 2026. Tocca una foto per vederla grande: puoi scaricarla o condividerla.</p>
       <div class="meta"><span><b id="conta">—</b> foto</span><span>Magliano de' Marsi · Massiccio del Velino</span></div>
+      <a class="btn-ghost" href="../classifica/" style="margin-top:22px">🏆 Classifica 2026</a>
     </div>
   </section>
 

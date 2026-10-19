@@ -95,8 +95,8 @@ header.nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);
 /* PC medi: con «Dove sono» il menu non ci sta, l'accesso staff resta solo come lucchetto */
 @media(min-width:981px) and (max-width:1439px){.nav-links a.nav-staff .staff-txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.nav-links a.nav-staff .staff-ico{width:17px;height:17px}}
 .staff-ico{width:14px;height:14px;flex:none;opacity:.85}
-/* ISCRIZIONI CHIUSE: con la classe "iscrizioni-chiuse" su <html> i pulsanti «Iscriviti» (classe .iscr) restano nascosti
-   e compaiono quelli del dopo gara (classe .solo-chiuse). Per riaprire le iscrizioni basta togliere la classe da <html>. */
+/* ISCRIZIONI CHIUSE: con la classe "iscrizioni-chiuse" su <html> restano nascosti i pulsanti «Iscriviti» e le voci di menu
+   Iscrizioni, ATRS e Info (classe .iscr) e compaiono quelli del dopo gara: Classifica, Foto (classe .solo-chiuse). Per riaprire le iscrizioni basta togliere la classe da <html>. */
 html.iscrizioni-chiuse .iscr{display:none!important}
 html:not(.iscrizioni-chiuse) .solo-chiuse{display:none!important}
 /* Desktop: il menu parte all'altezza della "A" di SKYRACE nel titolo e si allarga fino a Iscriviti;
@@ -601,13 +601,14 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
       <a href="#ambiente">Ambiente</a>
       <a href="#percorso">Percorso</a>
       <a href="#medaglia">Medaglia</a>
-      <a href="#iscrizioni">Iscrizioni</a>
-      <a href="#circuito">ATRS</a>
+      <a class="iscr" href="#iscrizioni">Iscrizioni</a>
+      <a class="iscr" href="#circuito">ATRS</a>
+      <a class="nav-foto solo-chiuse" href="classifica/"><svg class="foto-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0V4Zm0 1.5H4V7a3 3 0 0 0 3 3m10-4.5h3V7a3 3 0 0 1-3 3M12 13v4m-4 3h8m-6 0 1-3h2l1 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>Classifica</a>
+      <a class="nav-foto solo-chiuse" href="foto/"><svg class="foto-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13.2" r="3.3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Foto</a>
       <a href="#partner">Partner</a>
-      <a href="#info">Info</a>
+      <a class="iscr" href="#info">Info</a>
       <a class="nav-explorer" href="explorer.html"><span class="explorer-ico" aria-hidden="true"></span>SRM Explorer</a>
       <a class="nav-live" href="live.html"><span class="live-dot"></span>Live</a>
-      <a class="nav-foto" href="foto/"><svg class="foto-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13.2" r="3.3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Foto</a>
       <a class="nav-dove" href="posizione/"><svg class="dove-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z" fill="currentColor"/></svg>Dove sono</a>
       <a class="nav-staff" href="staff/" rel="nofollow" title="Accesso staff"><svg class="staff-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="staff-txt">Accesso staff</span></a>
       <a class="cta iscr" href="#iscrizioni">Iscriviti</a>
@@ -631,7 +632,8 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
       <p class="sub">30 km e <b>2.079 m di dislivello</b> alle spalle delle tre vette del Massiccio del Velino — Sevice, Velino e Cafornia. Partenza e arrivo davanti al <b>Municipio di Magliano de' Marsi</b>.</p>
       <div class="hero-cta-row">
         <a class="cta big iscr" href="#iscrizioni">Iscriviti alla gara</a>
-        <a class="cta big solo-chiuse" href="foto/">Guarda le foto della gara</a>
+        <a class="cta big solo-chiuse" href="classifica/">Classifica 2026</a>
+        <a class="btn-ghost solo-chiuse" href="foto/">◎ Le foto della gara</a>
         <a class="btn-ghost" href="#percorso">▾ Scopri il percorso</a>
       </div>
       <div class="count-label">— Al via mancano</div>
@@ -1190,6 +1192,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
         <a class="fl" href="#medaglia">La medaglia del maglio</a>
         <a class="fl" href="#iscrizioni">Iscrizioni &amp; materiale</a>
         <a class="fl" href="#info">Info &amp; logistica</a>
+        <a class="fl" href="classifica/">Classifica 2026</a>
         <a class="fl" href="foto/">Le foto della gara 2026</a>
         <a class="fl" href="assets/doc/regolamento-srm-2026.pdf" target="_blank" rel="noopener">Regolamento 2026 (PDF)</a>
         <a class="fl" href="assets/doc/guida-naturalistica-srm-2026.pdf" target="_blank" rel="noopener">Guida naturalistica (PDF)</a>
