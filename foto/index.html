@@ -97,8 +97,9 @@ footer a:hover{color:var(--brace)}
 .lb-x:hover{border-color:var(--brace)}
 .lb-stage{position:relative;min-height:0;overflow:hidden}
 /* l'immagine riempie l'area disponibile e viene adattata senza tagli, verticale o orizzontale */
-.lb-stage img{position:absolute;inset:clamp(4px,1.2vw,14px) clamp(4px,5vw,88px);width:calc(100% - 2*clamp(4px,5vw,88px));height:calc(100% - 2*clamp(4px,1.2vw,14px));object-fit:contain;user-select:none;-webkit-user-drag:none;transition:opacity .25s}
-@media(hover:none){.lb-stage img{inset:0;width:100%;height:100%}}
+/* il riquadro dell'immagine ha esattamente le sue proporzioni (calcolate in JS): così anche l'anteprima
+   dell'iPhone, che compare tenendo premuta la foto, non la deforma */
+.lb-stage img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:none;user-select:none;-webkit-user-drag:none;transition:opacity .25s}
 .lb-stage img.carica{opacity:.35}
 .lb-spin{position:absolute;left:calc(50% - 17px);top:calc(50% - 17px);width:34px;height:34px;border-radius:50%;border:2px solid rgba(243,239,226,.18);border-top-color:var(--brace);animation:gira 1s linear infinite}
 .lb-spin[hidden]{display:none}
@@ -418,6 +419,26 @@ h2.sez em{font-style:normal;color:var(--brace)}
   }
 
   /* --- visualizzatore --- */
+  /* dimensioni dell'immagine ingrandita: tutta visibile, senza tagli né deformazioni */
+  function adatta(){
+    var w = lbImg.naturalWidth, h = lbImg.naturalHeight; if (!w || !h || lb.hidden) return;
+    var st = $('lbStage').getBoundingClientRect(), tocco = matchMedia('(hover: none)').matches;
+    var px = tocco ? 0 : Math.min(88, Math.max(4, innerWidth * .05)), py = tocco ? 0 : Math.min(14, Math.max(4, innerWidth * .012));
+    var k = Math.min((st.width - 2 * px) / w, (st.height - 2 * py) / h);
+    lbImg.style.width = Math.round(w * k) + 'px'; lbImg.style.height = Math.round(h * k) + 'px';
+  }
+  addEventListener('resize', adatta); addEventListener('orientationchange', function(){ setTimeout(adatta, 250); });
+
+  /* iPhone/iPad: «Salva» apre il menu di condivisione con l'immagine, da cui si sceglie «Salva immagine» (va nelle Foto) */
+  var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var FILES = {};
+  function preparaFile(f){
+    if (FILES[f.id] || !window.File || !navigator.canShare) return;
+    FILES[f.id] = fetch(urlImg(f.id, GRANDE)).then(function(r){ if (!r.ok) throw 0; return r.blob(); })
+      .then(function(b){ var file = new File([b], 'SRM2026_' + f.n + '.jpg', {type: b.type || 'image/jpeg'}); FILES[f.id] = file; return file; })
+      .catch(function(){ delete FILES[f.id]; return null; });
+  }
+
   function mostra(i){
     cur = (i + VISTE.length) % VISTE.length;
     var f = VISTE[cur], alb = ALBUM[f.a];
@@ -429,7 +450,8 @@ h2.sez em{font-style:normal;color:var(--brace)}
     lbImg.alt = 'Foto ' + (cur + 1) + ' di ' + VISTE.length + ', Skyrace del Maglio 2026';
     delete lbImg.dataset.riserva;
     var richiesta = cur;
-    caricaImg(lbImg, f.id, GRANDE, function(){ if (richiesta === cur){ lbImg.classList.remove('carica'); lbSpin.hidden = true; } });
+    caricaImg(lbImg, f.id, GRANDE, function(){ adatta(); if (richiesta === cur){ lbImg.classList.remove('carica'); lbSpin.hidden = true; } });
+    if (IOS) preparaFile(f);
     if (location.hash !== '#' + f.n) history.replaceState(null, '', location.pathname + location.search + '#' + f.n);
     [cur + 1, cur - 1].forEach(function(k){ var p = VISTE[(k + VISTE.length) % VISTE.length]; (new Image()).src = urlImg(p.id, GRANDE); });
   }
@@ -444,7 +466,14 @@ h2.sez em{font-style:normal;color:var(--brace)}
   $('lbPrev').addEventListener('click', function(){ mostra(cur - 1); });
   $('lbNext').addEventListener('click', function(){ mostra(cur + 1); });
   $('lbStage').addEventListener('click', function(e){ if (e.target === this) chiudi(); });
-  $('lbScarica').addEventListener('click', function(){ conta({path: 'foto/scarica/' + VISTE[cur].n, title: 'Scarica foto', event: true}); });
+  $('lbScarica').addEventListener('click', function(e){
+    var f = VISTE[cur], file = FILES[f.id];
+    conta({path: 'foto/scarica/' + f.n, title: 'Scarica foto', event: true});
+    if (IOS && file instanceof File && navigator.canShare && navigator.canShare({files: [file]})){
+      e.preventDefault();
+      navigator.share({files: [file]}).catch(function(){});
+    }
+  });
   $('lbCondividi').addEventListener('click', function(){
     var f = VISTE[cur], url = location.origin + location.pathname + '#' + f.n;
     conta({path: 'foto/condividi/' + f.n, title: 'Condividi foto', event: true});
@@ -493,6 +522,7 @@ h2.sez em{font-style:normal;color:var(--brace)}
   }
 
   /* --- avvio --- */
+  if (IOS){ var bs = $('lbScarica'); bs.lastChild.textContent = 'Salva'; bs.setAttribute('title', 'Salva la foto nella galleria'); }
   var par = new URLSearchParams(location.search);
   stato.q = par.get('q') || ''; $('cerca').value = stato.q;
   if (par.get('album') !== null && /^\d+$/.test(par.get('album'))) stato.album = +par.get('album');
