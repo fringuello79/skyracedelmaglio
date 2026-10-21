@@ -2,6 +2,7 @@
 import { Traccia, dist } from '../posizione/geo.js';
 import { Motore, AZIONI, POSIZIONI, PRIORITA, metriParlati, kmParlati, svolteAutomatiche, tracciaDaGpx, preparaBivio } from './motore.js';
 import { Simulatore } from './simulatore.js';
+import { MappaGuida } from './mappa.js';
 
 const $ = id => document.getElementById(id);
 const salva = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* memoria non disponibile */ } };
@@ -21,10 +22,26 @@ class Voce {
     if (this.disponibile) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
     this.scegli();
   }
+  // Voci italiane, le femminili per prime (più gradevoli e più udibili all'aperto), le migliorate prima delle base.
+  voci() {
+    if (!this.disponibile) return [];
+    const punti = v => {
+      const n = `${v.name} ${v.voiceURI}`;
+      let s = 0;
+      if (FEMMINILI.test(v.name)) s += 10;
+      if (MASCHILI.test(v.name)) s -= 10;
+      if (/premium/i.test(n)) s += 4; else if (/enhanced|migliorat/i.test(n)) s += 3;
+      if (/compact/i.test(n)) s -= 1;
+      if (v.localService) s += 1;
+      return s;
+    };
+    return speechSynthesis.getVoices().filter(v => /^it/i.test(v.lang)).sort((a, b) => punti(b) - punti(a));
+  }
   scegli() {
-    if (!this.disponibile) return;
-    const it = speechSynthesis.getVoices().filter(v => /^it/i.test(v.lang));
-    this.voce = it.find(v => /premium|enhanced|migliorat/i.test(v.name)) || it.find(v => /alice|federica|luca|paola|emma/i.test(v.name)) || it[0] || null;
+    const voci = this.voci(), pref = leggi('srm-guida-voce');
+    this.voce = voci.find(v => v.voiceURI === pref) || voci[0] || null;
+    this.rate = +(leggi('srm-guida-rate') || 1);
+    selettoreVoci(voci, this.voce);
   }
   tono(tipo) {
     const c = this.ctx;
@@ -68,7 +85,7 @@ class Voce {
       if (this.corrente !== ev) return;
       if (!this.disponibile) return this._fine(ev);
       const u = new SpeechSynthesisUtterance(ev.testo);
-      u.lang = 'it-IT'; if (this.voce) u.voice = this.voce; u.rate = 1; u.pitch = 1;
+      u.lang = 'it-IT'; if (this.voce) u.voice = this.voce; u.rate = this.rate || 1; u.pitch = 1;
       u.onend = u.onerror = () => this._fine(ev);
       speechSynthesis.speak(u);
       this.timer = setTimeout(() => this._fine(ev), 2500 + ev.testo.length * 90);
@@ -82,8 +99,23 @@ class Voce {
   ripeti() { if (this.ultimoImportante) this.dici({ ...this.ultimoImportante, priorita: PRIORITA.errore, bivio: null, forza: true }); }
   ferma() { this.coda = []; this.corrente = null; clearTimeout(this.timer); try { speechSynthesis.cancel(); } catch { /* niente */ } }
 }
+const FEMMINILI = /alice|federica|emma|paola|elsa|isabella|chiara|giulia|silvia|francesca|google italiano/i;
+const MASCHILI = /\bluca\b|cosimo|diego|giuseppe|paolo|marco|roberto|\bmale\b/i;
 const voce = new Voce();
 if (voce.disponibile) speechSynthesis.addEventListener?.('voiceschanged', () => voce.scegli());
+voce.scegli();
+
+function selettoreVoci(voci, scelta) {
+  const sel = $('sel-voce'); if (!sel) return;
+  sel.replaceChildren();
+  if (!voci.length) { const o = document.createElement('option'); o.value = ''; o.textContent = 'Nessuna voce italiana'; sel.append(o); return; }
+  for (const v of voci) {
+    const o = document.createElement('option'); o.value = v.voiceURI;
+    o.textContent = v.name + (MASCHILI.test(v.name) ? ' (maschile)' : '');
+    o.selected = v === scelta; sel.append(o);
+  }
+  $('sel-rate').value = String(+(leggi('srm-guida-rate') || 1));
+}
 
 // ---------------- schermo acceso ----------------
 let blocco = null;
@@ -117,6 +149,7 @@ async function caricaGpx(file) {
 }
 
 // ---------------- stato della guida ----------------
+let mappa = null;
 let motore = null, sim = null, inCorso = false, inPausa = false, fattore = 5;
 let idGps = null, timerSim = null, timerTick = null;
 let ultimoErrore = '', ultimoLontano = '', ultimoGiusto = 0, ultimaPrecisione = null;
@@ -191,6 +224,7 @@ function aggiorna() {
   if (st.velocita > 0.3) parti.push(`${(st.velocita * 3.6).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km/h`);
   if (sim) parti.push(inPausa ? 'simulazione in pausa' : `simulazione ×${fattore}`);
   $('stato').innerHTML = parti.map(x => `<span>${x}</span>`).join('');
+  mappa?.aggiorna(motore, ultimaPrecisione);
 }
 
 // ---------------- avvio e arresto ----------------
@@ -220,7 +254,12 @@ $('avvia').addEventListener('click', async () => {
   }
   tieniAcceso();
   $('prepara').hidden = true;
-  for (const id of ['guida', 'stato', 'comandi', 'pannello-diario']) $(id).hidden = false;
+  for (const id of ['guida', 'sez-mappa', 'stato', 'comandi', 'pannello-diario']) $(id).hidden = false;
+  mappa?.rimuovi();
+  mappa = new MappaGuida($('mappa'), traccia, { onSegui: s => { $('b-centra').hidden = s; } });
+  mappa.impostaBivi(motore.bivi);
+  $('b-base').textContent = mappa.base === 'satellite' ? 'Topo' : 'Foto';
+  $('b-centra').hidden = true;
   $('comandi-sim').hidden = !sim;
   $('b-pausa').textContent = 'Pausa';
   aggiorna();
@@ -261,10 +300,16 @@ function ferma() {
   try { blocco?.release(); } catch { /* niente */ }
   blocco = null;
   $('prepara').hidden = false;
-  for (const id of ['guida', 'stato', 'comandi']) $(id).hidden = true;
+  for (const id of ['guida', 'sez-mappa', 'stato', 'comandi']) $(id).hidden = true;
+  mappa?.rimuovi(); mappa = null;
 }
 
 // ---------------- comandi ----------------
+$('b-centra').addEventListener('click', () => mappa?.centra(motore, ultimaPrecisione));
+$('b-zoom-piu').addEventListener('click', () => mappa?.zoom(1));
+$('b-zoom-meno').addEventListener('click', () => mappa?.zoom(-1));
+$('b-base').addEventListener('click', e => { if (mappa) e.currentTarget.textContent = mappa.cambiaBase() === 'satellite' ? 'Topo' : 'Foto'; });
+window.addEventListener('resize', () => mappa?.ridimensiona());
 $('b-ferma').addEventListener('click', ferma);
 $('b-ripeti').addEventListener('click', () => { voce.sblocca(); voce.ripeti(); });
 $('b-dove').addEventListener('click', () => {
@@ -295,13 +340,15 @@ $('b-segna').addEventListener('click', () => {
   voce.dici({ tipo: 'segna', priorita: PRIORITA.errore, testo: t, forza: true }); scriviDiario(t);
   $('sez-bivi').open = true; apriEditor(nuovo);
 });
+$('sel-voce').addEventListener('change', e => { salva('srm-guida-voce', e.target.value); voce.scegli(); $('b-prova-voce').click(); });
+$('sel-rate').addEventListener('change', e => { salva('srm-guida-rate', e.target.value); voce.rate = +e.target.value; $('b-prova-voce').click(); });
 $('b-prova-voce').addEventListener('click', () => {
   voce.sblocca();
   setTimeout(() => {
     voce.scegli();
     voce.dici({ tipo: 'prova', priorita: PRIORITA.bivio, suono: 'attenzione', testo: 'Tra 200 metri, incrocio a tre sentieri. Prendi il sentiero più a destra, in salita.', forza: true });
     $('msg-voce').textContent = !voce.disponibile ? 'Questo browser non ha la sintesi vocale.'
-      : voce.voce ? `Voce in uso: ${voce.voce.name}. Per una voce più naturale scarica una voce italiana «migliorata» nelle impostazioni di accessibilità dell'iPhone, alla sezione dei contenuti letti ad alta voce.`
+      : voce.voce ? `Voce in uso: ${voce.voce.name}. Per una voce femminile più naturale scarica «Federica» o «Emma» nella versione migliorata o premium: Impostazioni › Accessibilità › Contenuto letto › Voci › Italiano. Poi ricarica questa pagina.`
       : 'Nessuna voce italiana trovata: aggiungila nelle impostazioni di accessibilità dell\'iPhone, alla sezione dei contenuti letti ad alta voce.';
   }, 120);
 });
@@ -330,6 +377,7 @@ function salvaBivi() {
   bivi.sort((a, b) => a.km - b.km);
   salva(chiave(), bivi);
   motore?.impostaBivi(bivi);
+  if (motore) mappa?.impostaBivi(motore.bivi);
   disegnaBivi();
 }
 
