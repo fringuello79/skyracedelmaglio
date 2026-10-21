@@ -1,7 +1,7 @@
 // Motore della guida vocale SRM (prototipo).
 // Riceve le posizioni GPS e restituisce gli avvisi da dire all'atleta.
 // Non dipende dal browser: si prova anche al banco con Node.
-import { dist, bearing, cardinale } from '../posizione/geo.js';
+import { dist, bearing, cardinale, Traccia } from '../posizione/geo.js';
 
 const norm = a => ((a % 360) + 540) % 360 - 180;            // angolo tra -180 e 180
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -23,6 +23,9 @@ export const OPZIONI = {
   velMax: 30 / 3.6,      // m/s
   gpsDebole: 60000,      // ms senza posizioni valide in movimento
   indietroFix: 3, indietroMetri: 25,
+  kmGara: k => k,          // chilometro come lo conta la gara (serve quando si va al contrario)
+  meta: 'arrivo',          // 'arrivo' oppure 'partenza' (guida al contrario)
+  attesaDirezione: 45000,  // ms: nel tratto fatto due volte si aspetta di capire il senso di marcia
 };
 
 // ---------- frasi ----------
@@ -123,6 +126,7 @@ export class Motore {
     this.arrivato = false;
     this.lontanoUltimo = 0;
     this.pos = null; this.dist = null;
+    this.attesa = null; this.attesaDetta = false;
   }
 
   _flag(b) {
@@ -192,19 +196,31 @@ export class Motore {
     // primo aggancio alla traccia
     if (this.km == null) {
       const a = T.proietta(fix.lat, fix.lon, 0, T.kmTot / 2), b = T.proietta(fix.lat, fix.lon, T.kmTot / 2, T.kmTot);
-      const p = a.d <= b.d + 30 ? a : b;
+      let p = a.d <= b.d + 30 ? a : b;
+      // tratto percorso due volte: si sceglie il passaggio che va nel senso in cui ci si muove
+      if (a.d <= corr && b.d <= corr && Math.abs(a.km - b.km) > 1) {
+        const concorde = q => this.direzione != null && Math.abs(norm(this.direzione - T.direzioneDopo(q.km, 0.03))) < 90;
+        if (this.direzione == null) {
+          this.attesa ??= fix.t;
+          if (fix.t - this.attesa < o.attesaDirezione) {
+            this.pos = fix; this.dist = Math.min(a.d, b.d);
+            if (!this.attesaDetta) { this.attesaDetta = true; ev.push({ tipo: 'attesa', priorita: PRIORITA.info, testo: 'Sei sul percorso. Inizia a muoverti e capisco in che senso vai.' }); }
+            return ev;
+          }
+        } else p = concorde(b) && !concorde(a) ? b : a;
+      }
       this.pos = fix; this.dist = p.d;
       if (p.d > corr) {
         if (fix.t - this.lontanoUltimo > 60000) {
           this.lontanoUltimo = fix.t;
           const q = T.at(p.km);
           const d = p.d >= 1000 ? `${kmParlati(p.d / 1000)} chilometri` : `${metriParlati(p.d)} metri`;
-          ev.push({ tipo: 'lontano', priorita: PRIORITA.info, testo: `Sei a ${d} dal percorso, verso ${cardinale(bearing([fix.lat, fix.lon], q))}.` });
+          ev.push({ tipo: 'lontano', priorita: PRIORITA.info, testo: `Raggiungi il percorso: è a ${d}, ${this._lato(fix, q)}. Segui sentieri e strade.` });
         }
         return ev;
       }
       this.km = p.km; this.tKm = fix.t; this.kmMax = p.km;
-      ev.push({ tipo: 'aggancio', priorita: PRIORITA.info, suono: 'positivo', testo: `Sei sul percorso, al chilometro ${kmParlati(p.km)}.` });
+      ev.push({ tipo: 'aggancio', priorita: PRIORITA.info, suono: 'positivo', testo: `Sei sul percorso, al chilometro ${kmParlati(o.kmGara(p.km))}.` });
       this._bivi(ev, fix, true);
       return ev;
     }
@@ -226,7 +242,8 @@ export class Motore {
       this._bivi(ev, fix, false, p.d <= Math.max(12, 0.6 * corr));
       if (this.km >= T.kmTot - 0.03 && this.kmMax >= T.kmTot - 0.03) {
         this.arrivato = true;
-        ev.push({ tipo: 'arrivo', priorita: PRIORITA.bivio, suono: 'positivo', testo: 'Arrivo. Complimenti, gara finita!' });
+        ev.push({ tipo: 'arrivo', priorita: PRIORITA.bivio, suono: 'positivo',
+          testo: o.meta === 'partenza' ? 'Sei tornato alla partenza. Fine della guida.' : 'Arrivo. Complimenti, gara finita!' });
       }
       return ev;
     }
@@ -276,7 +293,9 @@ export class Motore {
       s.n++;
       if (!s.avvisato && s.n >= this.o.indietroFix && dist(s.da, [fix.lat, fix.lon]) >= this.o.indietroMetri && fix.t > this.silenzioIndietroFino) {
         s.avvisato = true;
-        ev.push({ tipo: 'indietro', priorita: PRIORITA.errore, suono: 'allarme', testo: 'Stai tornando indietro sul percorso. Se non è voluto, girati.' });
+        ev.push({ tipo: 'indietro', priorita: PRIORITA.errore, suono: 'allarme', testo: this.o.meta === 'partenza'
+          ? 'Stai andando nel senso della gara. Se è voluto, tocca «Riprendi il senso della gara».'
+          : 'Stai andando al contrario. Se vuoi tornare indietro, tocca «Torna indietro». Altrimenti girati.' });
       }
     } else if (s.n) {
       this.indietro = { n: 0, da: null, avvisato: false };
@@ -314,6 +333,12 @@ export class Motore {
 
   silenziaIndietro(t, ms = 300000) { this.silenzioIndietroFino = t + ms; }
 
+  // Riparte dal chilometro indicato (dopo «Torna indietro»): i bivi già alle spalle non vengono annunciati.
+  aggancia(km, t) {
+    this.km = km; this.tKm = t; this.kmMax = km;
+    for (const b of this.bivi) if (b.km < km - 0.02) Object.assign(this._flag(b), { pre: true, ind: true, ora: true, ver: true });
+  }
+
   prossimoBivio() {
     if (this.km == null) return null;
     const b = this.bivi.find(x => !this._flag(x).ver && x.km >= this.km - 0.02);
@@ -329,15 +354,37 @@ export class Motore {
   }
 
   doveSono() {
-    if (this.km == null) return 'Non sei ancora agganciato al percorso.';
-    let s = `Sei al chilometro ${kmParlati(this.km)}`;
+    if (this.km == null) return 'Non sei ancora sul percorso.';
+    let s = `Sei al chilometro ${kmParlati(this.o.kmGara(this.km))}`;
     const sent = this.t.sentiero(this.km);
     if (sent) s += `, sul sentiero ${sent}`;
-    s += `. Mancano ${kmParlati(Math.max(0, this.t.kmTot - this.km))} chilometri.`;
+    s += `. Mancano ${kmParlati(Math.max(0, this.t.kmTot - this.km))} chilometri ${this.o.meta === 'partenza' ? 'alla partenza' : "all'arrivo"}.`;
     const p = this.prossimoBivio();
     if (p) s += ` Prossimo bivio tra ${p.d >= 1000 ? kmParlati(p.d / 1000) + ' chilometri' : metriParlati(p.d) + ' metri'}: ${p.b.titolo.toLowerCase()}.`;
     return s;
   }
+}
+
+// ---------- guida al contrario ----------
+// Lo stesso percorso percorso all'inverso: i chilometri ripartono da zero dal punto finale.
+export function invertiTraccia(t) {
+  const K = t.kmTot;
+  const pts = t.pts.slice().reverse().map(p => [p[0], p[1], p[2], Math.round((K - p[3]) * 1000) / 1000]);
+  const comune = t.comune.map(([a, b]) => [K - b, K - a]).sort((x, y) => x[0] - y[0]);
+  const sentieri = t.sentieri.map(s => ({ da: Math.max(0, K - s.a), a: K - s.da, nome: s.nome })).reverse();
+  return new Traccia({ pts, km_tot: K, comune, sentieri });
+}
+
+// Bivi al contrario: stessi incroci, direzione ricalcolata dalla traccia invertita.
+// Quale sentiero prendere e il segno da cercare valgono per il senso di gara, quindi non si riportano.
+export function invertiBivi(bivi, tInv) {
+  const K = tInv.kmTot;
+  return bivi.map(b => {
+    const km = Math.round((K - b.km) * 1000) / 1000;
+    const prima = tInv.sentiero(km - 0.05), dopo = tInv.sentiero(km + 0.05);
+    return { id: b.id, km, azione: 'auto', rami: b.rami || 0, verifica: b.verifica, fonte: b.fonte,
+      segno: dopo && prima !== dopo ? 'sentiero ' + dopo : undefined };
+  });
 }
 
 // ---------- bivi automatici ----------

@@ -83,9 +83,9 @@ const iconaBivio = (b, tipo) => {
 
 /* ------------------------------------------------ mappa */
 export class MappaGuida {
-  constructor(el, traccia, { onSegui } = {}) {
-    this.t = traccia; this.segui = true; this.zoomUtente = false; this.prog = false; this.onSegui = onSegui;
-    const map = this.map = L.map(el, { zoomControl: false, maxZoom: 20, attributionControl: false, tap: true });
+  constructor(el, traccia, { onSegui, kmGara = k => k } = {}) {
+    this.t = traccia; this.kmGara = kmGara; this.segui = true; this.zoomUtente = false; this.prog = false; this.onSegui = onSegui;
+    const map = this.map = L.map(el, { zoomControl: false, maxZoom: 20, attributionControl: false, tap: true, fadeAnimation: false });
     L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
     L.control.scale({ imperial: false, position: 'topleft' }).addTo(map);
     this.basi = {
@@ -106,19 +106,12 @@ export class MappaGuida {
       L.polyline(seg, { pane: 'traccia', color: '#fff', weight: 2, dashArray: '2 9', opacity: .95, interactive: false }).addTo(map);
     });
 
-    // frecce del senso di marcia, fitte perché la mappa è ingrandita
-    const chev = L.layerGroup();
-    for (let k = 0.05; k < traccia.kmTot - 0.03; k += 0.08) {
-      const p = traccia.at(k), b = traccia.direzioneDopo(k, 0.03);
-      L.marker([p[0], p[1]], { pane: 'chevron', interactive: false, keyboard: false, icon: L.divIcon({ className: 'mk-chevron', iconSize: [14, 14], iconAnchor: [7, 7],
-        html: `<svg viewBox="-7 -7 14 14" width="14" height="14"><path transform="rotate(${b.toFixed(0)})" d="M-4 2.5 L0 -2.5 L4 2.5" fill="none" stroke="#153821" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>` }) }).addTo(chev);
-    }
-    for (let k = 1; k < traccia.kmTot; k++) {
-      const p = traccia.at(k);
-      L.marker([p[0], p[1]], { pane: 'chevron', interactive: false, keyboard: false, icon: L.divIcon({ className: 'mk-km', iconSize: [24, 24], iconAnchor: [12, 12], html: `<span>${k}</span>` }) }).addTo(chev);
-    }
+    // frecce del senso di marcia, fitte perché la mappa è ingrandita: solo nel tratto vicino (da −1 a +3 km)
+    const chev = this.chev = L.layerGroup();
+    this.kmChev = null;
     const mostraChev = () => { if (map.getZoom() >= 15) chev.addTo(map); else chev.remove(); };
     map.on('zoomend', mostraChev);
+    this._frecce(0);
 
     this.gBivi = L.layerGroup().addTo(map);
     this.mkBivi = new Map();
@@ -131,11 +124,41 @@ export class MappaGuida {
     map.on('zoomstart', () => { if (!this.prog) this.zoomUtente = true; });
   }
 
+  _frecce(km) {
+    if (this.kmChev != null && Math.abs(km - this.kmChev) < 1) return;
+    this.kmChev = km;
+    const t = this.t, chev = this.chev;
+    chev.clearLayers();
+    const da = Math.max(0.05, km - 1), a = Math.min(t.kmTot - 0.03, km + 3);
+    for (let k = Math.ceil(da / 0.08) * 0.08 + 0.05; k < a; k += 0.08) {
+      const p = t.at(k), b = t.direzioneDopo(k, 0.03);
+      L.marker([p[0], p[1]], { pane: 'chevron', interactive: false, keyboard: false, icon: L.divIcon({ className: 'mk-chevron', iconSize: [14, 14], iconAnchor: [7, 7],
+        html: `<svg viewBox="-7 -7 14 14" width="14" height="14"><path transform="rotate(${b.toFixed(0)})" d="M-4 2.5 L0 -2.5 L4 2.5" fill="none" stroke="#153821" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>` }) }).addTo(chev);
+    }
+    // numeri dei km come li conta la gara, anche quando si va al contrario
+    const g = this.kmGara, g1 = g(da), g2 = g(a);
+    for (let r = Math.max(1, Math.ceil(Math.min(g1, g2))); r <= Math.floor(Math.max(g1, g2)) && r < t.kmTot; r++) {
+      const p = t.at(g(r));
+      L.marker([p[0], p[1]], { pane: 'chevron', interactive: false, keyboard: false, icon: L.divIcon({ className: 'mk-km', iconSize: [24, 24], iconAnchor: [12, 12], html: `<span>${r}</span>` }) }).addTo(chev);
+    }
+  }
+
+  // Sposta la vista senza animazione: meno ridisegni, meno batteria.
   _vista(ll, z) {
     this.prog = true;
-    this.map.setView(ll, z, { animate: true });
-    clearTimeout(this.tProg); this.tProg = setTimeout(() => { this.prog = false; }, 450);
+    this.map.setView(ll, z, { animate: false });
+    clearTimeout(this.tProg); this.tProg = setTimeout(() => { this.prog = false; }, 100);
   }
+
+  // true se il punto è nella parte centrale della mappa (margine del 22% per lato)
+  _alCentro(ll) {
+    const sz = this.map.getSize(), p = this.map.latLngToContainerPoint(ll);
+    const mx = sz.x * 0.22, my = sz.y * 0.22;
+    return p.x >= mx && p.x <= sz.x - mx && p.y >= my && p.y <= sz.y - my;
+  }
+
+  // In pausa (schermo nero, mappa fuori dallo schermo): nessun lavoro.
+  sospendi(si) { this.sospesa = si; }
 
   impostaBivi(bivi) {
     this.gBivi.clearLayers(); this.mkBivi.clear();
@@ -149,7 +172,9 @@ export class MappaGuida {
 
   // Aggiorna posizione, bivi e inquadratura dallo stato del motore.
   aggiorna(motore, precisione) {
+    if (this.sospesa) return;
     const st = motore.stato();
+    if (st.km != null) this._frecce(st.km);
     for (const v of this.mkBivi.values()) {
       const fatto = motore.flag.get(v.b.id)?.ver;
       // solo i bivi del tratto in cui si è: nel tratto fatto due volte non compare quello dell'altro passaggio
@@ -176,7 +201,9 @@ export class MappaGuida {
     if (st.direzione == null ? this.dirMe != null : this.dirMe == null || Math.abs(st.direzione - this.dirMe) > 4) {
       this.dirMe = st.direzione; this.mkMe.setIcon(iconaMe(st.direzione));
     }
-    this.cerchio.setLatLng(ll).setRadius(Math.max(3, precisione || 10));
+    this.cerchio.setLatLng(ll);
+    const r = Math.max(3, precisione || 10);
+    if (Math.abs(r - this.cerchio.getRadius()) > 2) this.cerchio.setRadius(r);
 
     // lontano dalla traccia: linea tratteggiata verso il punto più vicino
     let verso = null;
@@ -186,19 +213,31 @@ export class MappaGuida {
     }
     if (verso) this.linea.setLatLngs([ll, verso]).addTo(this.map); else this.linea.remove();
 
+    // la mappa si sposta solo quando il punto esce dalla zona centrale o serve un altro ingrandimento
     if (this.segui) {
       const vicinoBivio = st.prossimo && st.prossimo.d <= 120;
       const z = this.zoomUtente ? this.map.getZoom() : (vicinoBivio || st.fuori ? 18 : 17);
       if (verso && !this.zoomUtente) {
-        this.prog = true;
-        this.map.fitBounds(L.latLngBounds([ll, verso]).pad(0.35), { maxZoom: 18, animate: true });
-        clearTimeout(this.tProg); this.tProg = setTimeout(() => { this.prog = false; }, 450);
-      } else this._vista(ll, z);
+        if (!this._alCentro(ll) || !this.map.getBounds().contains(verso)) {
+          this.prog = true;
+          this.map.fitBounds(L.latLngBounds([ll, verso]).pad(0.35), { maxZoom: 18, animate: false });
+          clearTimeout(this.tProg); this.tProg = setTimeout(() => { this.prog = false; }, 100);
+        }
+      } else if (z !== this.map.getZoom() || !this._alCentro(ll)) {
+        // centra un po' avanti nella direzione di marcia, così si vede cosa arriva
+        let c = ll;
+        if (st.direzione != null && z === this.map.getZoom()) {
+          const sz = this.map.getSize(), p = this.map.latLngToContainerPoint(ll), r = st.direzione * Math.PI / 180;
+          c = this.map.containerPointToLatLng([p.x + Math.sin(r) * sz.x * 0.2, p.y - Math.cos(r) * sz.y * 0.2]);
+        }
+        this._vista(c, z);
+      }
     }
   }
 
   centra(motore, precisione) {
     this.segui = true; this.zoomUtente = false; this.onSegui?.(true);
+    if (motore.pos) this._vista([motore.pos.lat, motore.pos.lon], this.map.getZoom());
     this.aggiorna(motore, precisione);
   }
   zoom(d) { this.zoomUtente = true; this.onSegui?.(false); d > 0 ? this.map.zoomIn() : this.map.zoomOut(); }

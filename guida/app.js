@@ -1,6 +1,6 @@
 // Guida vocale SRM — prototipo da provare in Safari.
-import { Traccia, dist } from '../posizione/geo.js';
-import { Motore, AZIONI, POSIZIONI, PRIORITA, metriParlati, kmParlati, svolteAutomatiche, tracciaDaGpx, preparaBivio } from './motore.js';
+import { Traccia, dist, bearing, cardinale } from '../posizione/geo.js';
+import { Motore, invertiTraccia, invertiBivi, AZIONI, POSIZIONI, PRIORITA, metriParlati, kmParlati, svolteAutomatiche, tracciaDaGpx, preparaBivio } from './motore.js';
 import { Simulatore } from './simulatore.js';
 import { MappaGuida } from './mappa.js';
 
@@ -150,6 +150,26 @@ async function caricaGpx(file) {
 
 // ---------------- stato della guida ----------------
 let mappa = null;
+// senso di marcia: 'gara' oppure 'contrario'; la traccia attiva è quella percorsa adesso
+let verso = 'gara', tAttiva = null;
+const kmGara = k => verso === 'contrario' ? traccia.kmTot - k : k;
+const kmAttivo = kmGara;   // la conversione è la stessa nei due sensi
+function preparaSenso(v) {
+  verso = v;
+  tAttiva = v === 'contrario' ? invertiTraccia(traccia) : traccia;
+}
+const biviAttivi = () => verso === 'contrario' ? invertiBivi(bivi, tAttiva) : bivi;
+const nuovoMotore = () => new Motore(tAttiva, biviAttivi(), { kmGara, meta: verso === 'contrario' ? 'partenza' : 'arrivo' });
+function nuovaMappa() {
+  mappa?.rimuovi();
+  mappa = new MappaGuida($('mappa'), tAttiva, { kmGara, onSegui: s => { $('b-centra').hidden = s; } });
+  mappa.impostaBivi(motore.bivi);
+  $('b-base').textContent = mappa.base === 'satellite' ? 'Topo' : 'Foto';
+  $('b-centra').hidden = true;
+}
+function etichettaInverti() {
+  $('b-inverti').textContent = verso === 'contrario' ? 'Riprendi il senso della gara' : 'Torna indietro';
+}
 let motore = null, sim = null, inCorso = false, inPausa = false, fattore = 5;
 let idGps = null, timerSim = null, timerTick = null;
 let ultimoErrore = '', ultimoLontano = '', ultimoGiusto = 0, ultimaPrecisione = null;
@@ -192,17 +212,30 @@ function freccia(a) {
   svg.innerHTML = `<path d="M50 94L50 52L${f(ex)} ${f(ey)}" fill="none" stroke="var(--inchiostro)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path d="M${punta}L${b1}L${b2}Z" fill="var(--inchiostro)"/>`;
 }
 
+// Scrive nella pagina solo quando qualcosa cambia: ogni ridisegno costa batteria.
+let ultimaCard = '', ultimaFreccia, ultimoStato = '';
 function card(classe, icona, dist, cosa, sotto) {
+  const chiaveCard = [classe, icona, dist, cosa, sotto].join('|');
+  if (chiaveCard === ultimaCard) return;
+  ultimaCard = chiaveCard;
   $('card').className = 'indicazione' + (classe ? ' ' + classe : '');
-  freccia(icona);
+  if (icona !== ultimaFreccia) { ultimaFreccia = icona; freccia(icona); }
   $('c-dist').textContent = dist; $('c-cosa').textContent = cosa; $('c-sotto').textContent = sotto || '';
+  if (schermoNero) { $('n-dist').textContent = dist; $('n-cosa').textContent = cosa; $('n-nero').className = 'nero' + (classe === 'errore' ? ' errore' : ''); }
 }
 
 function aggiorna() {
   if (!motore) return;
   const st = motore.stato();
   if (st.arrivato) card('ok', 'ok', 'Arrivo', 'Gara finita', 'Complimenti!');
-  else if (st.km == null) card('', null, '—', 'Cerco il percorso', ultimoLontano || 'Attendo una posizione GPS precisa');
+  else if (st.km == null && motore.pos && motore.attesa == null) {
+    // lontano dal percorso: freccia verso il punto più vicino (in linea d'aria)
+    const pos = motore.pos, p = tAttiva.proietta(pos.lat, pos.lon), q = tAttiva.at(p.km), b = bearing([pos.lat, pos.lon], q);
+    const rel = st.direzione != null ? Math.round((((b - st.direzione) % 360) + 540) % 360 / 15) * 15 - 180 : null;
+    card('', rel, fmtDist(p.d), 'Raggiungi il percorso', rel == null ? `Verso ${cardinale(b)} · segui sentieri e strade` : 'In linea d\'aria · segui sentieri e strade');
+  }
+  else if (st.km == null) card('', null, '—', motore.attesa != null ? 'Inizia a muoverti' : 'Cerco il percorso',
+    motore.attesa != null ? 'Così capisco in che senso vai' : 'Attendo una posizione GPS precisa');
   else if (st.sbagliato && motore.fuori?.bivio && motore.pos) {
     const b = motore.fuori.bivio;
     card('errore', 'x', `${metriParlati(dist([motore.pos.lat, motore.pos.lon], [b.lat, b.lon]))} m`, 'Sentiero sbagliato', 'Torna indietro fino al bivio');
@@ -218,12 +251,14 @@ function aggiorna() {
     card('', 0, p ? fmtDist(p.d) : '—', 'Prosegui sul percorso', p ? `Prossimo bivio: ${p.b.titolo.toLowerCase()}` : 'Nessun altro bivio');
   }
   const parti = [];
-  if (st.km != null) parti.push(`<b>km ${fmtKm(st.km)}</b> / ${fmtKm(traccia.kmTot)}`);
+  if (st.km != null) parti.push(`<b>km ${fmtKm(kmGara(st.km))}</b> / ${fmtKm(traccia.kmTot)}`);
+  if (verso === 'contrario') parti.push('<b>al contrario</b>');
   if (st.sentiero) parti.push(`sentiero ${st.sentiero}`);
   if (ultimaPrecisione != null) parti.push(`GPS ±${Math.round(ultimaPrecisione)} m`);
-  if (st.velocita > 0.3) parti.push(`${(st.velocita * 3.6).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km/h`);
+  if (st.velocita > 0.3) parti.push(`${(Math.round(st.velocita * 3.6 * 2) / 2).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km/h`);
   if (sim) parti.push(inPausa ? 'simulazione in pausa' : `simulazione ×${fattore}`);
-  $('stato').innerHTML = parti.map(x => `<span>${x}</span>`).join('');
+  const html = parti.map(x => `<span>${x}</span>`).join('');
+  if (html !== ultimoStato && !schermoNero) { ultimoStato = html; $('stato').innerHTML = html; }
   mappa?.aggiorna(motore, ultimaPrecisione);
 }
 
@@ -235,31 +270,29 @@ $('avvia').addEventListener('click', async () => {
   messaggioPrepara('');
   if (!traccia) { messaggioPrepara('La traccia non è ancora pronta: riprova tra un attimo.'); return; }
   const modo = document.querySelector('input[name=modo]:checked').value;
-  motore = new Motore(traccia, bivi);
+  preparaSenso(document.querySelector('input[name=verso]:checked').value);
+  motore = nuovoMotore();
   ultimoErrore = ultimoLontano = ''; ultimoGiusto = 0; ultimaPrecisione = null;
   $('diario').replaceChildren();
   inCorso = true; inPausa = false;
   if (modo === 'sim') {
     const km = Math.max(0, Math.min(traccia.kmTot - 0.1, parseFloat(String($('sim-km').value).replace(',', '.')) || 0));
     fattore = +$('sim-vel').value;
-    sim = new Simulatore(traccia, { km, velocita: 2.8, rumore: 4, precisione: 6, seme: Date.now() % 100000 });
+    sim = new Simulatore(tAttiva, { km: Math.max(0, Math.min(traccia.kmTot - 0.1, verso === 'contrario' && km < 0.05 ? 0 : kmAttivo(km))), velocita: 2.8, rumore: 4, precisione: 6, seme: Date.now() % 100000 });
     timerSim = setInterval(passoSimulato, 1000 / fattore);
-    gestisci([{ tipo: 'avvio', priorita: PRIORITA.info, testo: `Simulazione avviata dal chilometro ${kmParlati(km)}.`, forza: true }]);
+    gestisci([{ tipo: 'avvio', priorita: PRIORITA.info, testo: `Simulazione avviata dal chilometro ${kmParlati(km)}${verso === 'contrario' ? ', al contrario' : ''}.`, forza: true }]);
   } else {
     sim = null;
     if (!('geolocation' in navigator)) { messaggioPrepara('Questo browser non dà accesso al GPS.'); inCorso = false; return; }
     idGps = navigator.geolocation.watchPosition(posizioneVera, erroreGps, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
-    timerTick = setInterval(() => { gestisci(motore.tick(Date.now())); aggiorna(); }, 1000);
-    gestisci([{ tipo: 'avvio', priorita: PRIORITA.info, testo: 'Guida avviata. Cerco il percorso.', forza: true }]);
+    timerTick = setInterval(() => { gestisci(motore.tick(Date.now())); if (Date.now() - ultimoFix > 2500) aggiorna(); }, 1000);
+    gestisci([{ tipo: 'avvio', priorita: PRIORITA.info, testo: `Guida avviata${verso === 'contrario' ? ', al contrario' : ''}. Cerco il percorso.`, forza: true }]);
   }
   tieniAcceso();
   $('prepara').hidden = true;
   for (const id of ['guida', 'sez-mappa', 'stato', 'comandi', 'pannello-diario']) $(id).hidden = false;
-  mappa?.rimuovi();
-  mappa = new MappaGuida($('mappa'), traccia, { onSegui: s => { $('b-centra').hidden = s; } });
-  mappa.impostaBivi(motore.bivi);
-  $('b-base').textContent = mappa.base === 'satellite' ? 'Topo' : 'Foto';
-  $('b-centra').hidden = true;
+  nuovaMappa();
+  etichettaInverti();
   $('comandi-sim').hidden = !sim;
   $('b-pausa').textContent = 'Pausa';
   aggiorna();
@@ -276,8 +309,10 @@ function passoSimulato() {
   if (sim.finito() || motore.arrivato) { clearInterval(timerSim); timerSim = null; }
 }
 
+let ultimoFix = 0;
 function posizioneVera(p) {
   const f = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() };
+  ultimoFix = f.t;
   ultimaPrecisione = f.acc;
   gestisci(motore.posizione(f));
   aggiorna();
@@ -292,6 +327,7 @@ function erroreGps(e) {
 }
 
 function ferma() {
+  if (schermoNero) nero(false);
   inCorso = false;
   clearInterval(timerSim); clearInterval(timerTick); timerSim = timerTick = null;
   if (idGps != null) navigator.geolocation.clearWatch(idGps);
@@ -303,6 +339,66 @@ function ferma() {
   for (const id of ['guida', 'sez-mappa', 'stato', 'comandi']) $(id).hidden = true;
   mappa?.rimuovi(); mappa = null;
 }
+
+// ---------------- schermo nero ----------------
+// Sugli iPhone con schermo OLED i pixel neri sono spenti: il consumo dello schermo scende molto.
+let schermoNero = false, tUscita = 0;
+function nero(si) {
+  schermoNero = si;
+  $('n-nero').hidden = !si;
+  document.documentElement.classList.toggle('con-nero', si);
+  mappa?.sospendi(si);
+  ultimaCard = ''; ultimoStato = '';
+  if (!si) mappa?.centra(motore, ultimaPrecisione);
+  aggiorna();
+}
+$('n-nero').addEventListener('click', () => {
+  const t = Date.now();
+  if (t - tUscita < 3000) { nero(false); return; }
+  tUscita = t; $('n-tocca').textContent = 'Tocca ancora per tornare alla guida';
+  setTimeout(() => { if (Date.now() - tUscita >= 3000) $('n-tocca').textContent = 'Tocca due volte per tornare'; }, 3100);
+});
+$('b-nero').addEventListener('click', () => nero(true));
+
+// la mappa non lavora quando non si vede
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(v => { const vis = v.at(-1).isIntersecting; if (!schermoNero) mappa?.sospendi(!vis); if (vis) mappa?.aggiorna(motore, ultimaPrecisione); })
+    .observe($('sez-mappa'));
+}
+
+// ---------------- torna indietro ----------------
+// Inverte il senso di marcia dal punto in cui si è: da lì la guida porta alla partenza (o, di nuovo, verso l'arrivo).
+$('b-inverti').addEventListener('click', () => {
+  if (!motore) return;
+  voce.sblocca();
+  const kmG = motore.km != null ? kmGara(motore.km) : null;   // chilometro di gara attuale
+  const t = sim ? sim.ora : Date.now();
+  preparaSenso(verso === 'contrario' ? 'gara' : 'contrario');
+  const vecchio = motore;
+  motore = nuovoMotore();
+  if (kmG != null) {
+    motore.aggancia(kmAttivo(kmG), t);
+    motore.pos = vecchio.pos; motore.dist = vecchio.dist;
+  }
+  motore.silenziaIndietro(t, 90000);   // il tempo di girarsi
+  if (sim) {
+    const k = kmG != null ? kmAttivo(kmG) : 0;
+    sim = new Simulatore(tAttiva, { km: k, velocita: 2.8, rumore: 4, precisione: 6, seme: Date.now() % 100000 });
+    sim.ora = t;
+  }
+  ultimoErrore = ''; ultimaCard = ''; ultimoStato = '';
+  const resto = kmG != null ? (verso === 'contrario' ? kmG : traccia.kmTot - kmG) : null;
+  const meta = verso === 'contrario' ? 'Partenza' : 'Arrivo';
+  const testo = verso === 'contrario'
+    ? `Ok, torniamo indietro.${resto != null ? ` ${meta} a ${kmParlati(resto)} chilometri.` : ''}`
+    : `Ok, riprendiamo il senso della gara.${resto != null ? ` ${meta} a ${kmParlati(resto)} chilometri.` : ''}`;
+  gestisci([{ tipo: 'inverti', priorita: PRIORITA.bivio, suono: 'attenzione', testo, forza: true }]);
+  const p = motore.prossimoBivio();
+  if (p) gestisci([{ tipo: 'info', priorita: PRIORITA.info, testo: `Prossimo bivio tra ${p.d >= 1000 ? kmParlati(p.d / 1000) + ' chilometri' : metriParlati(p.d) + ' metri'}: ${p.b.titolo.toLowerCase()}.`, forza: true }]);
+  nuovaMappa();
+  etichettaInverti();
+  aggiorna();
+});
 
 // ---------------- comandi ----------------
 $('b-centra').addEventListener('click', () => mappa?.centra(motore, ultimaPrecisione));
@@ -329,12 +425,12 @@ $('b-sbaglia').addEventListener('click', () => {
   const b = motore.bivi.find(x => x.km > sim.km + 0.01);
   if (!b) { scriviDiario('Nessun altro bivio davanti.'); return; }
   sim.sbagliaAl(b);
-  scriviDiario(`Prova: al bivio ${b.id} (km ${fmtKm(b.km)}) prenderò il sentiero sbagliato e poi tornerò indietro.`);
+  scriviDiario(`Prova: al bivio ${b.id} (km ${fmtKm(kmGara(b.km))}) prenderò il sentiero sbagliato e poi tornerò indietro.`);
 });
 $('b-segna').addEventListener('click', () => {
   if (!motore || motore.km == null) { scriviDiario('Per segnare un bivio devi essere agganciato al percorso.', true); return; }
   const n = bivi.filter(b => b.fonte === 'utente').length + 1;
-  const nuovo = { id: 'U' + String(n).padStart(2, '0'), km: Math.round(motore.km * 1000) / 1000, azione: 'auto', fonte: 'utente' };
+  const nuovo = { id: 'U' + String(n).padStart(2, '0'), km: Math.round(kmGara(motore.km) * 1000) / 1000, azione: 'auto', fonte: 'utente' };
   bivi.push(nuovo); salvaBivi();
   const t = `Bivio segnato al chilometro ${kmParlati(nuovo.km)}.`;
   voce.dici({ tipo: 'segna', priorita: PRIORITA.errore, testo: t, forza: true }); scriviDiario(t);
@@ -376,7 +472,7 @@ const NOMI_FONTE = { segnaletica: 'piano segnaletica', sentiero: 'cambio sentier
 function salvaBivi() {
   bivi.sort((a, b) => a.km - b.km);
   salva(chiave(), bivi);
-  motore?.impostaBivi(bivi);
+  motore?.impostaBivi(biviAttivi());
   if (motore) mappa?.impostaBivi(motore.bivi);
   disegnaBivi();
 }
