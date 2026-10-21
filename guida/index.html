@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guida vocale SRM</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#153821">
+<link rel="icon" type="image/png" href="../posizione/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Oswald:wght@500;700&display=swap">
+<link rel="stylesheet" href="../posizione/leaflet/leaflet.css">
+<style>
+/* Layout: una colonna da telefono; in alto l'indicazione grande, sotto stato, comandi e strumenti di prova. */
+:root {
+  --bosco: #153821; --sole: #FF8102; --carta: #fffdf7; --fondo: #f3efe2; --inchiostro: #1b241d; --tenue: #5c6559;
+  --linea: #ddd6c3; --rosso: #b3261e; --rosso-chiaro: #fde7e4; --verde: #1e7a3c; --verde-chiaro: #e3f3e6;
+  --font-titolo: 'Oswald', 'Arial Narrow', sans-serif; --font-testo: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --carta: #18231b; --fondo: #101912; --inchiostro: #ece8dc; --tenue: #b5b9ad; --linea: #3b4b3f;
+    --rosso: #ffb4ab; --rosso-chiaro: #4a1714; --verde: #8fd8a2; --verde-chiaro: #163a22; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --carta: #18231b; --fondo: #101912; --inchiostro: #ece8dc; --tenue: #b5b9ad; --linea: #3b4b3f;
+  --rosso: #ffb4ab; --rosso-chiaro: #4a1714; --verde: #8fd8a2; --verde-chiaro: #163a22; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--fondo); color: var(--inchiostro); font: 17px/1.4 var(--font-testo); }
+.barra { background: var(--bosco); color: #f3efe2; padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 10px; }
+.barra img { width: 30px; height: 33px; object-fit: contain; }
+.barra h1 { margin: 0; font: 700 19px/1.05 var(--font-titolo); text-transform: uppercase; letter-spacing: .02em; }
+.barra p { margin: 0; font-size: 12.5px; opacity: .8; }
+main { max-width: 520px; margin: 0 auto; padding: 14px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); display: grid; gap: 14px; }
+h2 { font: 700 20px/1.15 var(--font-titolo); margin: 0; text-transform: uppercase; letter-spacing: .02em; }
+.pannello { background: var(--carta); border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
+.tenue { color: var(--tenue); font-size: 14.5px; margin: 0; }
+label { display: grid; gap: 4px; font-size: 14.5px; color: var(--tenue); }
+select, input[type=number], input[type=text] { font: 17px var(--font-testo); padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linea); background: var(--fondo); color: var(--inchiostro); width: 100%; }
+.scelta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.scelta input { position: absolute; opacity: 0; pointer-events: none; }
+.scelta label { border: 2px solid var(--linea); border-radius: 12px; padding: 10px 12px; color: var(--inchiostro); font-weight: 700; cursor: pointer; display: block; }
+.scelta label small { display: block; font-weight: 400; color: var(--tenue); font-size: 13px; }
+.scelta input:checked + label { border-color: var(--sole); background: color-mix(in srgb, var(--sole) 12%, var(--carta)); }
+.scelta input:focus-visible + label { outline: 3px solid var(--sole); outline-offset: 2px; }
+.btn { appearance: none; border: 0; border-radius: 12px; background: var(--sole); color: #1b1200; font: 700 18px/1 var(--font-testo); padding: 16px; width: 100%; cursor: pointer; min-height: 52px; }
+.btn.secondario { background: var(--fondo); color: var(--inchiostro); border: 1px solid var(--linea); font-size: 16px; padding: 12px 10px; }
+.btn:disabled { opacity: .5; }
+.btn:focus-visible { outline: 3px solid var(--inchiostro); outline-offset: 2px; }
+.griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* indicazione principale */
+.indicazione { border-radius: 18px; padding: 16px; display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; background: var(--carta); border: 3px solid var(--sole); }
+.indicazione.errore { border-color: var(--rosso); background: var(--rosso-chiaro); }
+.indicazione.ok { border-color: var(--verde); background: var(--verde-chiaro); }
+.indicazione svg { width: 96px; height: 96px; }
+.indicazione .dist { font: 700 44px/1 var(--font-titolo); font-variant-numeric: tabular-nums; }
+.indicazione .cosa { font: 700 22px/1.15 var(--font-titolo); margin-top: 4px; text-wrap: balance; }
+.indicazione .sotto { color: var(--tenue); font-size: 15px; margin-top: 4px; }
+.stato { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14.5px; color: var(--tenue); font-variant-numeric: tabular-nums; }
+.stato b { color: var(--inchiostro); }
+.diario { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 15px; }
+.diario li { display: grid; grid-template-columns: 66px 1fr; gap: 8px; }
+.diario time { color: var(--tenue); font-variant-numeric: tabular-nums; font-size: 13.5px; padding-top: 1px; }
+.diario .errore { color: var(--rosso); font-weight: 700; }
+.avviso { background: color-mix(in srgb, var(--sole) 14%, var(--carta)); border-radius: 10px; padding: 10px 12px; font-size: 14.5px; margin: 0; }
+
+/* bivi */
+details summary { cursor: pointer; font: 700 18px var(--font-titolo); text-transform: uppercase; letter-spacing: .02em; }
+.bivi { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bivi button { width: 100%; text-align: left; display: grid; grid-template-columns: 78px 1fr; gap: 8px; background: var(--fondo); border: 1px solid var(--linea); border-radius: 10px; padding: 9px 10px; font: 15px var(--font-testo); color: var(--inchiostro); cursor: pointer; }
+.bivi .km { font-weight: 700; font-variant-numeric: tabular-nums; }
+.bivi small { display: block; color: var(--tenue); font-size: 13px; }
+.editor { border: 2px solid var(--sole); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.editor .frase { font-style: italic; margin: 0; }
+/* mappa ingrandita */
+.mappa-box { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--linea); height: clamp(260px, 46vh, 480px); }
+#mappa { position: absolute; inset: 0; background: #c9cfc3; }
+.mappa-comandi { position: absolute; right: 10px; top: 10px; z-index: 1000; display: grid; gap: 8px; }
+.btn-mappa { min-width: 46px; height: 46px; border-radius: 12px; border: 0; background: #fffdf7; color: #1b241d; font: 700 15px var(--font-testo); box-shadow: 0 2px 10px rgba(0,0,0,.28); padding: 0 10px; cursor: pointer; }
+.btn-mappa.grande { font-size: 24px; line-height: 1; }
+.btn-mappa:focus-visible { outline: 3px solid var(--sole); outline-offset: 2px; }
+.mk-me, .mk-bivio, .mk-chevron, .mk-km { background: none; border: 0; }
+.mk-bivio circle { fill: #fffdf7; stroke: #153821; }
+.mk-bivio path { stroke: #153821; }
+.mk-bivio.prossimo circle { fill: #FF8102; stroke: #fffdf7; }
+.mk-bivio.prossimo path { stroke: #1b1200; }
+.mk-bivio.fatto { opacity: .55; }
+.mk-km span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #153821; color: #fff; font: 700 12px var(--font-testo); border: 2px solid #fff; }
+.leaflet-tooltip.tip { font: 700 13px/1.2 var(--font-testo); border-radius: 8px; border: 0; padding: 5px 8px; }
+.leaflet-control-attribution { font-size: 9px; line-height: 1.3; max-width: 70%; }
+.voce-scelta { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+@media (prefers-reduced-motion: no-preference) { .indicazione { transition: background .2s, border-color .2s; } }
+</style>
+</head>
+<body>
+<header class="barra">
+  <img src="../posizione/logo-srm.png" alt="">
+  <div><h1>Guida vocale SRM</h1><p>Prototipo per le prove · Skyrace del Maglio</p></div>
+</header>
+
+<main>
+  <!-- preparazione -->
+  <section id="prepara" class="pannello">
+    <h2>Prepara la prova</h2>
+    <p class="tenue">La voce ti avvisa prima di ogni bivio, ti dice quale sentiero prendere e ti richiama se esci dal percorso. In questo prototipo tieni lo schermo acceso e Safari in primo piano: se blocchi il telefono la voce si ferma.</p>
+
+    <div>
+      <p class="tenue" id="lbl-traccia">Traccia</p>
+      <div class="scelta" role="radiogroup" aria-labelledby="lbl-traccia">
+        <input type="radio" name="traccia" id="t-srm" value="srm" checked><label for="t-srm">Percorso SRM<small>29,7 km, 20 bivi dal piano segnaletica</small></label>
+        <input type="radio" name="traccia" id="t-gpx" value="gpx"><label for="t-gpx">GPX di prova<small>Un tuo giro, bivi dalle svolte</small></label>
+      </div>
+    </div>
+    <label id="riga-gpx" hidden>File GPX dal telefono
+      <input type="file" id="file-gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml">
+    </label>
+
+    <div>
+      <p class="tenue" id="lbl-modo">Posizione</p>
+      <div class="scelta" role="radiogroup" aria-labelledby="lbl-modo">
+        <input type="radio" name="modo" id="m-sim" value="sim" checked><label for="m-sim">Simulazione<small>Corri da casa, finto GPS</small></label>
+        <input type="radio" name="modo" id="m-gps" value="gps"><label for="m-gps">GPS vero<small>Cammina sul percorso</small></label>
+      </div>
+    </div>
+    <div class="griglia" id="riga-sim">
+      <label>Parti dal km<input type="number" id="sim-km" value="0" min="0" step="0.1" inputmode="decimal"></label>
+      <label>Velocità di prova<select id="sim-vel">
+        <option value="1">Reale (×1)</option><option value="5" selected>Veloce (×5)</option><option value="20">Molto veloce (×20)</option>
+      </select></label>
+    </div>
+    <p class="avviso" id="msg-prepara" hidden></p>
+    <button class="btn" id="avvia" type="button">Avvia la guida</button>
+  </section>
+
+  <!-- guida in corso -->
+  <section id="guida" hidden>
+    <div class="indicazione" id="card" aria-live="polite">
+      <svg viewBox="0 0 100 100" id="freccia" aria-hidden="true"></svg>
+      <div>
+        <div class="dist" id="c-dist">—</div>
+        <div class="cosa" id="c-cosa">In attesa del GPS</div>
+        <div class="sotto" id="c-sotto"></div>
+      </div>
+    </div>
+  </section>
+  <section id="sez-mappa" class="mappa-box" hidden aria-label="Mappa del tratto di percorso">
+    <div id="mappa"></div>
+    <div class="mappa-comandi">
+      <button type="button" class="btn-mappa" id="b-centra" hidden>Centra</button>
+      <button type="button" class="btn-mappa grande" id="b-zoom-piu" aria-label="Avvicina">+</button>
+      <button type="button" class="btn-mappa grande" id="b-zoom-meno" aria-label="Allontana">−</button>
+      <button type="button" class="btn-mappa" id="b-base">Topo</button>
+    </div>
+  </section>
+  <div class="stato" id="stato" hidden></div>
+
+  <section class="pannello" id="comandi" hidden>
+    <div class="griglia">
+      <button class="btn secondario" id="b-ripeti" type="button">Ripeti</button>
+      <button class="btn secondario" id="b-dove" type="button">Dove sono</button>
+      <button class="btn secondario" id="b-silenzia" type="button">Meno voce 5 min</button>
+      <button class="btn secondario" id="b-segna" type="button">Segna bivio qui</button>
+    </div>
+    <div class="griglia" id="comandi-sim">
+      <button class="btn secondario" id="b-sbaglia" type="button">Sbaglia al prossimo bivio</button>
+      <button class="btn secondario" id="b-pausa" type="button">Pausa</button>
+    </div>
+    <button class="btn secondario" id="b-ferma" type="button">Ferma la guida</button>
+  </section>
+
+  <section class="pannello" id="pannello-diario" hidden>
+    <h2>Cosa ha detto</h2>
+    <ul class="diario" id="diario"></ul>
+  </section>
+
+  <section class="pannello">
+    <details id="sez-bivi">
+      <summary>Bivi (<span id="n-bivi">0</span>)</summary>
+      <div style="display:grid;gap:10px;margin-top:10px">
+        <p class="tenue">Tocca un bivio per correggere cosa dice la voce: azione, quanti sentieri ci sono, quale prendere, il segno da cercare. Le modifiche restano su questo telefono.</p>
+        <div id="editor-slot"></div>
+        <ul class="bivi" id="lista-bivi"></ul>
+        <div class="griglia">
+          <button class="btn secondario" id="b-copia" type="button">Copia i bivi</button>
+          <button class="btn secondario" id="b-ripristina" type="button">Bivi originali</button>
+        </div>
+        <p class="tenue" id="msg-bivi" aria-live="polite"></p>
+      </div>
+    </details>
+  </section>
+
+  <section class="pannello">
+    <h2>Voce</h2>
+    <div class="voce-scelta">
+      <label>Voce italiana<select id="sel-voce"><option value="">Automatica</option></select></label>
+      <label>Velocità<select id="sel-rate">
+        <option value="1">Normale</option><option value="0.9">Più lenta</option><option value="1.1">Più veloce</option>
+      </select></label>
+    </div>
+    <button class="btn secondario" id="b-prova-voce" type="button">Prova la voce</button>
+    <p class="tenue" id="msg-voce"></p>
+  </section>
+</main>
+
+<script src="../posizione/leaflet/leaflet.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

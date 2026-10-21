@@ -1,0 +1,169 @@
+{
+ "traccia": "srm2026",
+ "versione": 1,
+ "origine": "Piano segnaletica SRM 2026 (da verificare) + cambi di sentiero",
+ "bivi": [
+  {
+   "id": "S01-A",
+   "km": 1.04,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La svolta a sinistra (44°) della traccia è 40 m più avanti, al km 1,04."
+  },
+  {
+   "id": "S02-A",
+   "km": 1.71,
+   "azione": "tieni-dx",
+   "freccia": "dx",
+   "fonte": "segnaletica",
+   "nota": "Freccia PROPOSTA: il paletto è nel tratto percorso due volte, quindi serve anche la freccia per l'altro senso. La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa)."
+  },
+  {
+   "id": "S03-A",
+   "km": 2.6,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La traccia svolta a sinistra di circa 91° proprio qui."
+  },
+  {
+   "id": "S04",
+   "km": 3.3,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La traccia svolta a sinistra di circa 46° proprio qui."
+  },
+  {
+   "id": "S05",
+   "km": 3.96,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La svolta a sinistra (68°) della traccia è 40 m più indietro, al km 3,96."
+  },
+  {
+   "id": "S06",
+   "km": 5.8,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La traccia svolta a sinistra di circa 108° proprio qui."
+  },
+  {
+   "id": "S07",
+   "km": 6.77,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La svolta a sinistra (67°) della traccia è 70 m più avanti, al km 6,77."
+  },
+  {
+   "id": "S08",
+   "km": 8.15,
+   "azione": "auto",
+   "freccia": "dx",
+   "fonte": "segnaletica",
+   "nota": "La svolta a destra (96°) della traccia è 150 m più avanti, al km 8,15. Cambio sentiero E1 → 3 previsto al km 8,2.",
+   "segno": "sentiero 3"
+  },
+  {
+   "id": "C02",
+   "km": 10,
+   "azione": "auto",
+   "fonte": "sentiero",
+   "nota": "Cambio sentiero 3 → 3B",
+   "segno": "sentiero 3B"
+  },
+  {
+   "id": "S09",
+   "km": 14.2,
+   "azione": "tieni-dx",
+   "freccia": "dx",
+   "fonte": "segnaletica",
+   "nota": "La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa). Cambio sentiero 3B → 3 previsto al km 14,5."
+  },
+  {
+   "id": "C03",
+   "km": 14.5,
+   "azione": "auto",
+   "fonte": "sentiero",
+   "nota": "Cambio sentiero 3B → 3",
+   "segno": "sentiero 3"
+  },
+  {
+   "id": "S10",
+   "km": 15.3,
+   "azione": "auto",
+   "freccia": "dx",
+   "fonte": "segnaletica",
+   "nota": "La traccia svolta a destra di circa 57° proprio qui."
+  },
+  {
+   "id": "C04",
+   "km": 17,
+   "azione": "auto",
+   "fonte": "sentiero",
+   "nota": "Cambio sentiero 3 → 1",
+   "segno": "sentiero 1"
+  },
+  {
+   "id": "S11",
+   "km": 18.3,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La svolta a sinistra (67°) della traccia è 200 m più indietro, al km 18,30. Cambio sentiero 1 → 7 previsto al km 18,5."
+  },
+  {
+   "id": "S12",
+   "km": 21,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La traccia svolta a sinistra di circa 66° proprio qui."
+  },
+  {
+   "id": "S13",
+   "km": 24.29,
+   "azione": "auto",
+   "freccia": "dx",
+   "fonte": "segnaletica",
+   "nota": "La svolta a destra (92°) della traccia è 90 m più avanti, al km 24,29. Cambio sentiero 7 → E1 previsto al km 24,3.",
+   "segno": "sentiero E1"
+  },
+  {
+   "id": "S14",
+   "km": 26.18,
+   "azione": "auto",
+   "freccia": "dx",
+   "fonte": "segnaletica",
+   "nota": "La svolta a destra (54°) della traccia è 180 m più avanti, al km 26,18."
+  },
+  {
+   "id": "S03-R",
+   "km": 27.14,
+   "azione": "auto",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "Il tuo «km 27 sx» cade 130 m prima di questo bivio, dove il ritorno rientra nel tratto comune: è lo stesso paletto del km 2,6. La traccia svolta a sinistra di circa 61° proprio qui."
+  },
+  {
+   "id": "S02-R",
+   "km": 28.0,
+   "azione": "tieni-sx",
+   "freccia": "sx",
+   "fonte": "segnaletica",
+   "nota": "La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa)."
+  },
+  {
+   "id": "S01-R",
+   "km": 28.67,
+   "azione": "auto",
+   "freccia": "dx",
+   "fonte": "segnaletica",
+   "nota": "Freccia PROPOSTA: il paletto è nel tratto percorso due volte, quindi serve anche la freccia per l'altro senso. La svolta a destra (44°) della traccia è 40 m più indietro, al km 28,67."
+  }
+ ]
+}
