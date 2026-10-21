@@ -192,10 +192,16 @@ function freccia(a) {
   svg.innerHTML = `<path d="M50 94L50 52L${f(ex)} ${f(ey)}" fill="none" stroke="var(--inchiostro)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path d="M${punta}L${b1}L${b2}Z" fill="var(--inchiostro)"/>`;
 }
 
+// Scrive nella pagina solo quando qualcosa cambia: ogni ridisegno costa batteria.
+let ultimaCard = '', ultimaFreccia, ultimoStato = '';
 function card(classe, icona, dist, cosa, sotto) {
+  const chiaveCard = [classe, icona, dist, cosa, sotto].join('|');
+  if (chiaveCard === ultimaCard) return;
+  ultimaCard = chiaveCard;
   $('card').className = 'indicazione' + (classe ? ' ' + classe : '');
-  freccia(icona);
+  if (icona !== ultimaFreccia) { ultimaFreccia = icona; freccia(icona); }
   $('c-dist').textContent = dist; $('c-cosa').textContent = cosa; $('c-sotto').textContent = sotto || '';
+  if (schermoNero) { $('n-dist').textContent = dist; $('n-cosa').textContent = cosa; $('n-nero').className = 'nero' + (classe === 'errore' ? ' errore' : ''); }
 }
 
 function aggiorna() {
@@ -221,9 +227,10 @@ function aggiorna() {
   if (st.km != null) parti.push(`<b>km ${fmtKm(st.km)}</b> / ${fmtKm(traccia.kmTot)}`);
   if (st.sentiero) parti.push(`sentiero ${st.sentiero}`);
   if (ultimaPrecisione != null) parti.push(`GPS ±${Math.round(ultimaPrecisione)} m`);
-  if (st.velocita > 0.3) parti.push(`${(st.velocita * 3.6).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km/h`);
+  if (st.velocita > 0.3) parti.push(`${(Math.round(st.velocita * 3.6 * 2) / 2).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km/h`);
   if (sim) parti.push(inPausa ? 'simulazione in pausa' : `simulazione ×${fattore}`);
-  $('stato').innerHTML = parti.map(x => `<span>${x}</span>`).join('');
+  const html = parti.map(x => `<span>${x}</span>`).join('');
+  if (html !== ultimoStato && !schermoNero) { ultimoStato = html; $('stato').innerHTML = html; }
   mappa?.aggiorna(motore, ultimaPrecisione);
 }
 
@@ -249,7 +256,7 @@ $('avvia').addEventListener('click', async () => {
     sim = null;
     if (!('geolocation' in navigator)) { messaggioPrepara('Questo browser non dà accesso al GPS.'); inCorso = false; return; }
     idGps = navigator.geolocation.watchPosition(posizioneVera, erroreGps, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
-    timerTick = setInterval(() => { gestisci(motore.tick(Date.now())); aggiorna(); }, 1000);
+    timerTick = setInterval(() => { gestisci(motore.tick(Date.now())); if (Date.now() - ultimoFix > 2500) aggiorna(); }, 1000);
     gestisci([{ tipo: 'avvio', priorita: PRIORITA.info, testo: 'Guida avviata. Cerco il percorso.', forza: true }]);
   }
   tieniAcceso();
@@ -276,8 +283,10 @@ function passoSimulato() {
   if (sim.finito() || motore.arrivato) { clearInterval(timerSim); timerSim = null; }
 }
 
+let ultimoFix = 0;
 function posizioneVera(p) {
   const f = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() };
+  ultimoFix = f.t;
   ultimaPrecisione = f.acc;
   gestisci(motore.posizione(f));
   aggiorna();
@@ -292,6 +301,7 @@ function erroreGps(e) {
 }
 
 function ferma() {
+  if (schermoNero) nero(false);
   inCorso = false;
   clearInterval(timerSim); clearInterval(timerTick); timerSim = timerTick = null;
   if (idGps != null) navigator.geolocation.clearWatch(idGps);
@@ -302,6 +312,32 @@ function ferma() {
   $('prepara').hidden = false;
   for (const id of ['guida', 'sez-mappa', 'stato', 'comandi']) $(id).hidden = true;
   mappa?.rimuovi(); mappa = null;
+}
+
+// ---------------- schermo nero ----------------
+// Sugli iPhone con schermo OLED i pixel neri sono spenti: il consumo dello schermo scende molto.
+let schermoNero = false, tUscita = 0;
+function nero(si) {
+  schermoNero = si;
+  $('n-nero').hidden = !si;
+  document.documentElement.classList.toggle('con-nero', si);
+  mappa?.sospendi(si);
+  ultimaCard = ''; ultimoStato = '';
+  if (!si) mappa?.centra(motore, ultimaPrecisione);
+  aggiorna();
+}
+$('n-nero').addEventListener('click', () => {
+  const t = Date.now();
+  if (t - tUscita < 3000) { nero(false); return; }
+  tUscita = t; $('n-tocca').textContent = 'Tocca ancora per tornare alla guida';
+  setTimeout(() => { if (Date.now() - tUscita >= 3000) $('n-tocca').textContent = 'Tocca due volte per tornare'; }, 3100);
+});
+$('b-nero').addEventListener('click', () => nero(true));
+
+// la mappa non lavora quando non si vede
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(v => { const vis = v.at(-1).isIntersecting; if (!schermoNero) mappa?.sospendi(!vis); if (vis) mappa?.aggiorna(motore, ultimaPrecisione); })
+    .observe($('sez-mappa'));
 }
 
 // ---------------- comandi ----------------

@@ -91,6 +91,13 @@ details summary { cursor: pointer; font: 700 18px var(--font-titolo); text-trans
 .leaflet-tooltip.tip { font: 700 13px/1.2 var(--font-testo); border-radius: 8px; border: 0; padding: 5px 8px; }
 .leaflet-control-attribution { font-size: 9px; line-height: 1.3; max-width: 70%; }
 .voce-scelta { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+/* schermo nero: nero puro, testo grigio scuro (sugli OLED i pixel neri non consumano); scelta voluta in entrambi i temi */
+.nero { position: fixed; inset: 0; z-index: 5000; background: #000; color: #6f6f6f; display: grid; align-content: center; justify-items: center; gap: 10px; padding: 24px max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); text-align: center; }
+.nero .n-dist { font: 700 64px/1 var(--font-titolo); font-variant-numeric: tabular-nums; }
+.nero .n-cosa { font: 700 26px/1.2 var(--font-titolo); max-width: 18ch; text-wrap: balance; }
+.nero.errore { color: #b0473f; }
+.nero .n-tocca { position: absolute; bottom: max(28px, env(safe-area-inset-bottom)); left: 0; right: 0; margin: 0; font-size: 14px; color: #444; }
+html.con-nero, html.con-nero body { background: #000; overflow: hidden; }
 @media (prefers-reduced-motion: no-preference) { .indicazione { transition: background .2s, border-color .2s; } }
 </style>
 </head>
@@ -163,6 +170,7 @@ details summary { cursor: pointer; font: 700 18px var(--font-titolo); text-trans
       <button class="btn secondario" id="b-silenzia" type="button">Meno voce 5 min</button>
       <button class="btn secondario" id="b-segna" type="button">Segna bivio qui</button>
     </div>
+    <button class="btn secondario" id="b-nero" type="button">Schermo nero (risparmio batteria)</button>
     <div class="griglia" id="comandi-sim">
       <button class="btn secondario" id="b-sbaglia" type="button">Sbaglia al prossimo bivio</button>
       <button class="btn secondario" id="b-pausa" type="button">Pausa</button>
@@ -204,6 +212,11 @@ details summary { cursor: pointer; font: 700 18px var(--font-titolo); text-trans
   </section>
 </main>
 
+<div id="n-nero" class="nero" hidden role="button" aria-label="Schermo nero: tocca due volte per tornare alla guida">
+  <div class="n-dist" id="n-dist">—</div>
+  <div class="n-cosa" id="n-cosa"></div>
+  <p class="n-tocca" id="n-tocca">Tocca due volte per tornare</p>
+</div>
 <script src="../posizione/leaflet/leaflet.js"></script>
 <script type="module" src="app.js"></script>
 </body>
