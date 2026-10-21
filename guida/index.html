@@ -125,14 +125,22 @@ html.con-nero, html.con-nero body { background: #000; overflow: hidden; }
     </label>
 
     <div>
+      <p class="tenue" id="lbl-verso">Senso di marcia</p>
+      <div class="scelta" role="radiogroup" aria-labelledby="lbl-verso">
+        <input type="radio" name="verso" id="v-gara" value="gara" checked><label for="v-gara">Come la gara<small>Dalla partenza verso l'arrivo</small></label>
+        <input type="radio" name="verso" id="v-contrario" value="contrario"><label for="v-contrario">Al contrario<small>Il giro all'inverso</small></label>
+      </div>
+    </div>
+
+    <div>
       <p class="tenue" id="lbl-modo">Posizione</p>
       <div class="scelta" role="radiogroup" aria-labelledby="lbl-modo">
         <input type="radio" name="modo" id="m-sim" value="sim" checked><label for="m-sim">Simulazione<small>Corri da casa, finto GPS</small></label>
-        <input type="radio" name="modo" id="m-gps" value="gps"><label for="m-gps">GPS vero<small>Cammina sul percorso</small></label>
+        <input type="radio" name="modo" id="m-gps" value="gps"><label for="m-gps">GPS vero<small>Parti da dove sei</small></label>
       </div>
     </div>
     <div class="griglia" id="riga-sim">
-      <label>Parti dal km<input type="number" id="sim-km" value="0" min="0" step="0.1" inputmode="decimal"></label>
+      <label>Parti dal km di gara<input type="number" id="sim-km" value="0" min="0" step="0.1" inputmode="decimal"></label>
       <label>Velocità di prova<select id="sim-vel">
         <option value="1">Reale (×1)</option><option value="5" selected>Veloce (×5)</option><option value="20">Molto veloce (×20)</option>
       </select></label>
@@ -170,6 +178,7 @@ html.con-nero, html.con-nero body { background: #000; overflow: hidden; }
       <button class="btn secondario" id="b-silenzia" type="button">Meno voce 5 min</button>
       <button class="btn secondario" id="b-segna" type="button">Segna bivio qui</button>
     </div>
+    <button class="btn secondario" id="b-inverti" type="button">Torna indietro</button>
     <button class="btn secondario" id="b-nero" type="button">Schermo nero (risparmio batteria)</button>
     <div class="griglia" id="comandi-sim">
       <button class="btn secondario" id="b-sbaglia" type="button">Sbaglia al prossimo bivio</button>

@@ -83,8 +83,8 @@ const iconaBivio = (b, tipo) => {
 
 /* ------------------------------------------------ mappa */
 export class MappaGuida {
-  constructor(el, traccia, { onSegui } = {}) {
-    this.t = traccia; this.segui = true; this.zoomUtente = false; this.prog = false; this.onSegui = onSegui;
+  constructor(el, traccia, { onSegui, kmGara = k => k } = {}) {
+    this.t = traccia; this.kmGara = kmGara; this.segui = true; this.zoomUtente = false; this.prog = false; this.onSegui = onSegui;
     const map = this.map = L.map(el, { zoomControl: false, maxZoom: 20, attributionControl: false, tap: true, fadeAnimation: false });
     L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
     L.control.scale({ imperial: false, position: 'topleft' }).addTo(map);
@@ -135,9 +135,11 @@ export class MappaGuida {
       L.marker([p[0], p[1]], { pane: 'chevron', interactive: false, keyboard: false, icon: L.divIcon({ className: 'mk-chevron', iconSize: [14, 14], iconAnchor: [7, 7],
         html: `<svg viewBox="-7 -7 14 14" width="14" height="14"><path transform="rotate(${b.toFixed(0)})" d="M-4 2.5 L0 -2.5 L4 2.5" fill="none" stroke="#153821" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>` }) }).addTo(chev);
     }
-    for (let k = Math.max(1, Math.ceil(da)); k < a; k++) {
-      const p = t.at(k);
-      L.marker([p[0], p[1]], { pane: 'chevron', interactive: false, keyboard: false, icon: L.divIcon({ className: 'mk-km', iconSize: [24, 24], iconAnchor: [12, 12], html: `<span>${k}</span>` }) }).addTo(chev);
+    // numeri dei km come li conta la gara, anche quando si va al contrario
+    const g = this.kmGara, g1 = g(da), g2 = g(a);
+    for (let r = Math.max(1, Math.ceil(Math.min(g1, g2))); r <= Math.floor(Math.max(g1, g2)) && r < t.kmTot; r++) {
+      const p = t.at(g(r));
+      L.marker([p[0], p[1]], { pane: 'chevron', interactive: false, keyboard: false, icon: L.divIcon({ className: 'mk-km', iconSize: [24, 24], iconAnchor: [12, 12], html: `<span>${r}</span>` }) }).addTo(chev);
     }
   }
 
