@@ -95,11 +95,15 @@ footer a:hover{color:var(--brace)}
 .lb-cred{font:italic 500 14px Fraunces,Georgia,serif;color:var(--avorio-2);margin-left:auto}
 .lb-x{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:none;cursor:pointer;display:grid;place-items:center;flex:none}
 .lb-x:hover{border-color:var(--brace)}
-.lb-stage{position:relative;min-height:0;overflow:hidden}
+.lb-stage{position:relative;min-height:0;overflow:hidden;touch-action:none}
 /* l'immagine riempie l'area disponibile e viene adattata senza tagli, verticale o orizzontale */
 /* il riquadro dell'immagine ha esattamente le sue proporzioni (calcolate in JS): così anche l'anteprima
    dell'iPhone, che compare tenendo premuta la foto, non la deforma */
-.lb-stage img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:none;user-select:none;-webkit-user-drag:none;transition:opacity .25s}
+.lb-stage img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:none;user-select:none;-webkit-user-drag:none;transition:opacity .25s,transform .28s cubic-bezier(.2,.8,.2,1);cursor:zoom-in;will-change:transform}
+.lb-stage img.zoom{transition:opacity .25s}
+@media(hover:none){.lb-stage img{cursor:auto}}
+.lb-aiuto{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font:500 11px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--ferro);background:rgba(5,12,8,.6);padding:4px 10px;border-radius:999px;pointer-events:none;opacity:.85;transition:opacity .4s}
+.lb-aiuto.via{opacity:0}
 .lb-stage img.carica{opacity:.35}
 .lb-spin{position:absolute;left:calc(50% - 17px);top:calc(50% - 17px);width:34px;height:34px;border-radius:50%;border:2px solid rgba(243,239,226,.18);border-top-color:var(--brace);animation:gira 1s linear infinite}
 .lb-spin[hidden]{display:none}
@@ -260,6 +264,7 @@ h2.sez em{font-style:normal;color:var(--brace)}
   <div class="lb-stage" id="lbStage">
     <img id="lbImg" alt="">
     <span class="lb-spin" id="lbSpin" hidden></span>
+    <span class="lb-aiuto" id="lbAiuto"></span>
     <button class="lb-nav lb-prev" id="lbPrev" aria-label="Foto precedente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button class="lb-nav lb-next" id="lbNext" aria-label="Foto successiva"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
@@ -421,6 +426,7 @@ h2.sez em{font-style:normal;color:var(--brace)}
   /* --- visualizzatore --- */
   /* dimensioni dell'immagine ingrandita: tutta visibile, senza tagli né deformazioni */
   function adatta(){
+    zoomVia(true);
     var w = lbImg.naturalWidth, h = lbImg.naturalHeight; if (!w || !h || lb.hidden) return;
     var st = $('lbStage').getBoundingClientRect(), tocco = matchMedia('(hover: none)').matches;
     var px = tocco ? 0 : Math.min(88, Math.max(4, innerWidth * .05)), py = tocco ? 0 : Math.min(14, Math.max(4, innerWidth * .012));
@@ -455,8 +461,9 @@ h2.sez em{font-style:normal;color:var(--brace)}
     if (location.hash !== '#' + f.n) history.replaceState(null, '', location.pathname + location.search + '#' + f.n);
     [cur + 1, cur - 1].forEach(function(k){ var p = VISTE[(k + VISTE.length) % VISTE.length]; (new Image()).src = urlImg(p.id, GRANDE); });
   }
-  function apri(i){ ultimoFocus = document.activeElement; lb.hidden = false; document.body.style.overflow = 'hidden'; mostra(i); $('lbX').focus(); }
+  function apri(i){ ultimoFocus = document.activeElement; lb.hidden = false; document.body.style.overflow = 'hidden'; mostra(i); $('lbX').focus(); aiuto(); }
   function chiudi(){
+    zoomVia(true);
     lb.hidden = true; document.body.style.overflow = ''; lbImg.removeAttribute('src');
     history.replaceState(null, '', location.pathname + location.search);
     var btn = gal.querySelectorAll('button')[cur];
@@ -493,14 +500,92 @@ h2.sez em{font-style:normal;color:var(--brace)}
       else if (!e.shiftKey && document.activeElement === u){ e.preventDefault(); p.focus(); }
     }
   });
-  var x0 = null, y0 = null;
-  $('lbStage').addEventListener('touchstart', function(e){ if (e.touches.length === 1){ x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, {passive: true});
-  $('lbStage').addEventListener('touchend', function(e){
-    if (x0 === null) return;
-    var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
-    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) mostra(cur + (dx < 0 ? 1 : -1));
-    else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) chiudi();
+  /* --- zoom: due dita sul telefono, tieni premuto il mouse sul PC; lasciando torna alla dimensione normale --- */
+  var Z = {z: 1, x: 0, y: 0};
+  function zoomApplica(){
+    lbImg.style.transform = 'translate(-50%,-50%) translate(' + Z.x + 'px,' + Z.y + 'px) scale(' + Z.z + ')';
+  }
+  function zoomVia(subito){
+    if (Z.z === 1 && !Z.x && !Z.y) return;
+    Z.z = 1; Z.x = 0; Z.y = 0;
+    if (subito) lbImg.classList.add('zoom'); else lbImg.classList.remove('zoom');
+    zoomApplica();
+  }
+  function centro(){ var r = $('lbStage').getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }
+  function limita(){
+    // la foto ingrandita non si stacca dai bordi
+    var r = $('lbStage').getBoundingClientRect(), w = lbImg.offsetWidth * Z.z, h = lbImg.offsetHeight * Z.z;
+    var mx = Math.max(0, (w - r.width) / 2), my = Math.max(0, (h - r.height) / 2);
+    Z.x = Math.max(-mx, Math.min(mx, Z.x)); Z.y = Math.max(-my, Math.min(my, Z.y));
+  }
+  var aiutoVisto = false;
+  function aiuto(){
+    var a = $('lbAiuto'); if (aiutoVisto){ a.classList.add('via'); return; }
+    a.textContent = matchMedia('(hover: none)').matches ? 'Allarga con due dita per lo zoom' : 'Tieni premuto sulla foto per lo zoom';
+    a.classList.remove('via'); clearTimeout(aiuto._t); aiuto._t = setTimeout(function(){ a.classList.add('via'); }, 2600);
+  }
+
+  // PC: lente che segue il mouse finché il tasto è premuto
+  var lente = false;
+  function lenteMuovi(e){
+    var c = centro(); Z.z = 2.6;
+    Z.x = -(e.clientX - c.x) * (Z.z - 1); Z.y = -(e.clientY - c.y) * (Z.z - 1);
+    limita(); zoomApplica();
+  }
+  lbImg.addEventListener('dragstart', function(e){ e.preventDefault(); });
+  lbImg.addEventListener('mousedown', function(e){
+    if (e.button !== 0) return; e.preventDefault();
+    lente = true; aiutoVisto = true; $('lbAiuto').classList.add('via');
+    lbImg.classList.add('zoom'); lenteMuovi(e);
+  });
+  addEventListener('mousemove', function(e){ if (lente) lenteMuovi(e); });
+  addEventListener('mouseup', function(){ if (lente){ lente = false; zoomVia(false); } });
+  addEventListener('blur', function(){ if (lente){ lente = false; zoomVia(true); } });
+
+  // telefono: pizzico con due dita, trascinamento, scorrimento per cambiare foto
+  var x0 = null, y0 = null, pz = null, trascina = null, pizzicato = false;
+  function dist(t){ return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+  function medio(t){ return {x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2}; }
+  $('lbStage').addEventListener('touchstart', function(e){
+    var t = e.touches;
+    if (t.length === 2){
+      var c = centro(), m = medio(t);
+      pz = {d: dist(t), z: Z.z, x: Z.x, y: Z.y, mx: m.x - c.x, my: m.y - c.y};
+      pizzicato = true; x0 = null; trascina = null; lbImg.classList.add('zoom');
+      aiutoVisto = true; $('lbAiuto').classList.add('via');
+    } else if (t.length === 1){
+      if (Z.z > 1){ trascina = {sx: t[0].clientX, sy: t[0].clientY, x: Z.x, y: Z.y}; x0 = null; }
+      else if (!pizzicato){ x0 = t[0].clientX; y0 = t[0].clientY; }
+    }
   }, {passive: true});
+  $('lbStage').addEventListener('touchmove', function(e){
+    var t = e.touches;
+    if (t.length === 2 && pz){
+      e.preventDefault();
+      var c = centro(), m = medio(t), mx = m.x - c.x, my = m.y - c.y;
+      Z.z = Math.max(1, Math.min(5, pz.z * dist(t) / pz.d));
+      // il punto tra le dita resta sotto le dita
+      Z.x = mx - (pz.mx - pz.x) * Z.z / pz.z; Z.y = my - (pz.my - pz.y) * Z.z / pz.z;
+      limita(); zoomApplica();
+    } else if (t.length === 1 && trascina){
+      e.preventDefault();
+      Z.x = trascina.x + t[0].clientX - trascina.sx; Z.y = trascina.y + t[0].clientY - trascina.sy;
+      limita(); zoomApplica();
+    }
+  }, {passive: false});
+  $('lbStage').addEventListener('touchend', function(e){
+    if (e.touches.length === 0){
+      if (pizzicato || trascina){ pz = null; trascina = null; pizzicato = false; x0 = null; zoomVia(false); return; }
+      if (x0 === null) return;
+      var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) mostra(cur + (dx < 0 ? 1 : -1));
+      else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) chiudi();
+    } else if (e.touches.length === 1 && pz){
+      // tolto un dito: si continua a spostare la foto con l'altro
+      pz = null; trascina = {sx: e.touches[0].clientX, sy: e.touches[0].clientY, x: Z.x, y: Z.y};
+    }
+  }, {passive: true});
+  $('lbStage').addEventListener('touchcancel', function(){ pz = null; trascina = null; pizzicato = false; x0 = null; zoomVia(false); }, {passive: true});
 
   /* --- comandi --- */
   var attesa;
