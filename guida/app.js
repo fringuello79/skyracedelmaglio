@@ -28,6 +28,7 @@ class Voce {
     const punti = v => {
       const n = `${v.name} ${v.voiceURI}`;
       let s = 0;
+      if (/alice/i.test(v.name)) s += 30;    // scelta di Ale: Alice per prima
       if (FEMMINILI.test(v.name)) s += 10;
       if (MASCHILI.test(v.name)) s -= 10;
       if (/premium/i.test(n)) s += 4; else if (/enhanced|migliorat/i.test(n)) s += 3;
@@ -35,10 +36,10 @@ class Voce {
       if (v.localService) s += 1;
       return s;
     };
-    return speechSynthesis.getVoices().filter(v => /^it/i.test(v.lang)).sort((a, b) => punti(b) - punti(a));
+    return speechSynthesis.getVoices().filter(v => /^it/i.test(v.lang) && !ESCLUSE.test(v.name)).sort((a, b) => punti(b) - punti(a));
   }
   scegli() {
-    const voci = this.voci(), pref = leggi('srm-guida-voce');
+    const voci = this.voci(), pref = leggi('srm-guida-voce2');
     this.voce = voci.find(v => v.voiceURI === pref) || voci[0] || null;
     this.rate = +(leggi('srm-guida-rate') || 1);
     selettoreVoci(voci, this.voce);
@@ -83,7 +84,7 @@ class Voce {
     const attesa = ev.suono ? this.tono(ev.suono) : 0;
     setTimeout(() => {
       if (this.corrente !== ev) return;
-      if (!this.disponibile) return this._fine(ev);
+      if (!this.disponibile || !ev.testo) return this._fine(ev);   // conferma con il solo tono
       const u = new SpeechSynthesisUtterance(ev.testo);
       u.lang = 'it-IT'; if (this.voce) u.voice = this.voce; u.rate = this.rate || 1; u.pitch = 1;
       u.onend = u.onerror = () => this._fine(ev);
@@ -99,6 +100,7 @@ class Voce {
   ripeti() { if (this.ultimoImportante) this.dici({ ...this.ultimoImportante, priorita: PRIORITA.errore, bivio: null, forza: true }); }
   ferma() { this.coda = []; this.corrente = null; clearTimeout(this.timer); try { speechSynthesis.cancel(); } catch { /* niente */ } }
 }
+const ESCLUSE = /elsa|cosimo/i;   // troppo robotiche
 const FEMMINILI = /alice|federica|emma|paola|elsa|isabella|chiara|giulia|silvia|francesca|google italiano/i;
 const MASCHILI = /\bluca\b|cosimo|diego|giuseppe|paolo|marco|roberto|\bmale\b/i;
 const voce = new Voce();
@@ -130,17 +132,26 @@ const datiSrm = Promise.all([
   fetch('bivi-srm2026.json').then(r => r.json()),
 ]);
 let traccia = null, tracciaId = null, biviBase = [], bivi = [];
-const chiave = () => 'srm-guida-bivi:' + tracciaId;
+let versioneBivi = 1;
+const chiave = () => 'srm-guida-bivi:' + tracciaId + (versioneBivi > 1 ? ':v' + versioneBivi : '');
 
 async function caricaSrm() {
   const [t, b] = await datiSrm;
   traccia = new Traccia(t); tracciaId = 'srm2026'; biviBase = b.bivi;
+  versioneBivi = 1; const vecchi = leggi(chiave());
+  versioneBivi = b.versione || 1;
   bivi = leggi(chiave()) || structuredClone(biviBase);
+  // nuova versione dei bivi: si tengono quelli segnati a mano sul telefono
+  if (!leggi(chiave()) && vecchi && versioneBivi > 1) {
+    for (const u of vecchi.filter(x => x.fonte === 'utente')) if (!bivi.some(x => x.id === u.id)) bivi.push(u);
+    bivi.sort((x, y) => x.km - y.km);
+  }
   disegnaBivi();
 }
 async function caricaGpx(file) {
   const testo = await file.text();
   traccia = tracciaDaGpx(testo, Traccia);
+  versioneBivi = 1;
   tracciaId = `gpx:${file.name}:${traccia.pts.length}`;
   biviBase = svolteAutomatiche(traccia);
   bivi = leggi(chiave()) || structuredClone(biviBase);
@@ -180,7 +191,7 @@ function gestisci(eventi) {
     if (ev.priorita === PRIORITA.errore && ev.tipo !== 'rientro') ultimoErrore = ev.testo;
     if (ev.tipo === 'lontano') ultimoLontano = ev.testo;
     if (ev.tipo === 'giusto' || ev.tipo === 'rientro') ultimoGiusto = Date.now();
-    scriviDiario(ev.testo, ev.priorita === PRIORITA.errore && ev.tipo !== 'rientro');
+    scriviDiario(ev.testo || ev.diario || '', ev.priorita === PRIORITA.errore && ev.tipo !== 'rientro');
   }
   if (eventi.length) aggiorna();
 }
@@ -422,7 +433,7 @@ $('b-silenzia').addEventListener('click', e => {
 $('b-pausa').addEventListener('click', e => { inPausa = !inPausa; e.currentTarget.textContent = inPausa ? 'Riprendi' : 'Pausa'; aggiorna(); });
 $('b-sbaglia').addEventListener('click', () => {
   if (!sim || sim.modo !== 'traccia') return;
-  const b = motore.bivi.find(x => x.km > sim.km + 0.01);
+  const b = motore.bivi.find(x => !x.silenzioso && x.km > sim.km + 0.01);
   if (!b) { scriviDiario('Nessun altro bivio davanti.'); return; }
   sim.sbagliaAl(b);
   scriviDiario(`Prova: al bivio ${b.id} (km ${fmtKm(kmGara(b.km))}) prenderò il sentiero sbagliato e poi tornerò indietro.`);
@@ -436,7 +447,7 @@ $('b-segna').addEventListener('click', () => {
   voce.dici({ tipo: 'segna', priorita: PRIORITA.errore, testo: t, forza: true }); scriviDiario(t);
   $('sez-bivi').open = true; apriEditor(nuovo);
 });
-$('sel-voce').addEventListener('change', e => { salva('srm-guida-voce', e.target.value); voce.scegli(); $('b-prova-voce').click(); });
+$('sel-voce').addEventListener('change', e => { salva('srm-guida-voce2', e.target.value); voce.scegli(); $('b-prova-voce').click(); });
 $('sel-rate').addEventListener('change', e => { salva('srm-guida-rate', e.target.value); voce.rate = +e.target.value; $('b-prova-voce').click(); });
 $('b-prova-voce').addEventListener('click', () => {
   voce.sblocca();
@@ -467,7 +478,7 @@ for (const r of document.querySelectorAll('input[name=modo]')) r.addEventListene
 // ---------------- elenco ed editor dei bivi ----------------
 const NOMI_AZ = { auto: 'Automatica (dalla traccia)', 'dritto': 'Prosegui dritto', 'tieni-dx': 'Tieni la destra', 'tieni-sx': 'Tieni la sinistra', 'gira-dx': 'Gira a destra', 'gira-sx': 'Gira a sinistra', 'stretta-dx': 'Svolta stretta a destra', 'stretta-sx': 'Svolta stretta a sinistra' };
 const NOMI_POS = { '': 'Non serve', sx: 'Il più a sinistra', centro: 'Quello centrale', dx: 'Il più a destra', '2sx': 'Il secondo da sinistra', '2dx': 'Il secondo da destra' };
-const NOMI_FONTE = { segnaletica: 'piano segnaletica', sentiero: 'cambio sentiero', svolta: 'svolta della traccia', utente: 'segnato da te' };
+const NOMI_FONTE = { segnaletica: 'piano segnaletica', cai: 'sentiero CAI che si stacca', sentiero: 'inizio sentiero', svolta: 'svolta della traccia', tornanti: 'tornanti', utente: 'segnato da te' };
 
 function salvaBivi() {
   bivi.sort((a, b) => a.km - b.km);

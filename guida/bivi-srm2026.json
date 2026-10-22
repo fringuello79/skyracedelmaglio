@@ -1,167 +1,539 @@
 {
  "traccia": "srm2026",
- "versione": 1,
- "origine": "Piano segnaletica SRM 2026 (da verificare) + cambi di sentiero",
+ "versione": 2,
+ "origine": "Piano segnaletica SRM 2026 + diramazioni CAI (OpenStreetMap) + svolte nette della traccia + inizio sentieri",
  "bivi": [
   {
    "id": "S01-A",
+   "tipo": "bivio",
    "km": 1.04,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
    "nota": "La svolta a sinistra (44°) della traccia è 40 m più avanti, al km 1,04."
   },
   {
+   "id": "V01",
+   "tipo": "svolta",
+   "km": 1.12,
+   "giri": [
+    {
+     "km": 1.12,
+     "delta": -62
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia su carrareccia o strada."
+  },
+  {
+   "id": "O01",
+   "tipo": "bivio",
+   "km": 1.592,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "dx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
+  },
+  {
    "id": "S02-A",
+   "tipo": "bivio",
    "km": 1.71,
    "azione": "tieni-dx",
-   "freccia": "dx",
    "fonte": "segnaletica",
    "nota": "Freccia PROPOSTA: il paletto è nel tratto percorso due volte, quindi serve anche la freccia per l'altro senso. La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa)."
   },
   {
+   "id": "V02",
+   "tipo": "svolta",
+   "km": 1.91,
+   "giri": [
+    {
+     "km": 1.91,
+     "delta": 67
+    },
+    {
+     "km": 1.92,
+     "delta": -111
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia su carrareccia o strada."
+  },
+  {
+   "id": "V03",
+   "tipo": "svolta",
+   "km": 2.11,
+   "giri": [
+    {
+     "km": 2.11,
+     "delta": 75
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia su carrareccia o strada."
+  },
+  {
    "id": "S03-A",
+   "tipo": "bivio",
    "km": 2.6,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
    "nota": "La traccia svolta a sinistra di circa 91° proprio qui."
   },
   {
+   "id": "O02",
+   "tipo": "bivio",
+   "km": 2.809,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "dx",
+    "sx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
+  },
+  {
    "id": "S04",
+   "tipo": "bivio",
    "km": 3.3,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
    "nota": "La traccia svolta a sinistra di circa 46° proprio qui."
   },
   {
+   "id": "O03",
+   "tipo": "bivio",
+   "km": 3.595,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "sx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
+  },
+  {
    "id": "S05",
+   "tipo": "bivio",
    "km": 3.96,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
-   "nota": "La svolta a sinistra (68°) della traccia è 40 m più indietro, al km 3,96."
+   "nota": "La svolta a sinistra (68°) della traccia è 40 m più indietro, al km 3,96.",
+   "giri": [
+    {
+     "km": 3.95,
+     "delta": -81
+    },
+    {
+     "km": 4.0,
+     "delta": 67
+    }
+   ]
   },
   {
    "id": "S06",
+   "tipo": "bivio",
    "km": 5.8,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
-   "nota": "La traccia svolta a sinistra di circa 108° proprio qui."
+   "nota": "La traccia svolta a sinistra di circa 108° proprio qui.",
+   "altri": [
+    "dx"
+   ]
   },
   {
    "id": "S07",
+   "tipo": "bivio",
    "km": 6.77,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
    "nota": "La svolta a sinistra (67°) della traccia è 70 m più avanti, al km 6,77."
   },
   {
-   "id": "S08",
-   "km": 8.15,
-   "azione": "auto",
-   "freccia": "dx",
-   "fonte": "segnaletica",
-   "nota": "La svolta a destra (96°) della traccia è 150 m più avanti, al km 8,15. Cambio sentiero E1 → 3 previsto al km 8,2.",
-   "segno": "sentiero 3"
+   "id": "V04",
+   "tipo": "svolta",
+   "km": 6.92,
+   "giri": [
+    {
+     "km": 6.92,
+     "delta": -61
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia su carrareccia o strada."
   },
   {
-   "id": "C02",
-   "km": 10,
+   "id": "S08",
+   "tipo": "bivio",
+   "km": 8.15,
    "azione": "auto",
+   "fonte": "segnaletica",
+   "nota": "La svolta a destra (96°) della traccia è 150 m più avanti, al km 8,15. Cambio sentiero E1 → 3 previsto al km 8,2.",
+   "altri": [
+    "sx"
+   ],
+   "sentiero": "3"
+  },
+  {
+   "id": "O04",
+   "tipo": "bivio",
+   "km": 9.774,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "sx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI).",
+   "giri": [
+    {
+     "km": 9.8,
+     "delta": 108
+    },
+    {
+     "km": 9.82,
+     "delta": -69
+    }
+   ]
+  },
+  {
+   "id": "N-3B-10",
+   "tipo": "sentiero",
+   "km": 10,
+   "sentiero": "3B",
    "fonte": "sentiero",
-   "nota": "Cambio sentiero 3 → 3B",
-   "segno": "sentiero 3B"
+   "nota": "Inizio del sentiero 3B (sequenza verificata)."
+  },
+  {
+   "id": "V05",
+   "tipo": "svolta",
+   "km": 11.0,
+   "giri": [
+    {
+     "km": 11.0,
+     "delta": 135
+    },
+    {
+     "km": 11.04,
+     "delta": -134
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia."
+  },
+  {
+   "id": "T01",
+   "tipo": "tornanti",
+   "km": 11.52,
+   "fino": 11.87,
+   "fonte": "tornanti",
+   "nota": "6 tornanti fino al km 11.87."
+  },
+  {
+   "id": "O05",
+   "tipo": "bivio",
+   "km": 13.036,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "dx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
   },
   {
    "id": "S09",
+   "tipo": "bivio",
    "km": 14.2,
    "azione": "tieni-dx",
-   "freccia": "dx",
    "fonte": "segnaletica",
    "nota": "La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa). Cambio sentiero 3B → 3 previsto al km 14,5."
   },
   {
-   "id": "C03",
-   "km": 14.5,
+   "id": "O06",
+   "tipo": "bivio",
+   "km": 14.514,
    "azione": "auto",
-   "fonte": "sentiero",
-   "nota": "Cambio sentiero 3B → 3",
-   "segno": "sentiero 3"
+   "fonte": "cai",
+   "altri": [
+    "dx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI).",
+   "sentiero": "3"
   },
   {
    "id": "S10",
+   "tipo": "bivio",
    "km": 15.3,
    "azione": "auto",
-   "freccia": "dx",
    "fonte": "segnaletica",
    "nota": "La traccia svolta a destra di circa 57° proprio qui."
   },
   {
-   "id": "C04",
-   "km": 17,
+   "id": "O07",
+   "tipo": "bivio",
+   "km": 15.906,
    "azione": "auto",
-   "fonte": "sentiero",
-   "nota": "Cambio sentiero 3 → 1",
-   "segno": "sentiero 1"
+   "fonte": "cai",
+   "altri": [
+    "dx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
+  },
+  {
+   "id": "O08",
+   "tipo": "bivio",
+   "km": 17.011,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "dx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI).",
+   "sentiero": "1"
   },
   {
    "id": "S11",
+   "tipo": "bivio",
    "km": 18.3,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
    "nota": "La svolta a sinistra (67°) della traccia è 200 m più indietro, al km 18,30. Cambio sentiero 1 → 7 previsto al km 18,5."
   },
   {
+   "id": "N-7-18.5",
+   "tipo": "sentiero",
+   "km": 18.5,
+   "sentiero": "7",
+   "fonte": "sentiero",
+   "nota": "Inizio del sentiero 7 (sequenza verificata)."
+  },
+  {
+   "id": "O09",
+   "tipo": "bivio",
+   "km": 18.602,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "sx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
+  },
+  {
+   "id": "V06",
+   "tipo": "svolta",
+   "km": 19.49,
+   "giri": [
+    {
+     "km": 19.49,
+     "delta": 75
+    },
+    {
+     "km": 19.5,
+     "delta": -71
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia."
+  },
+  {
+   "id": "V07",
+   "tipo": "svolta",
+   "km": 20.37,
+   "giri": [
+    {
+     "km": 20.37,
+     "delta": -79
+    },
+    {
+     "km": 20.42,
+     "delta": 75
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia."
+  },
+  {
+   "id": "T02",
+   "tipo": "tornanti",
+   "km": 20.81,
+   "fino": 21.04,
+   "fonte": "tornanti",
+   "nota": "3 tornanti fino al km 21.04."
+  },
+  {
    "id": "S12",
+   "tipo": "bivio",
    "km": 21,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
    "nota": "La traccia svolta a sinistra di circa 66° proprio qui."
   },
   {
+   "id": "T03",
+   "tipo": "tornanti",
+   "km": 21.72,
+   "fino": 22.59,
+   "fonte": "tornanti",
+   "nota": "8 tornanti fino al km 22.59."
+  },
+  {
+   "id": "V08",
+   "tipo": "svolta",
+   "km": 22.99,
+   "giri": [
+    {
+     "km": 22.99,
+     "delta": -78
+    },
+    {
+     "km": 23.01,
+     "delta": 123
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia."
+  },
+  {
+   "id": "O10",
+   "tipo": "bivio",
+   "km": 24.131,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "dx",
+    "sx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
+  },
+  {
    "id": "S13",
+   "tipo": "bivio",
    "km": 24.29,
    "azione": "auto",
-   "freccia": "dx",
    "fonte": "segnaletica",
    "nota": "La svolta a destra (92°) della traccia è 90 m più avanti, al km 24,29. Cambio sentiero 7 → E1 previsto al km 24,3.",
-   "segno": "sentiero E1"
+   "altri": [
+    "sx"
+   ],
+   "sentiero": "E1"
+  },
+  {
+   "id": "V09",
+   "tipo": "svolta",
+   "km": 24.51,
+   "giri": [
+    {
+     "km": 24.51,
+     "delta": -64
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia su carrareccia o strada."
+  },
+  {
+   "id": "O11",
+   "tipo": "bivio",
+   "km": 25.21,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "dx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
   },
   {
    "id": "S14",
+   "tipo": "bivio",
    "km": 26.18,
    "azione": "auto",
-   "freccia": "dx",
    "fonte": "segnaletica",
    "nota": "La svolta a destra (54°) della traccia è 180 m più avanti, al km 26,18."
   },
   {
+   "id": "O12",
+   "tipo": "bivio",
+   "km": 26.294,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "sx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
+  },
+  {
    "id": "S03-R",
+   "tipo": "bivio",
    "km": 27.14,
    "azione": "auto",
-   "freccia": "sx",
    "fonte": "segnaletica",
    "nota": "Il tuo «km 27 sx» cade 130 m prima di questo bivio, dove il ritorno rientra nel tratto comune: è lo stesso paletto del km 2,6. La traccia svolta a sinistra di circa 61° proprio qui."
   },
   {
+   "id": "V10",
+   "tipo": "svolta",
+   "km": 27.59,
+   "giri": [
+    {
+     "km": 27.59,
+     "delta": -70
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia su carrareccia o strada."
+  },
+  {
+   "id": "V11",
+   "tipo": "svolta",
+   "km": 27.77,
+   "giri": [
+    {
+     "km": 27.77,
+     "delta": 106
+    },
+    {
+     "km": 27.79,
+     "delta": -65
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia su carrareccia o strada."
+  },
+  {
    "id": "S02-R",
+   "tipo": "bivio",
    "km": 28.0,
    "azione": "tieni-sx",
-   "freccia": "sx",
    "fonte": "segnaletica",
    "nota": "La traccia prosegue quasi dritta: il bivio va individuato sul posto (o sui sentieri OSM in mappa)."
   },
   {
+   "id": "O13",
+   "tipo": "bivio",
+   "km": 28.116,
+   "azione": "auto",
+   "fonte": "cai",
+   "altri": [
+    "sx"
+   ],
+   "nota": "Qui si stacca un sentiero segnato (OpenStreetMap, rete CAI)."
+  },
+  {
+   "id": "V12",
+   "tipo": "svolta",
+   "km": 28.58,
+   "giri": [
+    {
+     "km": 28.58,
+     "delta": 62
+    }
+   ],
+   "fonte": "svolta",
+   "nota": "Svolta netta della traccia su carrareccia o strada."
+  },
+  {
    "id": "S01-R",
+   "tipo": "bivio",
    "km": 28.67,
    "azione": "auto",
-   "freccia": "dx",
    "fonte": "segnaletica",
    "nota": "Freccia PROPOSTA: il paletto è nel tratto percorso due volte, quindi serve anche la freccia per l'altro senso. La svolta a destra (44°) della traccia è 40 m più indietro, al km 28,67."
   }
