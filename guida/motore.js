@@ -29,26 +29,28 @@ export const OPZIONI = {
 };
 
 // ---------- frasi ----------
+// Pensate per chi corre stanco: prima la direzione, poche parole, sempre le stesse.
 const AZ = {
-  'dritto':     { lungo: 'prosegui dritto',          breve: 'dritto',             icona: 0 },
-  'tieni-dx':   { lungo: 'tieni la destra',          breve: 'tieni la destra',    icona: 30 },
-  'tieni-sx':   { lungo: 'tieni la sinistra',        breve: 'tieni la sinistra',  icona: -30 },
-  'gira-dx':    { lungo: 'gira a destra',            breve: 'a destra',           icona: 90 },
-  'gira-sx':    { lungo: 'gira a sinistra',          breve: 'a sinistra',         icona: -90 },
-  'stretta-dx': { lungo: 'svolta stretta a destra',  breve: 'stretta a destra',   icona: 140 },
-  'stretta-sx': { lungo: 'svolta stretta a sinistra', breve: 'stretta a sinistra', icona: -140 },
+  'dritto':     { breve: 'dritto',             titolo: 'Dritto',             icona: 0 },
+  'tieni-dx':   { breve: 'tieni la destra',    titolo: 'Tieni la destra',    icona: 30 },
+  'tieni-sx':   { breve: 'tieni la sinistra',  titolo: 'Tieni la sinistra',  icona: -30 },
+  'gira-dx':    { breve: 'a destra',           titolo: 'A destra',           icona: 90 },
+  'gira-sx':    { breve: 'a sinistra',         titolo: 'A sinistra',         icona: -90 },
+  'stretta-dx': { breve: 'stretta a destra',   titolo: 'Stretta a destra',   icona: 140 },
+  'stretta-sx': { breve: 'stretta a sinistra', titolo: 'Stretta a sinistra', icona: -140 },
 };
 export const AZIONI = Object.keys(AZ);
 
 const POS = {
-  'sx':  { lungo: 'prendi il sentiero più a sinistra', breve: 'il sentiero più a sinistra', icona: -60 },
-  'dx':  { lungo: 'prendi il sentiero più a destra',   breve: 'il sentiero più a destra',   icona: 60 },
-  'centro': { lungo: 'prendi il sentiero centrale',    breve: 'il sentiero centrale',       icona: 0 },
-  '2sx': { lungo: 'prendi il secondo sentiero da sinistra', breve: 'il secondo da sinistra', icona: -25 },
-  '2dx': { lungo: 'prendi il secondo sentiero da destra',   breve: 'il secondo da destra',   icona: 25 },
+  'sx':  { breve: 'il sentiero più a sinistra',  icona: -60 },
+  'dx':  { breve: 'il sentiero più a destra',    icona: 60 },
+  'centro': { breve: 'il sentiero centrale',     icona: 0 },
+  '2sx': { breve: 'il secondo da sinistra',      icona: -25 },
+  '2dx': { breve: 'il secondo da destra',        icona: 25 },
 };
 export const POSIZIONI = Object.keys(POS);
 const NUMERI = ['', '', 'due', 'tre', 'quattro', 'cinque'];
+const LATO = { dx: 'destra', sx: 'sinistra' };
 
 const maiuscola = s => s.charAt(0).toUpperCase() + s.slice(1);
 export function metriParlati(m) {
@@ -64,38 +66,56 @@ export function azioneAutomatica(delta) {
   if (a < 135) return 'gira-' + lato;
   return 'stretta-' + lato;
 }
+// "a destra, poi subito a sinistra" per due svolte ravvicinate
+const frase2 = giri => giri.map((g, i) => (i ? 'poi subito ' : '') + (Math.abs(g.delta) >= 120 ? 'stretta ' : '') + 'a ' + (g.delta > 0 ? 'destra' : 'sinistra')).join(', ');
 
-// Calcola geometria e frasi di un bivio sulla traccia.
+// Tipi: 'bivio' (incrocio di sentieri), 'svolta' (svolta netta senza bivio noto),
+// 'tornanti' (serie di tornanti: un solo avviso), 'sentiero' (inizio di un sentiero senza bivio).
 export function preparaBivio(traccia, b) {
+  const tipoP = b.tipo || 'bivio';
   const km = clamp(b.km, 0.03, traccia.kmTot - 0.03);
   const [lat, lon, ele] = traccia.at(km);
   const entrata = bearing(traccia.at(km - 0.03), traccia.at(km));
   const uscita = bearing(traccia.at(km), traccia.at(km + 0.04));
   const delta = norm(uscita - entrata);
-  const quotaDopo = traccia.at(km + 0.1)[2];
-  const salita = quotaDopo - ele;
+  const salita = traccia.at(km + 0.1)[2] - ele;
   const azione = (b.azione && b.azione !== 'auto') ? b.azione : azioneAutomatica(delta);
-  const pend = b.pendenza === 'no' ? '' : salita > 8 ? 'in salita' : salita < -8 ? 'in discesa' : '';
   const pos = POS[b.posizione];
   const az = AZ[azione];
   const rami = b.rami >= 3 ? b.rami : 0;
-  const tipo = rami ? `incrocio a ${NUMERI[rami]} sentieri` : 'bivio';
-  const cosa = pos ? pos.lungo : az.lungo;
-  const breve = pos ? pos.breve : az.breve;
+  const doppia = b.giri?.length === 2 && !pos;
+  // pendenza solo dove aiuta a scegliere tra più sentieri
+  const pend = (pos || rami) && b.pendenza !== 'no' ? (salita > 8 ? 'in salita' : salita < -8 ? 'in discesa' : '') : '';
   const coda = pend ? `, ${pend}` : '';
+  const dove = pos ? pos.breve : doppia ? frase2(b.giri) : az.breve;
   const segno = (b.segno || '').trim().replace(/\.$/, '');
   const sentDopo = traccia.sentiero(km + 0.05), sentPrima = traccia.sentiero(km - 0.05);
+  const sentiero = b.sentiero || (sentDopo && sentDopo !== sentPrima ? sentDopo : '');
+  const ignora = azione === 'dritto' && !pos && !doppia && b.altri?.length === 1 ? ` Ignora il sentiero a ${LATO[b.altri[0]]}.` : '';
+  const coda2 = (sentiero ? ` Sentiero ${sentiero}.` : '') + (segno ? ' ' + maiuscola(segno) + '.' : '');
+  const base = { ...b, tipo: tipoP, km, lat, lon, entrata, uscita, delta, salita, azioneEff: azione, verificaM: b.verifica || OPZIONI.verifica, segnoTesto: segno };
+
+  if (tipoP === 'tornanti') return { ...base, icona: 0, titolo: 'Tornanti', silenzioso: true,
+    frasi: { pre: null, ind: 'Tornanti: resta sul sentiero.', ora: null, giusto: '' } };
+  if (tipoP === 'sentiero') return { ...base, icona: 0, titolo: `Sentiero ${sentiero}`, silenzioso: true,
+    frasi: { pre: null, ind: `Inizia il sentiero ${sentiero}.`, ora: null, giusto: '' } };
+  if (tipoP === 'svolta') {
+    const giri = b.giri?.length ? b.giri : [{ delta }];
+    const t = giri.length === 2 ? frase2(giri) : (Math.abs(giri[0].delta) >= 100 ? 'svolta stretta ' : 'svolta ') + 'a ' + (giri[0].delta > 0 ? 'destra' : 'sinistra');
+    return { ...base, icona: Math.max(-140, Math.min(140, giri[0].delta)), titolo: maiuscola(t),
+      frasi: { pre: null, ind: maiuscola(t) + '.', ora: null, giusto: '' } };
+  }
+  const incrocio = rami ? `incrocio a ${NUMERI[rami]}` : 'bivio';
   return {
-    ...b, km, lat, lon, entrata, uscita, delta, salita, azioneEff: azione,
-    verificaM: b.verifica || OPZIONI.verifica,
-    icona: pos ? pos.icona : az.icona,
-    titolo: maiuscola(cosa) + coda,
-    segnoTesto: segno,
+    ...base,
+    icona: pos ? pos.icona : doppia ? Math.max(-140, Math.min(140, b.giri[0].delta)) : az.icona,
+    titolo: maiuscola(dove) + coda,
     frasi: {
-      pre: d => `Tra ${metriParlati(d)} metri, ${tipo}. ${maiuscola(cosa)}${coda}.`,
-      ind: `${rami ? "All'incrocio" : 'Al bivio'}, ${cosa}${coda}.${segno ? ' ' + maiuscola(segno) + '.' : ''}`,
-      ora: azione === 'dritto' && !pos ? null : `Ora ${breve}.`,
-      giusto: sentDopo && sentDopo !== sentPrima ? `Giusto. Sei sul sentiero ${sentDopo}.` : 'Giusto.',
+      // dritto senza scelte da fare: niente preavviso, basta l'avviso al bivio
+      pre: azione === 'dritto' && !pos && !rami ? null : d => `Fra ${metriParlati(d)} metri, ${incrocio}: ${dove}${coda}.`,
+      ind: `${maiuscola(incrocio)}: ${dove}${coda}.${ignora}${coda2}`,
+      ora: pos || (!doppia && /^(gira|stretta)/.test(azione)) ? `Ora ${pos ? pos.breve : az.breve}.` : null,
+      giusto: sentiero ? `Sentiero ${sentiero}.` : '',   // vuoto = solo il tono di conferma
     },
   };
 }
@@ -234,7 +254,7 @@ export class Motore {
     const dentro = this.fuori?.annunciato ? p.d <= corr * 0.75 : p.d <= corr;
     if (dentro) {
       if (this.fuori) {
-        if (this.fuori.annunciato) ev.push({ tipo: 'rientro', priorita: PRIORITA.errore, suono: 'positivo', testo: 'Sei di nuovo sul percorso.' });
+        if (this.fuori.annunciato) ev.push({ tipo: 'rientro', priorita: PRIORITA.errore, suono: 'positivo', testo: 'Di nuovo sul percorso.' });
         this.fuori = null;
       }
       this._controllaVerso(ev, fix, p);
@@ -263,14 +283,14 @@ export class Motore {
       const n = metriParlati(dist([fix.lat, fix.lon], [f.bivio.lat, f.bivio.lon]));
       this._flag(f.bivio).sbagliato = true;
       ev.push({ tipo: 'sbagliato', priorita: PRIORITA.errore, suono: 'allarme', bivio: f.bivio.id,
-        testo: f.annunciato ? `${ancora}Torna al bivio, ${n} metri indietro.` : `Sentiero sbagliato. Torna al bivio, ${n} metri indietro.` });
+        testo: f.annunciato ? `Torna indietro, ${n} metri.` : `Sentiero sbagliato! Torna indietro, ${n} metri.` });
     } else {
       const vicino = T.proietta(fix.lat, fix.lon, this.km - 0.3, this.km + 1.5);
       const q = T.at(vicino.km);
       const lato = this._lato(fix, q);
       const quanto = vicino.d >= 1000 ? `${kmParlati(vicino.d / 1000)} chilometri` : `${metriParlati(vicino.d)} metri`;
-      let testo = `${f.annunciato ? ancora : 'Fuori percorso. '}Il percorso è a ${quanto}, ${lato}.`;
-      if (vicino.d > 300) testo += ' Torna indietro sulla strada che hai fatto.';
+      let testo = `${f.annunciato ? ancora : 'Fuori percorso! '}Percorso a ${quanto}, ${lato}.`;
+      if (vicino.d > 300) testo += ' Torna sui tuoi passi.';
       ev.push({ tipo: 'fuori', priorita: PRIORITA.errore, suono: 'allarme', testo });
     }
     f.annunciato = true; f.ultimo = fix.t;
@@ -280,7 +300,7 @@ export class Motore {
   _bivioRecente() {
     return this.bivi.find(b => {
       const f = this._flag(b);
-      return (f.ind || f.pre) && !f.ver && b.km >= this.km - 0.25 && b.km <= this.km + 0.05;
+      return !b.silenzioso && (f.ind || f.pre) && !f.ver && b.km >= this.km - 0.25 && b.km <= this.km + 0.05;
     }) || null;
   }
 
@@ -310,8 +330,11 @@ export class Motore {
       const f = this._flag(b);
       const D = (b.km - this.km) * 1000;
       if (primoAggancio && D < 0) { f.pre = f.ind = f.ora = f.ver = true; continue; }
-      const dInd = Math.max(o.indicazione, v * 12);
-      if (!f.pre && D <= Math.max(o.preavviso, v * 60) && D > dInd + 30) {
+      // l'inizio di un sentiero si dice sul posto; il resto con il margine per reagire
+      const dInd = b.tipo === 'sentiero' ? 10 : Math.max(o.indicazione, v * 12);
+      // il preavviso parte solo se prima non c'è un altro punto ancora da annunciare: mai fuori ordine
+      const primaAltro = () => this.bivi.some(x => x !== b && !x.silenzioso && x.km > this.km && x.km < b.km && !this._flag(x).ind);
+      if (!f.pre && b.frasi.pre && D <= Math.max(o.preavviso, v * 60) && D > dInd + 30 && !primaAltro()) {
         f.pre = true;
         ev.push({ tipo: 'preavviso', priorita: PRIORITA.bivio, suono: 'attenzione', bivio: b.id, testo: b.frasi.pre(D) });
       }
@@ -323,10 +346,12 @@ export class Motore {
         f.ora = true;
         ev.push({ tipo: 'ora', priorita: PRIORITA.bivio, bivio: b.id, testo: b.frasi.ora });
       }
+      if (!f.ver && (b.silenzioso || b.tipo === 'svolta') && D <= -b.verificaM) { f.ver = f.pre = f.ind = f.ora = true; continue; }
       if (!f.ver && D <= -b.verificaM && benCentrato) {
         f.ver = f.pre = f.ind = f.ora = true;
-        ev.push({ tipo: 'giusto', priorita: PRIORITA.info, suono: 'positivo', bivio: b.id,
-          testo: f.sbagliato ? 'Bene, ora sei sul sentiero giusto.' : b.frasi.giusto });
+        // conferma: solo un tono, più il nome del sentiero se cambia
+        ev.push({ tipo: 'giusto', priorita: PRIORITA.info, suono: 'positivo', bivio: b.id, diario: 'Bivio superato.',
+          testo: f.sbagliato ? 'Bene, ora sei sul percorso.' : b.frasi.giusto });
       }
     }
   }
@@ -341,7 +366,7 @@ export class Motore {
 
   prossimoBivio() {
     if (this.km == null) return null;
-    const b = this.bivi.find(x => !this._flag(x).ver && x.km >= this.km - 0.02);
+    const b = this.bivi.find(x => !x.silenzioso && !this._flag(x).ver && x.km >= this.km - 0.02);
     return b ? { b, d: Math.max(0, (b.km - this.km) * 1000) } : null;
   }
 
@@ -382,8 +407,13 @@ export function invertiBivi(bivi, tInv) {
   return bivi.map(b => {
     const km = Math.round((K - b.km) * 1000) / 1000;
     const prima = tInv.sentiero(km - 0.05), dopo = tInv.sentiero(km + 0.05);
-    return { id: b.id, km, azione: 'auto', rami: b.rami || 0, verifica: b.verifica, fonte: b.fonte,
-      segno: dopo && prima !== dopo ? 'sentiero ' + dopo : undefined };
+    // svolte ravvicinate al contrario: ordine invertito, ogni svolta cambia lato
+    const giri = b.giri?.slice().reverse().map(g => ({ km: Math.round((K - g.km) * 1000) / 1000, delta: -g.delta }));
+    const out = { id: b.id, tipo: b.tipo || 'bivio', km, azione: 'auto', rami: b.rami || 0, verifica: b.verifica, fonte: b.fonte, giri,
+      sentiero: dopo && prima !== dopo ? dopo : undefined };
+    if (b.tipo === 'tornanti') { out.km = Math.round((K - b.fino - 0.03) * 1000) / 1000; out.fino = Math.round((K - b.km) * 1000) / 1000; }
+    if (b.tipo === 'sentiero') out.sentiero = tInv.sentiero(km + 0.05);
+    return out;
   });
 }
 
