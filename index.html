@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0c1f14">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Skyrace del Maglio · Magliano de' Marsi">
-<meta property="og:description" content="30 km e 2.079 m D+ sul Massiccio del Velino. Il film ufficiale della gara 2026, la classifica e le foto.">
+<meta property="og:description" content="30 km e 2.079 m D+ sul Massiccio del Velino. Il video ufficiale della gara 2026, la classifica e le foto.">
 <meta property="og:url" content="https://www.skyracedelmaglio.it/">
 <meta property="og:image" content="https://www.skyracedelmaglio.it/assets/video/srm2026-film-social.jpg">
 <meta name="description" content="Skyrace del Maglio — skyrace di 30 km e 2.079 m D+ alle spalle delle tre vette del Massiccio del Velino (Sevice, Velino, Cafornia), nel Parco Regionale Sirente Velino e nella Riserva Naturale Statale Monte Velino. Partenza e arrivo a Magliano de' Marsi, domenica 18 ottobre 2026.">
@@ -329,6 +329,12 @@ section.block.alt{background:linear-gradient(180deg,var(--bosco2),#0b1d12)}
   box-shadow:0 26px 60px -30px rgba(0,0,0,.85);transition:.22s;background:#f3efe2}
 .guida-cover:hover{transform:translateY(-4px);border-color:rgba(244,149,31,.45)}
 .guida-cover img{display:block;width:100%;height:auto}
+.grifone{position:relative;margin:clamp(26px,4vw,40px) 0 0;border-radius:16px;overflow:hidden;aspect-ratio:21/8;background:#4a92d6}
+.grifone img{width:100%;height:100%;object-fit:cover;object-position:50% 62%;display:block}
+.grifone figcaption{position:absolute;left:0;bottom:0;padding:16px 20px;text-shadow:0 1px 12px rgba(8,30,60,.55)}
+.grifone figcaption b{display:block;font:600 clamp(17px,2vw,22px)/1.1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.03em;color:#fff}
+.grifone figcaption span{font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.85)}
+@media(max-width:700px){.grifone{aspect-ratio:4/3}.grifone img{object-position:50% 60%}}
 .guida-cta{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:22px}
 @media(max-width:880px){.guida{grid-template-columns:1fr;gap:24px}
   .guida-cover{max-width:280px;margin:0 auto}}
@@ -678,7 +684,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
       <div class="hero-cta-row">
         <a class="cta big iscr" href="#iscrizioni">Iscriviti alla gara</a>
         <a class="cta big solo-chiuse" href="classifica/">Classifica 2026</a>
-        <a class="btn-ghost solo-chiuse" href="#film" data-film>▶ Guarda il film</a>
+        <a class="btn-ghost solo-chiuse" href="#film" data-film>▶ Guarda il video</a>
         <a class="btn-ghost solo-chiuse" href="foto/">◎ Le foto della gara</a>
         <a class="btn-ghost" href="#percorso">▾ Scopri il percorso</a>
       </div>
@@ -756,22 +762,21 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
 </section>
 
 <!-- IL FILM DELLA GARA -->
-<section class="film" id="film" aria-label="Il film ufficiale della Skyrace del Maglio 2026">
+<section class="film" id="film" aria-label="Il video ufficiale della Skyrace del Maglio 2026">
   <img class="film-poster" src="assets/video/srm2026-film-poster.jpg" alt="" loading="lazy" decoding="async">
   <video class="film-loop" id="filmLoop" muted loop playsinline preload="none" aria-hidden="true"></video>
   <div class="wrap film-in">
-    <div class="eyebrow">Skyrace del Maglio 2026 · Il film ufficiale</div>
-    <h2>Il film <em>della gara</em></h2>
-    <p class="lead">Il Velino visto dall'alto, la partenza da Magliano, i sentieri tra boschi e pietraie, l'arrivo e il colpo di maglio: la Skyrace del Maglio 2026 in cento secondi.</p>
+    <h2>Il video <em>dell'SRM 2026</em></h2>
+    <p class="lead">La Skyrace del Maglio 2026 in cento secondi.</p>
     <div class="film-azioni">
-      <button type="button" class="film-play" id="filmPlay" aria-haspopup="dialog"><span class="pb"><i></i></span><span>Guarda il film<small>1:40 · con audio</small></span></button>
+      <button type="button" class="film-play" id="filmPlay" aria-haspopup="dialog"><span class="pb"><i></i></span><span>Guarda il video<small>1:40 · con audio</small></span></button>
       <button type="button" class="film-alt" id="filmAlt" aria-haspopup="dialog"><span class="tri" aria-hidden="true"></span><span>La gara in soggettiva<small>7:20 · video di Trail Team Civitanova</small></span></button>
     </div>
     <div class="film-cred">Riprese e montaggio · <b>Impressione srls</b></div>
   </div>
 </section>
-<div class="film-modal" id="filmModal" hidden role="dialog" aria-modal="true" aria-label="Il film della Skyrace del Maglio 2026">
-  <button type="button" class="film-x" id="filmX" aria-label="Chiudi il film"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+<div class="film-modal" id="filmModal" hidden role="dialog" aria-modal="true" aria-label="Il video della Skyrace del Maglio 2026">
+  <button type="button" class="film-x" id="filmX" aria-label="Chiudi il video"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   <div class="film-frame" id="filmFrame"></div>
 </div>
 
@@ -874,6 +879,10 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
         <p class="note">12 pagine in formato A4, pronte anche per la stampa. Contenuti naturalistici tratti dallo Studio di Incidenza Ambientale a firma del Dr. Bruno Petriccione e dal Piano di gestione della Riserva Naturale Orientata Monte Velino.</p>
       </div>
     </div>
+    <figure class="grifone reveal">
+      <img src="assets/foto/2026/grifone.jpg" alt="Un grifone in volo ad ali spiegate nel cielo azzurro sopra il Velino" loading="lazy" decoding="async" width="1600" height="900">
+      <figcaption><b>Il grifone è tornato</b><span>Riserva Naturale Monte Velino</span></figcaption>
+    </figure>
   </div>
 </section>
 
@@ -1012,6 +1021,10 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
         <figcaption><b>Il via dal Municipio</b><span>Magliano de' Marsi · 2026</span></figcaption>
       </figure>
       <figure class="shot">
+        <img src="assets/foto/2026/in-cresta.jpg" alt="Federica Pelosi, pettorale 181 e prima donna assoluta, corre sulla cresta con le montagne dell'Appennino sullo sfondo" loading="lazy" decoding="async" width="1600" height="1066">
+        <figcaption><b>In cresta verso la vittoria</b><span>Federica Pelosi · Prima donna · 2026</span></figcaption>
+      </figure>
+      <figure class="shot">
         <img src="assets/foto/passaggio%20tecnico%20rapido.jpg" alt="Atleta in discesa tecnica con i bastoncini su terreno roccioso" loading="lazy" decoding="async" width="1006" height="1259">
         <figcaption><b>Inizio discesa tecnica</b><span>In quota · 2025</span></figcaption>
       </figure>
@@ -1040,6 +1053,14 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
         <figcaption><b>La medaglia del vincitore</b><span>Appena forgiata · 2026</span></figcaption>
       </figure>
       <figure class="shot">
+        <img src="assets/foto/2026/podio-uomini.jpg" alt="Il podio assoluto maschile della Skyrace del Maglio 2026 davanti al Municipio, con il podio in legno intagliato" loading="lazy" decoding="async" width="1600" height="1066">
+        <figcaption><b>Il podio maschile</b><span>Premiazione · 2026</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/foto/2026/podio-donne.jpg" alt="Il podio assoluto femminile: la vincitrice alza il trofeo davanti al Municipio" loading="lazy" decoding="async" width="1600" height="1066">
+        <figcaption><b>Il podio femminile</b><span>Premiazione · 2026</span></figcaption>
+      </figure>
+      <figure class="shot">
         <img src="assets/foto/2026/finisher-atrs.jpg" alt="I finisher del circuito Abruzzo Trail Run Series in posa davanti al Municipio con il podio in legno" loading="lazy" decoding="async" width="1600" height="1066">
         <figcaption><b>I finisher del circuito ATRS</b><span>Abruzzo Trail Run Series · 2026</span></figcaption>
       </figure>
@@ -1052,8 +1073,8 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href]');
         <figcaption><b>Rifugio Capanna di Sevice</b><span>2.119 m</span></figcaption>
       </figure>
       <figure class="shot">
-        <img src="assets/foto/2026/abbraccio-arrivo.jpg" alt="Abbraccio all'arrivo tra un organizzatore e un finisher con la medaglia" loading="lazy" decoding="async" width="1600" height="1066">
-        <figcaption><b>Abbracci all'arrivo</b><span>Magliano de' Marsi · 2026</span></figcaption>
+        <img src="assets/foto/2026/ringraziamento-volontari.jpg" alt="Il ringraziamento ai volontari del G.V.M. Protezione Civile di Magliano de' Marsi" loading="lazy" decoding="async" width="1600" height="1066">
+        <figcaption><b>Ringraziamento ai volontari</b><span>G.V.M. Protezione Civile · Magliano de' Marsi</span></figcaption>
       </figure>
       <figure class="shot">
         <img src="assets/foto/2026/pasta-party.jpg" alt="Atleti e amici brindano al pasta party in piazza" loading="lazy" decoding="async" width="1600" height="1066">
