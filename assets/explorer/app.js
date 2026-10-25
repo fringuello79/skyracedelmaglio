@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
-const VER = 'v78';
+const VER = 'v84b';
 
 // ---------- nebbia "d'altura": densa nelle valli, aria pulita in cresta ----------
 // Si sostituiscono i chunk della nebbia di three prima che qualunque materiale compili:
@@ -34,9 +35,81 @@ const st = {
   s: 60,            // ascissa curvilinea in metri
   sTarget: null,    // teletrasporto dolce (click sul profilo)
   dir: 0, speed: 0, lastDir: 1, hold: 0, view: 'follow', follow: true, ready: false,
-  keys: new Set(), lastHudS: -1, curZone: -1, curPoi: -1
+  keys: new Set(), lastHudS: -1, curZone: -1, curPoi: -1,
+  avatar: 'lino'    // personaggio scelto nel loader (vale per questa esplorazione, non si salva)
 };
 const VMAX = 175, ACC = 240, VTELE = 3600;
+// ---------- scelta del personaggio (nel loader, prima di partire) ----------
+// Lino e' sempre il primo e l'unico attivo. Vincitore e vincitrice della SRM 2026 compaiono come
+// I tre personaggi della scelta iniziale. I vincitori della SRM 2026 (18 ottobre) sono modelli Meshy
+// riggati Mixamo (stesso scheletro di lino2.glb, clip Walking + Running; niente "charge": lo sprint
+// accelera la corsa). La scelta vale per la singola esplorazione: a ogni nuovo ingresso si sceglie di nuovo.
+// glb: ~700 KB l'uno (12k tris, texture webp 1024, draco), caricato solo se scelto, al VAI.
+const AVATARS = [
+  { id: 'lino', nome: 'Lino', breve: 'LINO', attivo: true, giro: 'lino_giro', tags: [
+      ['FACCIA DA SINDACO', 'ricorda qualcuno', 0.50, 0.13],
+      ['SCARPE TECNICHE', 'collaudate sul brecciato', 0.52, 0.90],
+      ['MATERIALE OBBLIGATORIO', 'occhio che lo controlliamo', 0.64, 0.56],
+      ['GAMBE DA 2.109 M D+', 'garanzia 29,7 km', 0.44, 0.73],
+      ['ZAINO LEGGERO', 'con tanta acqua e sali', 0.40, 0.35] ] },
+  // dati di gara: classifica SRM 2026 (cronometraggio) e classifica finale Abruzzo Trail Run Series 2026
+  { id: 'vincitore', nome: 'Vincitore<br>SRM 2026', breve: 'CARLO', attivo: true, glb: 'vincitore.glb', giro: 'vincitore_giro', rotY: Math.PI / 2,
+    titolo: 'VINCITORE SRM 2026', sotto: 'Carlo Silvagni · 3h 28’ 31”', tags: [
+      ['PETTORALE 169', 'Skyrace del Maglio 2026', 0.50, 0.42],
+      ['1° ASSOLUTO', '3h 28’ 31” · 6’57” al km', 0.50, 0.14],
+      ['+4’ 42” SUL SECONDO', 'Domenico Volpe', 0.50, 0.60],
+      ['1° ATRS 2026', 'Abruzzo Trail Run Series, generale', 0.50, 0.82] ] },
+  { id: 'vincitrice', nome: 'Vincitrice<br>SRM 2026', breve: 'FEDERICA', attivo: true, glb: 'vincitrice.glb', giro: 'vincitrice_giro', rotY: Math.PI / 2,
+    titolo: 'VINCITRICE SRM 2026', sotto: 'Federica Pelosi · 4h 03’ 55”', tags: [
+      ['PETTORALE 181', 'Skyrace del Maglio 2026', 0.50, 0.42],
+      ['1ª ASSOLUTA', '4h 03’ 55” · 8’08” al km', 0.50, 0.14],
+      ['+7’ 16” SULLA SECONDA', 'Malgorzata Burkiewicz', 0.50, 0.60],
+      ['1ª ATRS 2026', 'Abruzzo Trail Run Series, generale', 0.50, 0.82] ] }
+];
+const nomeAvatar = () => (AVATARS.find(a => a.id === st.avatar) || AVATARS[0]).breve;
+// Carosello: Lino al centro (come sempre), due frecce ai lati. A destra il Vincitore, a sinistra la
+// Vincitrice (giradischi e targhette loro); un personaggio non attivo mostra la sagoma con il "?" e il
+// pulsante VAI spento. Si gira con le frecce (anche quelle della tastiera).
+let AV_IDX = 0, NOME_H = 50;
+function buildAvatarPicker(){
+  const prev = $('av-prev'), next = $('av-next'); if (!prev || !next) return;
+  prev.classList.add('on'); next.classList.add('on');
+  prev.onclick = () => mostraAvatar(AV_IDX - 1); next.onclick = () => mostraAvatar(AV_IDX + 1);
+  addEventListener('keydown', e => {
+    if ($('loader').style.display === 'none') return;
+    if (e.key === 'ArrowLeft') mostraAvatar(AV_IDX - 1); else if (e.key === 'ArrowRight') mostraAvatar(AV_IDX + 1);
+  });
+  mostraAvatar(0);
+}
+function mostraAvatar(i){
+  const n = AVATARS.length; AV_IDX = ((i % n) + n) % n;
+  const av = AVATARS[AV_IDX], ghost = $('av-ghost'), nome = $('lino-nome'), tit = $('av-titolo'), spin = $('spin-img'), svg = $('spin-svg'), chip = $('spin-chip'), go = $('go-btn');
+  const lino = av.id === 'lino', vivo = !!(av.attivo && av.giro);
+  if (ghost) { ghost.classList.toggle('on', !vivo); if (!vivo) { $('av-lab').textContent = av.nome.replace('<br>', ' '); $('av-nota').textContent = av.nota || ''; } }
+  if (nome) { if (nome.offsetHeight > 10) NOME_H = nome.offsetHeight; nome.style.display = lino ? 'block' : 'none'; }   // il titolo del vincitore prende lo stesso spazio: Lino non si sposta
+  if (tit) { tit.style.height = NOME_H + 'px'; tit.classList.toggle('on', vivo && !lino); if (av.titolo) { tit.querySelector('b').textContent = av.titolo; tit.querySelector('span').textContent = av.sotto || ''; } }
+  if (spin) spin.style.visibility = vivo ? 'visible' : 'hidden';
+  if (svg) svg.style.visibility = vivo ? 'visible' : 'hidden';
+  if (chip) chip.style.visibility = vivo ? 'visible' : 'hidden';
+  if (go) { go.classList.toggle('spento', !av.attivo); go.disabled = !av.attivo; go.textContent = av.attivo ? 'VAI AL PERCORSO' : 'NON ANCORA DISPONIBILE'; }
+  if (av.attivo) st.avatar = av.id;
+  if (vivo && window._loaderAvatar) window._loaderAvatar(av);
+}
+// carica il glb del personaggio scelto (se non e' Lino) e lo mette al posto di Lino: stesso gruppo,
+// stesso mixer, stesse clip per nome (walk/run). Se fallisce si resta con Lino.
+async function caricaAvatar(id){
+  const av = AVATARS.find(a => a.id === id);
+  if (!av || !av.glb || !LOADER) return false;
+  const lg = await loadGLB(LOADER, 'assets/' + av.glb + '?' + VER, () => {});
+  if (lino) scene.remove(lino);
+  mixer = null; action = null; LINOACT = null; LINOPOLI = []; LINO2 = true;
+  if (av.rotY) lg.scene.rotation.y = av.rotY;   // i Meshy guardano +z: Lino avanza lungo +x
+  prepLino(lg);
+  if (st.view === 'fpv' && lino) lino.visible = false;
+  const seg = $('b-seg'); if (seg) seg.textContent = 'SEGUI ' + av.breve;
+  return true;
+}
+
 let route, N, TOT, renderer, scene, camera, controls, clock;
 let lino, mixer, action, grifTpl, grifs = [], pinGroup;
 let elevSamp = [], profCv, profCtx, miniCv, miniCtx, miniPath;
@@ -50,71 +123,89 @@ window.addEventListener('error', e => { if (!st.ready) fail('Errore: ' + (e.mess
 const prog = f => { $('load-bar').style.width = Math.round(f * 100) + '%'; };
 
 window._loaderShow = loaderShow;
+// giradischi del loader: una sprite (24 fotogrammi 360x480, 6 colonne) per personaggio, caricata quando
+// serve; le targhette con la freccia sono quelle del personaggio mostrato
+const GIRI = {};
+function caricaGiro(av){
+  if (!av.giro || GIRI[av.id]) return;
+  const g = GIRI[av.id] = { m: null, img: null, tags: av.tags || [] };
+  fetch('assets/' + av.giro + '.json?' + VER).then(r => r.ok ? r.json() : null).then(m => {
+    if (!m) return;
+    const img = new Image();
+    img.onload = () => { g.m = m; g.img = img; if (window._loaderAvatar && GIRO_CUR === av.id) window._loaderAvatar(av, true); };
+    img.src = 'assets/' + av.giro + '.webp?' + VER;
+  }).catch(() => {});
+}
+let GIRO_CUR = 'lino';
 function loaderShow(){
   LOADT0 = performance.now();
   const box = $('spinbox'); if (!box) return;
-  const img = new Image();
-  let timer = null, chipT = null;
-  fetch('assets/lino_giro.json?' + VER).then(r => r.ok ? r.json() : null).then(m => {
-    if (!m) return;
-    img.onload = () => {
-      const el = $('spin-img'), W = 240, H = 320;
-      el.style.display = 'block';
-      el.style.backgroundImage = 'url(' + img.src + ')';
-      el.style.backgroundSize = (m.cols * W) + 'px ' + (Math.ceil(m.n / m.cols) * H) + 'px';
-      let frame = 0;
-      timer = setInterval(() => {
-        frame = (frame + 1) % m.n;
-        el.style.backgroundPosition = (-(frame % m.cols) * W) + 'px ' + (-Math.floor(frame / m.cols) * H) + 'px';
-      }, 80);
-      const tags = [
-        ['FACCIA DA SINDACO', 'ricorda qualcuno', 0.50, 0.13, 1],
-        ['FISICO ATLETICO', 'o quasi', 0.44, 0.40, -1],
-        ['SCARPE TECNICHE', 'collaudate sul brecciato', 0.52, 0.90, 1],
-        ['MATERIALE OBBLIGATORIO', 'occhio che lo controlliamo', 0.64, 0.56, 1],
-        ['GAMBE DA 2.109 M D+', 'garanzia 29,7 km', 0.44, 0.73, -1],
-        ['SGUARDO FISSO SUL VELINO', 'o sul primo ristoro?', 0.54, 0.16, -1],
-        ['ZAINO LEGGERO', 'con tanta acqua e sali', 0.40, 0.35, 1],
-      ];
-      let ti = Math.floor(Math.random() * tags.length);
-      const chip = $('spin-chip'), svg = $('spin-svg');
-      const show = () => {
-        const t = tags[ti]; ti = (ti + 1) % tags.length;
-        const bw = box.clientWidth, bh = box.clientHeight;
-        const ix = bw / 2 - W / 2;
-        const ax = ix + t[2] * W, ay = t[3] * H;
-        chip.innerHTML = '<b>' + t[0] + '</b><br>' + t[1];
-        chip.style.opacity = 0;
-        chip.style.left = ''; chip.style.right = '';
-        if (t[4] > 0) chip.style.right = '0px'; else chip.style.left = '0px';
-        chip.style.top = Math.max(0, Math.min(bh - 64, ay - 26)) + 'px';
-        requestAnimationFrame(() => {
-          chip.style.opacity = 1;
-          const cr = chip.getBoundingClientRect(), br = box.getBoundingClientRect();
-          if (br.width < 4) return;
-          const cx2 = t[4] > 0 ? (cr.left - br.left - 3) : (cr.right - br.left + 3);
-          const cy2 = cr.top - br.top + cr.height / 2;
-          svg.setAttribute('viewBox', '0 0 ' + bw + ' ' + bh);
-          // la linea si ferma PRIMA di Lino e finisce con una punta di
-          // freccia (un po' irregolare) che indica il punto senza coprirlo
-          const dx = ax - cx2, dy = ay - cy2, dl = Math.hypot(dx, dy) || 1;
-          const G = Math.min(30, dl * 0.4);
-          const ux = dx / dl, uy = dy / dl, px = -uy, py = ux;
-          const tx = ax - ux * G, ty = ay - uy * G;          // punta
-          const ex = tx - ux * 9, ey = ty - uy * 9;          // fine linea
-          const p1x = tx - ux * 11.5 + px * 5.2, p1y = ty - uy * 11.5 + py * 5.2;
-          const p2x = tx - ux * 8.5 - px * 4.0, p2y = ty - uy * 8.5 - py * 4.0;
-          svg.innerHTML = '<line x1="' + cx2 + '" y1="' + cy2 + '" x2="' + ex.toFixed(1) + '" y2="' + ey.toFixed(1) +
-            '" stroke="#f4951f" stroke-width="2.2" opacity="0.92"/>' +
-            '<polygon points="' + tx.toFixed(1) + ',' + ty.toFixed(1) + ' ' + p1x.toFixed(1) + ',' + p1y.toFixed(1) +
-            ' ' + p2x.toFixed(1) + ',' + p2y.toFixed(1) + '" fill="#f4951f" opacity="0.95"/>';
-        });
-      };
-      show();
-      chipT = setInterval(show, 2600);
-    };
-    img.src = 'assets/lino_giro.webp?' + VER;
-  }).catch(() => {});
+  const el = $('spin-img'), chip = $('spin-chip'), svg = $('spin-svg'), W = 240, H = 320;
+  let timer = null, chipT = null, frame = 0, ti = 0;
+  const show = () => {
+    const g = GIRI[GIRO_CUR]; if (!g || !g.m || !g.tags.length) { chip.style.opacity = 0; svg.innerHTML = ''; return; }
+    const tags = g.tags; ti = ti % tags.length;
+    const t = tags[ti]; ti = (ti + 1) % tags.length;
+    const bw = box.clientWidth, bh = box.clientHeight;
+    const ix = bw / 2 - W / 2;
+    const ax = ix + t[2] * W, ay = t[3] * H;
+    chip.innerHTML = '<b>' + t[0] + '</b><br>' + t[1];
+    chip.style.opacity = 0;
+    // targhette sempre a destra, nella colonna libera fra il personaggio e il bordo (mai sopra la figura),
+    // all'altezza del punto indicato ma fuori dalla fascia della freccia del carosello
+    chip.style.left = ''; chip.style.right = '0px';
+    chip.style.maxWidth = Math.max(56, Math.floor((bw - W) / 2) - 6) + 'px';
+    let top = ay - 18;
+    const ar = $('av-next') ? $('av-next').getBoundingClientRect() : null, br0 = box.getBoundingClientRect();
+    const fA = ar ? ar.top - br0.top - 4 : bh / 2 - 26, fB = ar ? ar.bottom - br0.top + 2 : bh / 2 + 24;   // fascia della freccia
+    if (top + 40 > fA && top < fB) top = (ay < (fA + fB) / 2) ? fA - 42 : fB + 2;
+    chip.style.top = Math.max(0, Math.min(bh - 44, top)) + 'px';
+    requestAnimationFrame(() => {
+      chip.style.opacity = 1;
+      const cr = chip.getBoundingClientRect(), br = box.getBoundingClientRect();
+      if (br.width < 4) return;
+      const cx2 = cr.left - br.left - 3;
+      const cy2 = cr.top - br.top + cr.height / 2;
+      svg.setAttribute('viewBox', '0 0 ' + bw + ' ' + bh);
+      // la linea si ferma PRIMA del personaggio e finisce con una punta di
+      // freccia (un po' irregolare) che indica il punto senza coprirlo
+      const dx = ax - cx2, dy = ay - cy2, dl = Math.hypot(dx, dy) || 1;
+      const G = Math.min(30, dl * 0.4);
+      const ux = dx / dl, uy = dy / dl, px = -uy, py = ux;
+      const tx = ax - ux * G, ty = ay - uy * G;          // punta
+      const ex = tx - ux * 9, ey = ty - uy * 9;          // fine linea
+      const p1x = tx - ux * 11.5 + px * 5.2, p1y = ty - uy * 11.5 + py * 5.2;
+      const p2x = tx - ux * 8.5 - px * 4.0, p2y = ty - uy * 8.5 - py * 4.0;
+      svg.innerHTML = '<line x1="' + cx2 + '" y1="' + cy2 + '" x2="' + ex.toFixed(1) + '" y2="' + ey.toFixed(1) +
+        '" stroke="#f4951f" stroke-width="2.2" opacity="0.92"/>' +
+        '<polygon points="' + tx.toFixed(1) + ',' + ty.toFixed(1) + ' ' + p1x.toFixed(1) + ',' + p1y.toFixed(1) +
+        ' ' + p2x.toFixed(1) + ',' + p2y.toFixed(1) + '" fill="#f4951f" opacity="0.95"/>';
+    });
+  };
+  const applica = () => {
+    const g = GIRI[GIRO_CUR];
+    if (!g || !g.m) { el.style.display = 'none'; return; }
+    const m = g.m;
+    el.style.display = 'block';
+    el.style.backgroundImage = 'url(' + g.img.src + ')';
+    el.style.backgroundSize = (m.cols * W) + 'px ' + (Math.ceil(m.n / m.cols) * H) + 'px';
+    el.style.backgroundPosition = (-(frame % m.cols) * W) + 'px ' + (-Math.floor(frame / m.cols) * H) + 'px';
+  };
+  // cambio di personaggio nel carosello: sprite, targhette e fotogramma ripartono
+  window._loaderAvatar = (av, pronto) => {
+    GIRO_CUR = av.id; caricaGiro(av);
+    frame = 0; ti = pronto ? ti : Math.floor(Math.random() * 3);
+    applica();
+    if (chipT) clearInterval(chipT);
+    show(); chipT = setInterval(show, 2600);
+  };
+  timer = setInterval(() => {
+    const g = GIRI[GIRO_CUR]; if (!g || !g.m) return;
+    frame = (frame + 1) % g.m.n;
+    el.style.backgroundPosition = (-(frame % g.m.cols) * W) + 'px ' + (-Math.floor(frame / g.m.cols) * H) + 'px';
+  }, 80);
+  caricaGiro(AVATARS[0]);
+  window._loaderAvatar(AVATARS[0]);
   window._loaderStop = () => {
     if (timer) clearInterval(timer);
     if (chipT) clearInterval(chipT);
@@ -326,7 +417,7 @@ async function boot(){
   const h = location.hash.match(/km=([\d.]+)/);
   if (h) st.s = clamp(parseFloat(h[1]) * 1000, 0, TOT);
   else st.s = S0_ARCO;
-  applicaQualita(QUAL.liv); QUAL.avvio = performance.now();   // ora che alberi e nuvole esistono
+  applicaGrado(QUAL.grado); QUAL.avvio = performance.now(); avviaDiag();   // ora che alberi e nuvole esistono
   try { if (!TIDX) TIDX = buildTerrIndex(); correggiGriglia(); } catch (e) { console.warn('griglia:', e); }
   st.ready = true; prog(1);
   {
@@ -339,14 +430,23 @@ async function boot(){
     };
     $('load-barw').style.display = 'none';
     $('load-step').style.display = 'none';
+    try { buildAvatarPicker(); } catch (e) { console.warn('avatar:', e); }
     const go = $('go-btn');
     go.style.display = 'inline-block';
-    go.onclick = chiudi;
+    go.onclick = async () => {
+      if (st.avatar && st.avatar !== 'lino') {
+        go.disabled = true; go.textContent = 'UN ATTIMO…';
+        try { await caricaAvatar(st.avatar); }
+        catch (e) { console.warn('personaggio non caricato, resta Lino:', e); st.avatar = 'lino'; }
+        go.disabled = false;
+      }
+      chiudi();
+    };
   }
   window.SRMX = { st, scene: () => scene, route: () => route, vista: setView, terra: groundAt, cam: () => camera, ctrl: () => controls, lino: () => lino, terraV: (x, z, y) => terraVera(x, z, y),
                   look: (p, t) => { camera.position.set(p[0], p[1], p[2]); camTgt.set(t[0], t[1], t[2]); controls.target.copy(camTgt); controls.update(); },
                   y0arco: () => Y0_ARCO, pos: s => { posAt(s, tmpC); return [tmpC.x, tmpC.y, tmpC.z]; }, goto: km => { st.sTarget = clamp(km, 0, route.total_km) * 1000; },
-                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, cer: () => CER, ext: () => EXT_TILES, tickE: dt => tickExtTiles(dt), sent: () => ({ SENT, SENT_ON, sentT }), tickS: dt => tickSentieri(dt), rb: (n, ax, a) => rotBone(n, AX[ax], a), vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
+                  poi: i => openPoi(route.pois[i]), qual: l => applicaQualita(l), grado: g => applicaGrado(g, 'prova'), guardia: dt => guardiaFps(dt), Q: QUAL, specie: n => cambiaSpecie(n), rigNow: () => RIG, cer: () => CER, ext: () => EXT_TILES, tickE: dt => tickExtTiles(dt), sent: () => ({ SENT, SENT_ON, sentT }), tickS: dt => tickSentieri(dt), rb: (n, ax, a) => rotBone(n, AX[ax], a), vetta: n => openPeak(route.peaks.find(p => new RegExp(n, 'i').test(p.n))), gara: showGara, segui: v => setFollow(v, false),
                   anim: () => action ? { t: +action.time.toFixed(3), ts: +mixer.timeScale.toFixed(2),
                                          dur: +action.getClip().duration.toFixed(2) } : null,
                   tracks: () => action ? action.getClip().tracks.map(t => t.name) : [],
@@ -378,7 +478,7 @@ function buildStage(){
   scene = new THREE.Scene();
   const cielo = new THREE.Color(0xcfe2f4);
   scene.background = cielo;
-  scene.fog = new THREE.Fog(cielo, 2800, 18000);
+  scene.fog = new THREE.Fog(cielo, 2400, 18000);   // prospettiva aerea un filo piu' presente
   camera = new THREE.PerspectiveCamera(55, Math.max(320, innerWidth || 1280) / Math.max(240, innerHeight || 720), 1, 30000);
   camera.position.set(route.x[6], route.z[6] + 60, -route.y[6] + 120);
   controls = new OrbitControls(camera, renderer.domElement);
@@ -394,22 +494,18 @@ function buildStage(){
   const fill = new THREE.DirectionalLight(0xffe7c8, 0.32);
   fill.position.set(5600, 4000, 4800);
   scene.add(hemi, sunLight, sunLight.target, fill);
-  const liv0 = qualIniziale();
-  QUAL.tetto = Math.max(liv0, QUAL.mob ? 2 : 3);
-  SHADOWS = liv0 >= 2;        // ombre vere solo dal livello alto (PC e telefoni forti); sotto, restano quelle delle nuvole
-  if (SHADOWS) {
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(QUAL.mob ? 1024 : 2048, QUAL.mob ? 1024 : 2048);
-    const sk = sunLight.shadow.camera;
-    sk.left = -430; sk.right = 430; sk.top = 430; sk.bottom = -430;
-    sk.near = 150; sk.far = 4500;
-    sk.updateProjectionMatrix();   // senza questo la camera delle ombre resta a +-5 m / far 500: nessuna ombra in scena
-    sunLight.shadow.bias = -0.00055;
-    sunLight.shadow.normalBias = 0.6;
-  }
-  applicaQualita(liv0);
+  const liv0 = qualIniziale();   // imposta anche QUAL.mob, tetto e gradino di partenza
+  // Ombre: la shadow map e' sempre abilitata nel renderer (costa nulla finche' nessuna luce proietta);
+  // dimensione della mappa, tipo di filtro e inquadratura li regola applicaQualita / inquadraOmbre.
+  // Dal livello 1 in su le ombre vere ci sono; al livello 0 resta l'ombra di contatto sotto i personaggi.
+  SHADOWS = true;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = QUAL.mob ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  const sk = sunLight.shadow.camera;
+  sk.near = 150; sk.far = 4500;
+  sunLight.shadow.bias = -0.0003;
+  inquadraOmbre(430);
+  applicaQualita(liv0); applicaRisoluzione(true);
   addEventListener('resize', () => {
     const W = Math.max(320, innerWidth || 1280), H = Math.max(240, innerHeight || 720);
     camera.aspect = W / H; camera.updateProjectionMatrix();
@@ -981,7 +1077,9 @@ function tickNuvole(dt){
     n.position.x += n.userData.v * 0.62 * dt; n.position.z += n.userData.v * 0.78 * dt;
     const ex = (n.position.x - FC.BC[0]) / FC.BR[0], ez = (n.position.z - FC.BC[1]) / FC.BR[1];
     if (ex * ex + ez * ez > 0.95) { n.position.x -= ex * FC.BR[0] * 1.9; n.position.z -= ez * FC.BR[1] * 1.9; }
-    NUBI_U[i].set(n.position.x, n.position.z, n.userData.w * 0.55);
+    // l'ombra sta dove il sole la proietta: spostata controsole di (quota nuvola - quota suolo) / tan(elevazione)
+    { const hy = Math.max(0, n.position.y - groundAt(n.position.x, n.position.z));
+      NUBI_U[i].set(n.position.x - SUNDIR.x / SUNDIR.y * hy, n.position.z - SUNDIR.z / SUNDIR.y * hy, n.userData.w * 0.55); }
     // dentro o troppo vicino a una nuvola: si dissolve (niente lastre tagliate dal piano vicino)
     const dc = n.position.distanceTo(camera.position);
     const op = 0.92 * clamp((dc - n.userData.w * 0.7) / (n.userData.w * 0.8), 0, 1);
@@ -1038,7 +1136,7 @@ function buildPins(){
     const hit = ray.intersectObjects(pinGroup.children, false)[0];
     if (hit) { openPoi(hit.object.userData.poi); return; }
     // genziane
-    if (IMPOSTORS.length) { const hg = ray.intersectObjects(IMPOSTORS, false)[0]; if (hg && hg.instanceId !== undefined) { hg.object.userData.scheda(hg.object.userData.posti[hg.instanceId][5]); return; } }
+    if (IMPOSTORS.length) { const hg = ray.intersectObjects(IMPOSTORS, false)[0]; if (hg && hg.instanceId !== undefined && hg.object.userData.scheda) { hg.object.userData.scheda(hg.object.userData.posti[hg.instanceId][5]); return; } }
     // animali statici (coturnici): sfera di tocco invisibile attorno a ciascuno
     if (CLICCABILI.length) { const ha = ray.intersectObjects(CLICCABILI, false)[0]; if (ha) { ha.object.userData.scheda(ha.object.userData.sS); return; } }
     // targhette dei sentieri
@@ -1409,9 +1507,32 @@ function detailTex(){
     return cur;
   };
   const A = mk(2), B = mk(5);
+  // canale blu: puntinato fine (fili d'erba, brecciolino): rumore crudo con una leggera direzionalita'
+  const C = new Float32Array(n2);
+  for (let i = 0; i < n2; i++) C[i] = rnd();
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {    // sfuma di un passo lungo y: fili verticali
+    const i = y * S + x; C[i] = 0.5 * C[i] + 0.5 * C[((y + 1) % S) * S + x];
+  }
+  // canale alfa: celle (sassi del brecciaio): distanza al piu' vicino di 700 centri, periodica
+  const NC = 700, cx = new Float32Array(NC), cy = new Float32Array(NC);
+  for (let k = 0; k < NC; k++) { cx[k] = rnd() * S; cy[k] = rnd() * S; }
+  const grid = new Array(16 * 16).fill(null).map(() => []);
+  for (let k = 0; k < NC; k++) grid[(Math.floor(cy[k] / 16) % 16) * 16 + (Math.floor(cx[k] / 16) % 16)].push(k);
+  const D = new Float32Array(n2);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    let d1 = 1e9, d2 = 1e9;
+    const gx = Math.floor(x / 16), gy = Math.floor(y / 16);
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+      for (const k of grid[((gy + oy + 16) % 16) * 16 + (gx + ox + 16) % 16]) {
+        let dx = Math.abs(cx[k] - x), dy = Math.abs(cy[k] - y); if (dx > S / 2) dx = S - dx; if (dy > S / 2) dy = S - dy;
+        const d = dx * dx + dy * dy; if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+      }
+    }
+    D[y * S + x] = Math.min(1, Math.sqrt(d2) - Math.sqrt(d1)) ;   // bordo delle celle: 0 sul confine, 1 all'interno
+  }
   const data = new Uint8Array(n2 * 4);
   for (let i = 0; i < n2; i++) {
-    data[i * 4] = A[i] * 255; data[i * 4 + 1] = B[i] * 255; data[i * 4 + 2] = 128; data[i * 4 + 3] = 255;
+    data[i * 4] = A[i] * 255; data[i * 4 + 1] = B[i] * 255; data[i * 4 + 2] = C[i] * 255; data[i * 4 + 3] = Math.min(1, D[i] / 2.5) * 255;
   }
   DETTEX = new THREE.DataTexture(data, S, S);
   DETTEX.wrapS = DETTEX.wrapT = THREE.RepeatWrapping;
@@ -1542,6 +1663,14 @@ function compilaTerreno(sh, tinta){
     float t1 = texture2D(uDet, vDetXZ / 420.0).r;
     diffuseColor.rgb *= mix(vec3(0.95, 0.97, 1.04), vec3(1.05, 1.02, 0.94), t1) * basso + vec3(1.0 - basso);
   }
+  // stagione: il 18 ottobre le praterie di quota sono brune e paglierine, non verdi d'estate come
+  // nell'ortofoto. Sopra i ~1.750 m reali (y scena 1144) il verde vira a paglia; fra 1.300 e 1.750 a meta'.
+  {
+    float verdeP = smoothstep(0.0, 0.10, diffuseColor.g - max(diffuseColor.r, diffuseColor.b));
+    float quota = 0.30 * smoothstep(640.0, 860.0, vWy) + 0.30 * smoothstep(1050.0, 1300.0, vWy);
+    vec3 paglia = diffuseColor.rgb * vec3(1.16, 1.03, 0.68) + vec3(0.05, 0.03, 0.0);
+    diffuseColor.rgb = mix(diffuseColor.rgb, paglia, quota * (0.35 + 0.65 * verdeP) * (1.0 - ripida));
+  }
   // dettaglio ravvicinato (sotto i ~350 m dalla camera): grana fine dell'erba e ciuffi,
   // sfuma con la distanza cosi' da lontano la texture resta quella di prima
   {
@@ -1556,9 +1685,16 @@ function compilaTerreno(sh, tinta){
       float ciuffo = smoothstep(0.55, 0.75, g3) * erba;
       vec3 tintaCiuffo = vec3(1.04, 1.02, 0.90);
       float grana = mix(0.90, 1.10, g1) * mix(0.95, 1.05, g2);
+      // fili d'erba: puntinato fine (canale blu) che da' la scala da vicino, piu' forte entro ~40 m
+      float vicinissimo = 1.0 - smoothstep(60.0, 200.0, dist);
+      float fili = texture2D(uDet, vDetXZ / 1.15).b;
+      grana *= mix(1.0, mix(0.86, 1.14, fili), 0.35 + 0.45 * vicinissimo);
       vec3 det = diffuseColor.rgb * grana * mix(vec3(1.0), tintaCiuffo, ciuffo * 0.45);
-      // sulla roccia: grana piu' dura e contrastata
-      det = mix(det, diffuseColor.rgb * mix(0.80, 1.22, g1) * mix(0.9, 1.1, g2), ripida);
+      // sulla roccia e sul brecciaio: sassi a celle (canale alfa) con il bordo scuro, grana dura
+      float cella = texture2D(uDet, vDetXZ / 3.4).a;
+      float sasso = mix(0.72, 1.12, texture2D(uDet, vDetXZ / 3.4 + 0.37).r) * mix(0.75, 1.0, smoothstep(0.0, 0.35, cella));
+      float brecciaio = max(ripida, smoothstep(1380.0, 1620.0, vWy) * smoothstep(0.98, 0.90, abs(vNy)) * 0.7);
+      det = mix(det, diffuseColor.rgb * sasso * mix(0.9, 1.1, g2), brecciaio * (0.5 + 0.5 * vicinissimo));
       diffuseColor.rgb = mix(diffuseColor.rgb, det, vicino);
     }
   }
@@ -1646,43 +1782,179 @@ let ORTHO = null, HG = null, sunLight = null, SHADOWS = false, HEMI = null, SEVI
 // ombre, dettaglio ravvicinato del terreno, facciate, numero di alberi e nuvole, distanza della nebbia.
 const QUAL_U = { value: 2 };            // uniform condiviso dagli shader (terreno, case)
 const FOG_VOLO = [3800, 6500, 9500, 11500];   // nebbia in volo per livello: con l'anello esterno si vede lontano
-const QUAL = { liv: 2, tetto: 3, mob: false, t: 0, n: 0, ok: 0, avvio: 0 };
+const QUAL = { liv: 2, tetto: 3, tettoMax: 3, mob: false, t: 0, n: 0, ok: 0, lenti: 0, avvio: 0, res: 1, salva: 0,
+               grado: 0, cap30: false, frame: 0, hzMax: 0, hz: 60, tSu: -1e9, bloccoSu: 0, diag: null };
+// cadenza dello schermo misurata a vuoto, durante il caricamento (prima che la scena pesi): 30 Hz in
+// risparmio energetico o con il limite di Safari, 60 altrimenti. E' il riferimento della guardia.
+(function misuraHz(){
+  let n = 0; const t0 = performance.now();
+  const f = () => { n++; if (performance.now() - t0 < 1000) requestAnimationFrame(f); else QUAL.hzMax = Math.max(QUAL.hzMax, Math.min(n, 125)); };
+  requestAnimationFrame(f);
+})();
 const VEG_IM = [];                      // { im, n }: mesh istanziate della vegetazione
+// Mappa delle ombre per livello (lato in px): 0 = niente ombre vere (solo quelle di contatto).
+// Livello 0: la mappa resta (256 px) ma la camera delle ombre si chiude a un metro: nessun oggetto dentro,
+// nessuna ombra e quasi nessun costo, SENZA spegnere castShadow (spegnerlo ricompila tutti gli shader:
+// un blocco di 1-2 s con schermo nero a ogni cambio di livello).
+const OMBRA_PX = [256, 1024, 2048, 4096];
+const QKEY = 'srmx_q3';                 // gradino raggiunto a dispositivo "freddo" nelle sessioni precedenti
+// ---- scala della qualita' (v82) ----
+// Un solo indice, QUAL.grado, percorre una scala di gradini dal migliore (0) al piu' economico. Ogni gradino
+// fissa livello (ombre, vegetazione, nuvole, nebbia), risoluzione e cadenza. L'ordine e' quello della
+// visibilita' del taglio: prima cio' che non si nota (cadenza a 30 fps sul telefono, ombre meno fini),
+// per ultima la risoluzione, che non scende MAI sotto il 75% della base (sotto si vede la sgranatura).
+//   telefono:  0 pieno | 1 cadenza 30 | 2 res .92 | 3 res .85 | 4 liv-1 | 5 res .75 | 6 liv-2 | 7 liv-3
+//   pc:        0 pieno | 1 res .92 | 2 res .85 | 3 liv-1 | 4 res .75 | 5 liv-2 | 6 liv-3 | 7 cadenza 30
+function scalaQualita(){
+  const m = QUAL.mob;
+  return m ? [ { }, { cap: 1 }, { cap: 1, res: 0.92 }, { cap: 1, res: 0.85 }, { cap: 1, res: 0.85, dl: 1 },
+               { cap: 1, res: 0.75, dl: 1 }, { cap: 1, res: 0.75, dl: 2 }, { cap: 1, res: 0.75, dl: 3 } ]
+           : [ { }, { res: 0.92 }, { res: 0.85 }, { res: 0.85, dl: 1 }, { res: 0.75, dl: 1 },
+               { res: 0.75, dl: 2 }, { res: 0.75, dl: 3 }, { res: 0.75, dl: 3, cap: 1 } ];
+}
 function qualIniziale(){
-  const mob = /Android|iPhone|iPad|Mobi/i.test(navigator.userAgent);
+  const mob = /Android|iPhone|iPad|Mobi/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));   // iPadOS si finge Mac
   QUAL.mob = mob;
+  QUAL.tetto = QUAL.tettoMax = mob ? 2 : 3;
   const q = new URLSearchParams(location.search).get('q');
   if (q !== null && /^[0-3]$/.test(q)) { QUAL.lock = true; return +q; }      // ?q=0..3 per le prove (livello bloccato)
-  if (!mob) return 3;
-  const mem = navigator.deviceMemory || 4, cpu = navigator.hardwareConcurrency || 4;
-  if (mem <= 3 || cpu <= 4) return 0;
-  if (mem <= 4 || cpu <= 6) return 1;
-  return 2;
+  // gradino di partenza: quello che il dispositivo ha retto a freddo l'ultima volta (memoria di 7 giorni),
+  // altrimenti il pieno per il suo tetto. Nessuna memoria dei cali termici: a telefono caldo si scende
+  // in sessione, ma la volta dopo si riparte puliti.
+  let g = 0;
+  try {
+    const m = JSON.parse(localStorage.getItem(QKEY) || 'null');
+    if (m && m.ua === navigator.userAgent.length && typeof m.grado === 'number' && Date.now() - (m.t || 0) < 7 * 86400e3) g = clamp(m.grado, 0, 7);
+  } catch (e) { /* storage bloccato */ }
+  QUAL.grado = g;
+  const sc = scalaQualita()[g];
+  return QUAL.tetto - (sc.dl || 0);
+}
+function salvaQualita(){
+  try { localStorage.setItem(QKEY, JSON.stringify({ grado: QUAL.grado, ua: navigator.userAgent.length, t: Date.now() })); } catch (e) { /* niente */ }
+}
+// inquadratura della camera delle ombre: un quadrato di lato 2*half (unita' di scena) centrato sul
+// bersaglio della luce. Piu' e' stretto, piu' l'ombra e' nitida: lo si stringe quando la camera e'
+// vicina a Lino (il nitido serve li') e lo si allarga quando ci si allontana (servono le case lontane).
+let ombraHalf = 0;
+function inquadraOmbre(half){
+  if (QUAL.liv === 0) half = 0.5;
+  if (!sunLight || Math.abs(half - ombraHalf) < 1) return;
+  ombraHalf = half;
+  const sk = sunLight.shadow.camera;
+  sk.left = -half; sk.right = half; sk.top = half; sk.bottom = -half;
+  sk.updateProjectionMatrix();
+  // normalBias in proporzione al texel della mappa: abbastanza per evitare l'acne, non tanto da staccare l'ombra dai piedi
+  const px = sunLight.shadow.mapSize.x || 2048;
+  sunLight.shadow.normalBias = clamp(2 * half / px * 1.6, 0.05, 0.6);
+}
+// applica un gradino della scala: livello, risoluzione, cadenza
+function applicaGrado(g, motivo){
+  const sc = scalaQualita();
+  g = clamp(g, 0, sc.length - 1);
+  QUAL.grado = g;
+  const s = sc[g];
+  QUAL.res = s.res || 1;
+  QUAL.cap30 = !!s.cap;
+  applicaQualita(QUAL.tetto - (s.dl || 0));
+  if (motivo) console.log('qualita\': gradino', g, '(' + motivo + ')');
 }
 function applicaQualita(l){
   l = clamp(l, 0, QUAL.tetto);
   QUAL.liv = l; QUAL_U.value = l;
-  if (renderer) {
-    const dpr = devicePixelRatio || 1;
-    renderer.setPixelRatio([1, Math.min(dpr, 1.5), Math.min(dpr, 2), Math.min(dpr, 2)][l]);
+  applicaRisoluzione();
+  if (sunLight) {
+    // in volo la camera e' alta e le ombre si vedono poco: mappa al massimo 1024 (meno riempimento per frame)
+    const px = FLY.on ? Math.min(OMBRA_PX[l], 1024) : OMBRA_PX[l];
+    if (sunLight.shadow.mapSize.x !== px) {
+      sunLight.shadow.mapSize.set(px, px);
+      if (sunLight.shadow.map) { sunLight.shadow.map.dispose(); sunLight.shadow.map = null; }   // si ricrea alla prossima resa
+    }
+    sunLight.castShadow = true;
+    ombraHalf = -1; inquadraOmbre(430);
   }
-  if (SHADOWS && sunLight) sunLight.castShadow = l >= 2;     // spegnere la luce-ombra ricompila da solo i programmi
-  const fr = [0.55, 0.8, 1, 1][l];
+  const fr = [0.55, 0.8, 1, 1][l] * (FLY.on && QUAL.mob ? 0.8 : 1);
   for (const v of VEG_IM) v.im.count = Math.max(1, Math.round(v.n * fr));
   for (let i = 0; i < NUVOLE.length; i++) NUVOLE[i].visible = l > 0 || i % 2 === 0;
+  // la flora minuta (cuscini, adonidi, genziane, sassi) da quota di volo non si distingue: fuori dalla scena
+  for (const im of IMPOSTORS) if (im.userData.piccola) { im.visible = !FLY.on; if (im.userData.rocce) im.userData.rocce.visible = !FLY.on; }
   if (scene && scene.fog) scene.fog.far = FLY.on ? FOG_VOLO[l] : (l === 0 ? 11000 : 18000);
-  console.log('qualita\':', ['essenziale', 'media', 'alta', 'massima'][l]);
+  console.log('qualita\':', ['essenziale', 'media', 'alta', 'massima'][l], 'risoluzione', QUAL.res.toFixed(2), QUAL.cap30 ? '30 fps' : '');
 }
-// guardia prestazioni: finestre di 3 s sul dt reale (non su quello limitato del gioco); sotto i 27 fps
-// si scende di un livello e quel livello diventa il tetto; sopra i 50 fps per tre finestre si risale
+// risoluzione di resa = pixel ratio di base x fattore QUAL.res (0,75-1). Sul telefono la base e' 2 (o il
+// dpr se minore): a 0,75 si resta a 1,5, cioe' sempre sopra il pixel fisico "retina" percepito.
+// Il cambio di pixel ratio ridimensiona il buffer del canvas, che resta NERO finche' non si disegna il
+// frame successivo: fatto in fondo al tick (dopo la resa) produceva un lampo nero a ogni passo della
+// risoluzione dinamica. Ora si prenota e si applica all'inizio del tick, subito prima di disegnare.
+function applicaRisoluzione(subito){
+  if (!renderer) return;
+  if (!subito) { QUAL.resPend = true; return; }
+  QUAL.resPend = false;
+  const dpr = devicePixelRatio || 1;
+  const base = QUAL.mob ? Math.min(dpr, QUAL.liv === 0 ? 1.75 : 2) : [1, Math.min(dpr, 1.5), Math.min(dpr, 2), Math.min(dpr, 2)][QUAL.liv];
+  const pr = Math.max(0.75, base * QUAL.res);
+  if (Math.abs(renderer.getPixelRatio() - pr) > 1e-3) renderer.setPixelRatio(pr);
+}
+// guardia prestazioni (v82): finestre di 1 s sul dt reale, giudicate RISPETTO ALLA CADENZA DELLO SCHERMO,
+// non in fps assoluti. La cadenza (30/60/90/120 Hz) si stima dal massimo osservato: un telefono che per
+// scelta consegna 30 fps (risparmio energetico, limite di Safari) non viene piu' scambiato per uno in affanno.
+//  - due finestre di fila sotto l'80% della cadenza utile -> un gradino piu' economico;
+//  - sei finestre di fila sopra il 95% -> un gradino migliore; se dopo una risalita si ricade entro 20 s,
+//    la risalita resta bloccata per due minuti (niente oscillazioni, niente ridimensionamenti continui);
+//  - il gradino si memorizza solo nei primi 90 s (capacita' del dispositivo a freddo), mai dopo: i cali
+//    termici di meta' sessione non devono rovinare l'apertura successiva.
+// Non si misura nei primi 10 s (compilazione degli shader) ne' mentre si caricano le tile esterne.
 function guardiaFps(dtReale){
   QUAL.t += dtReale; QUAL.n++;
-  if (QUAL.t < 3) return;
+  if (QUAL.t < 1) return;
   const fps = QUAL.n / QUAL.t; QUAL.t = 0; QUAL.n = 0;
-  if (QUAL.lock || performance.now() < QUAL.avvio + 8000) return;        // i primi secondi: compilazione shader, caricamenti
-  if (fps < 27 && QUAL.liv > 0) { QUAL.tetto = QUAL.liv - 1; applicaQualita(QUAL.liv - 1); QUAL.ok = 0; }
-  else if (fps > 50 && QUAL.liv < QUAL.tetto) { if (++QUAL.ok >= 3) { applicaQualita(QUAL.liv + 1); QUAL.ok = 0; } }
-  else QUAL.ok = 0;
+  const now = performance.now();
+  if (!QUAL.cap30 && fps > QUAL.hzMax) QUAL.hzMax = Math.min(fps, 125);   // a cadenza dimezzata non si stima lo schermo
+  QUAL.hz = QUAL.hzMax < 40 ? 30 : QUAL.hzMax < 75 ? 60 : QUAL.hzMax < 105 ? 90 : 120;
+  const utile = QUAL.cap30 ? QUAL.hz / 2 : QUAL.hz;
+  const r = fps / utile;
+  if (QUAL.diag) aggiornaDiag(fps, utile);
+  if (QUAL.lock || now < QUAL.avvio + 10000) return;
+  if (typeof extLoading !== 'undefined' && extLoading) return;
+  if (document.hidden) return;
+  const ultimo = scalaQualita().length - 1;
+  if (r < 0.8) {
+    QUAL.ok = 0;
+    if (++QUAL.lenti >= 2) {
+      QUAL.lenti = 0;
+      if (QUAL.grado < ultimo) {
+        if (now - QUAL.tSu < 20000) QUAL.bloccoSu = now + 120000;   // appena risaliti e gia' in affanno: fermi qui per un po'
+        applicaGrado(QUAL.grado + 1, 'affanno ' + fps.toFixed(0) + '/' + utile + ' fps');
+        if (now < QUAL.avvio + 90000) salvaQualita();
+      }
+    }
+  } else if (r > 0.95) {
+    QUAL.lenti = 0;
+    if (QUAL.grado > 0 && now > QUAL.bloccoSu && ++QUAL.ok >= 6) {
+      QUAL.ok = 0; QUAL.tSu = now;
+      applicaGrado(QUAL.grado - 1, 'margine ' + fps.toFixed(0) + '/' + utile + ' fps');
+      if (now < QUAL.avvio + 90000) salvaQualita();
+    }
+  } else { QUAL.ok = 0; QUAL.lenti = 0; }
+}
+// diagnostica a schermo (?diag=1): fps misurati / cadenza utile, risoluzione, gradino, livello, draw call,
+// triangoli, minuti di sessione. Serve a leggere i numeri dal telefono quando la qualita' cala.
+function aggiornaDiag(fps, utile){
+  const d = QUAL.diag, inf = renderer.info.render, pr = renderer.getPixelRatio();
+  const mins = (performance.now() - QUAL.avvio) / 60000;
+  const tri = inf.triangles > 1e6 ? (inf.triangles / 1e6).toFixed(2) + 'M' : (inf.triangles / 1e3).toFixed(0) + 'k';
+  d.textContent = 'fps ' + fps.toFixed(0) + '/' + utile + (QUAL.cap30 ? ' (30)' : '') + ' · schermo ' + QUAL.hz + ' Hz'
+    + '\nres ' + QUAL.res.toFixed(2) + ' · pr ' + pr.toFixed(2) + ' · ' + renderer.domElement.width + '×' + renderer.domElement.height
+    + '\ngradino ' + QUAL.grado + ' · liv ' + QUAL.liv + '/' + QUAL.tetto + ' · ombre ' + (sunLight ? sunLight.shadow.mapSize.x : '-')
+    + '\ndraw ' + inf.calls + ' · tri ' + tri + ' · ' + (FLY.on ? 'volo' : 'lino')
+    + '\n' + mins.toFixed(1) + ' min · ' + (QUAL.mob ? 'mobile' : 'pc') + ' dpr ' + (devicePixelRatio || 1).toFixed(2);
+}
+function avviaDiag(){
+  if (!/[?&]diag=1/.test(location.search)) return;
+  const d = document.createElement('pre');
+  d.id = 'diag';
+  d.style.cssText = 'position:fixed;right:8px;top:64px;z-index:99;margin:0;padding:6px 8px;background:rgba(0,0,0,.55);color:#9f9;font:11px/1.35 ui-monospace,Menlo,monospace;border-radius:6px;pointer-events:none;white-space:pre';
+  document.body.appendChild(d); QUAL.diag = d;
 }
 const SUNDIR = { x: -0.52, y: 0.62, z: -0.58 };
 const OC = [0, 0, 0];
@@ -2043,7 +2315,7 @@ function arredaCase(root){
     let g = o.geometry;
     if (g.index) { g = g.toNonIndexed(); o.geometry = g; }
     const pos = g.getAttribute('position'), nv = pos.count;
-    const aUV = new Float32Array(nv * 2), aWall = new Float32Array(nv * 3);
+    const aUV = new Float32Array(nv * 2), aWall = new Float32Array(nv * 3), aCasa = new Float32Array(nv);
     if (muro) {
       // raggruppa i triangoli per piano (normale + offset) = una parete
       const groups = new Map(), tri = [];
@@ -2057,27 +2329,35 @@ function arredaCase(root){
         const d = N.dot(P);
         const key = Math.round(N.x * 20) + '_' + Math.round(N.z * 20) + '_' + Math.round(d / 0.25);
         let gr = groups.get(key);
-        if (!gr) { gr = { n: N.clone(), t: new THREE.Vector3(N.z, 0, -N.x).normalize(), umin: 1e9, umax: -1e9, vmin: 1e9, vmax: -1e9, tris: [] }; groups.set(key, gr); }
+        if (!gr) { gr = { n: N.clone(), d, t: new THREE.Vector3(N.z, 0, -N.x).normalize(), umin: 1e9, umax: -1e9, vmin: 1e9, vmax: -1e9, tris: [] }; groups.set(key, gr); }
         for (const W of [P, Q, R]) { const u = W.dot(gr.t), v = W.y; if (u < gr.umin) gr.umin = u; if (u > gr.umax) gr.umax = u; if (v < gr.vmin) gr.vmin = v; if (v > gr.vmax) gr.vmax = v; }
         gr.tris.push(i); tri.push(gr);
       }
       let gid = 0;
       for (const gr of groups.values()) {
         gr.id = (gid++ * 0.618 + o.position.x * 0.013 + o.position.z * 0.017) % 1;
+        // "casa" = cella di 9 m attorno al centro della parete: le pareti di uno stesso edificio
+        // cadono quasi sempre nella stessa cella e prendono la stessa tinta d'intonaco
+        const cu = (gr.umin + gr.umax) / 2;
+        const cx = gr.n.x * gr.d + gr.t.x * cu - gr.n.x * 3.0, cz = gr.n.z * gr.d + gr.t.z * cu - gr.n.z * 3.0;   // 3 m dentro la parete, verso l'interno della casa
+        const wx = Math.floor(cx / 9), wz = Math.floor(cz / 9);
+        const h = Math.sin(wx * 12.9898 + wz * 78.233) * 43758.5453; gr.casa = h - Math.floor(h);
       }
       for (let i = 0; i < nv; i += 3) {
         const gr = tri[i / 3];
         for (let k = 0; k < 3; k++) {
           const j = i + k;
-          if (!gr) { aWall[j * 3] = 0; aWall[j * 3 + 1] = 0; aWall[j * 3 + 2] = 0; continue; }
+          if (!gr) { aWall[j * 3] = 0; aWall[j * 3 + 1] = 0; aWall[j * 3 + 2] = 0; aCasa[j] = 0.5; continue; }
           P.fromBufferAttribute(pos, j).applyMatrix4(o.matrixWorld);
           aUV[j * 2] = P.dot(gr.t) - gr.umin; aUV[j * 2 + 1] = P.y - gr.vmin;
           aWall[j * 3] = gr.umax - gr.umin; aWall[j * 3 + 1] = gr.vmax - gr.vmin; aWall[j * 3 + 2] = gr.id;
+          aCasa[j] = gr.casa;
         }
       }
     }
     g.setAttribute('aUV', new THREE.BufferAttribute(aUV, 2));
     g.setAttribute('aWall', new THREE.BufferAttribute(aWall, 3));
+    g.setAttribute('aCasa', new THREE.BufferAttribute(aCasa, 1));
     const mat = o.material = o.material.clone();
     // three mette in cache i programmi per testo di onBeforeCompile: muro e tetto hanno lo stesso
     // testo sorgente, quindi serve una chiave esplicita o il tetto riusa il programma del muro
@@ -2086,11 +2366,11 @@ function arredaCase(root){
       CASE_SH.push(sh);
       sh.uniforms.uQual = QUAL_U;
       sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute vec2 aUV; attribute vec3 aWall; varying vec2 vUVc; varying vec3 vWall; varying vec3 vWp; varying float vNyc;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvUVc = aUV; vWall = aWall; vWp = (modelMatrix * vec4(position, 1.0)).xyz; vNyc = normalize(mat3(modelMatrix) * normal).y;');
+        .replace('#include <common>', '#include <common>\nattribute vec2 aUV; attribute vec3 aWall; attribute float aCasa; varying vec2 vUVc; varying vec3 vWall; varying vec3 vWp; varying float vNyc; varying float vCasa;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvUVc = aUV; vWall = aWall; vCasa = aCasa; vWp = (modelMatrix * vec4(position, 1.0)).xyz; vNyc = normalize(mat3(modelMatrix) * normal).y;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
-varying vec2 vUVc; varying vec3 vWall; varying vec3 vWp; varying float vNyc;
+varying vec2 vUVc; varying vec3 vWall; varying vec3 vWp; varying float vNyc; varying float vCasa;
 uniform float uQual;
 float hsh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float nz2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -2101,9 +2381,21 @@ float nz2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   float W = vWall.x, H = vWall.y, id = vWall.z;
   if (W > 1.5 && H > 2.0) {
     vec3 col = diffuseColor.rgb;
-    // intonaco: tinta leggermente diversa per parete, grana e macchie di umido in basso
+    // intonaco: una delle tinte dei paesi marsicani per edificio (ocra, giallo paglia, rosa antico,
+    // bianco sporco, grigio chiaro, beige), scelta dall'id della casa; poi grana e sporco
+    {
+      float ic = floor(hsh(vec2(floor(vCasa * 97.0), 1.7)) * 6.0);   // stessa tinta su tutte le pareti della casa
+      vec3 tinta = ic < 0.5 ? vec3(0.84, 0.70, 0.46) : ic < 1.5 ? vec3(0.90, 0.84, 0.64) : ic < 2.5 ? vec3(0.85, 0.66, 0.55)
+                 : ic < 3.5 ? vec3(0.90, 0.88, 0.82) : ic < 4.5 ? vec3(0.80, 0.78, 0.74) : vec3(0.84, 0.76, 0.62);
+      col = mix(col, tinta, 0.78);
+    }
     col *= 0.94 + 0.12 * hsh(vec2(id, 0.3));
     col *= 0.96 + 0.08 * nz2(vUVc * 2.3 + id * 10.0);
+    // sporco: colature verticali (grana allungata) piu' forti in alto, umido che sale dal basso
+    col *= 0.93 + 0.07 * nz2(vec2(vUVc.x * 4.0 + id * 3.0, vUVc.y * 0.35));
+    col *= 1.0 - 0.18 * (1.0 - smoothstep(0.9, 2.2, vUVc.y));
+    // occlusione sotto la gronda (la fascia del cornicione resta chiara, sotto di essa l'ombra)
+    col *= 1.0 - 0.22 * (1.0 - smoothstep(0.35, 1.4, H - vUVc.y)) * step(0.35, H - vUVc.y);
     // zoccolo di pietra/cemento sotto i 0,9 m
     float zoc = 1.0 - smoothstep(0.85, 0.95, vUVc.y);
     col = mix(col, vec3(0.62, 0.60, 0.56) * (0.9 + 0.2 * nz2(vUVc * 6.0)), zoc * 0.9);
@@ -2148,7 +2440,10 @@ float nz2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   vec3 col = diffuseColor.rgb;
   float pend = 1.0 - smoothstep(0.97, 0.995, abs(vNyc));
   // tinta coccio piu' decisa, file di tegole (ogni ~38 cm di quota lungo la falda) con l'ombra di ciascuna
-  col = mix(col, col * vec3(1.0, 0.72, 0.56), 0.6);
+  col = mix(col, col * vec3(0.92, 0.62, 0.46), 0.7);                 // coccio invecchiato, meno salmone
+  col *= 0.84 + 0.16 * nz2(vWp.xz * 0.35);                              // chiazze larghe di invecchiamento
+  // licheni e muschio su qualche falda: patch grigio-verdi
+  col = mix(col, col * vec3(0.72, 0.82, 0.66) + vec3(0.06), 0.55 * smoothstep(0.58, 0.8, nz2(vWp.xz * 0.9 + 3.0)) * step(0.45, hsh(floor(vWp.xz / 6.0) + 1.0)));
   float filo = fract(vWp.y * 2.6 + nz2(vWp.xz * 1.3) * 0.06);
   float tegola = smoothstep(0.0, 0.18, filo) * (1.0 - smoothstep(0.62, 1.0, filo));
   float colonne = 0.9 + 0.1 * step(0.5, fract((vWp.x + vWp.z) * 3.0));
@@ -2401,10 +2696,43 @@ async function loadVeg(loader){
     }
     return Math.sqrt(dm);
   };
+  // ---- alberi per fascia di vegetazione (Piano di gestione RNO M. Velino) ----
+  // L'export di Blender ha solo conifere a cono. Il Piano dice invece: querceti di roverella sotto i
+  // 1.200 m (versante SW del Rozza, valloni SW e S, Porclaneta); praterie e arbusteti sulla cresta del
+  // Rozza e sui versanti SW oltre i 1.250 m (niente alberi); rimboschimenti a pino nero solo sul
+  // versante meridionale, 1.200-1.400 m (sopra Fonte Canale); boscaglie fresche a nocciolo/pioppo
+  // e lembi di faggeta nel fondovalle di Valle Majelama, 1.400-1.700 m; sopra i 1.750 m nulla.
+  // km lungo il tracciato del punto piu' vicino: distingue il settore della discesa (Majelama, Fonte Canale)
+  const kmVicino = (x, y) => {
+    let dm = 1e18, im = 0;
+    for (let i = 0; i < rxs.length; i++) { const d = (rxs[i] - x) * (rxs[i] - x) + (rys[i] - y) * (rys[i] - y); if (d < dm) { dm = d; im = i; } }
+    return im * 4 / N * (TOT || route.total_km * 1000) / 1000;
+  };
+  const tipoAlbero = t => {
+    const e = route.elev_a * t[2] + route.elev_b, km = kmVicino(t[0], t[1]);
+    if (e > 1750) return null;
+    const discesa = km > 20.5 && km < 27;
+    if (discesa) return e >= 1400 ? 'faggio' : e >= 1150 ? 'pino' : 'quercia';
+    return e >= 1250 ? null : 'quercia';
+  };
+  const CIL = { Cylinder_026: ['Cone', 'Cone_001', 'Cone_002'], Cylinder_027: ['Cone_003', 'Cone_004', 'Cone_005'], Cylinder_028: ['Cone_006', 'Cone_007', 'Cone_008'] };
+  const tieni = {}, latif = { quercia: [], faggio: [] }, conta = { pino: 0, quercia: 0, faggio: 0, tolti: 0 };
+  for (const cil of Object.keys(CIL)) {
+    const arr = veg.inst[cil] || []; const mask = new Uint8Array(arr.length);
+    for (let i = 0; i < arr.length; i++) {
+      const t = arr[i], tipo = tipoAlbero(t);
+      if (tipo === 'pino') { mask[i] = 1; conta.pino++; }
+      else if (tipo) { latif[tipo].push(t); conta[tipo]++; }
+      else conta.tolti++;
+    }
+    tieni[cil] = mask; for (const c of CIL[cil]) tieni[c] = mask;
+  }
+  console.log('alberi:', conta);
   for (const key of Object.keys(veg.inst)) {
     let arr = veg.inst[key];
     const proto = lib[veg.protos[key]];
     if (!proto || !arr.length) continue;
+    if (tieni[key]) { const m = tieni[key]; arr = arr.filter((t, i) => m[i]); if (!arr.length) continue; }
     const isGent = key === 'Sphere_155' || key.startsWith('Cone_03') ||
                    /^M_EX_gen/.test((proto.material && proto.material.name) || '');
     if (isGent) {
@@ -2483,6 +2811,17 @@ async function loadVeg(loader){
     VEG_IM.push({ im, n: arr.length });
   }
   console.log('vegetazione:', Object.keys(veg.inst).map(k => k + ':' + veg.inst[k].length).join(', '));
+  // latifoglie: una InstancedMesh per tipo; posizione a terra (terraVera), altezza in metri x scala dell'export
+  const K = (route.lino_h || 7.8) / 1.7;
+  const posti = tipo => latif[tipo].map(t => {
+    const x = t[0], z = -t[1];
+    let y = terraVera(x, z, t[2] + 10); if (y < -1e3) y = groundAt(x, z);
+    return [x, y - 0.05, z, t[3], (tipo === 'quercia' ? 0.55 : 0.70) * (0.8 + 0.5 * (t[4] || 1)), 0];
+  });
+  const OCRA = new THREE.Color(1.08, 0.82, 0.46);
+  const tintaQuercia = (c, r, rnd) => { c.setHSL(0, 0, 0.85 + r * 0.3); if (rnd() < 0.4) c.multiply(OCRA); };   // due piante su cinque gia' virate all'ocra
+  if (latif.quercia.length) { const im = buildPiantaLowPoly({ nome: 'Querce', geo: geoQuercia(31), seme: 3101, vento: 0.9, hVento: 7, posti: posti('quercia'), tinta: tintaQuercia, scheda: schedaRoverella }); VEG_IM.push({ im, n: im.count }); }
+  if (latif.faggio.length) { const im = buildPiantaLowPoly({ nome: 'Faggi', geo: geoFaggio(41), seme: 4101, vento: 1.1, hVento: 10, posti: posti('faggio'), scheda: schedaBoscaglia }); VEG_IM.push({ im, n: im.count }); }
 }
 
 // ---------- animali riggati (Meshy, animati per ossa): lupo ai pratoni e cervo in Valle Porclaneta ----------
@@ -2645,10 +2984,11 @@ async function buildMezzoPC(loader){
 // adonide ricurva a bordo sentiero prima della Capanna di Sevice (km 14,2-14,6, ~50 piante nella
 // Guida) e sulla cresta Velino-Cafornia (km 17,3-18,4, ~200 piante): qui se ne mostrano alcune.
 const IMPOSTORS = [];
+const FLORA_3D = !/flora=2d/.test(location.search);   // ?flora=2d per confrontare con gli sprite
 function buildImpostor(cfg){
   const tex = new THREE.TextureLoader().load('assets/' + cfg.file + '?' + VER);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  const H = cfg.hReale * ((route.lino_h || 7.8) / 1.7), W = H * cfg.aspetto;
+  const H = cfg.hReale * ((route.lino_h || 7.8) / 1.7), W = cfg.larg ? cfg.larg * ((route.lino_h || 7.8) / 1.7) : H * cfg.aspetto;
   const pos = [], uv = [], idx = [];
   const quad = (ax, az, u0, v0, u1, v1) => {
     const b = pos.length / 3;
@@ -2656,11 +2996,24 @@ function buildImpostor(cfg){
     uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
     idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
   };
+  // quadrato orizzontale (vista dall'alto) a quota yq, per le piante a cuscino
+  const piano = (yq, u0, v0, u1, v1) => {
+    const b = pos.length / 3, L = cfg.larg * ((route.lino_h || 7.8) / 1.7) / 2;
+    pos.push(-L, yq, -L, L, yq, -L, L, yq, L, -L, yq, L);
+    uv.push(u0, v1, u1, v1, u1, v0, u0, v0);
+    idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
+  };
   if (cfg.layout === 'colonne') { quad(1, 0, 0, 0, 0.5, 1); quad(0, 1, 0.5, 0, 1, 1); }
+  else if (cfg.layout === 'cuscino') {
+    // atlante 1024x1024: alto in [128..896]x[0..768] (dall'alto), fianchi in righe da 128 px in basso
+    quad(1, 0, 0, 0.125, 1, 0.25); quad(0, 1, 0, 0, 1, 0.125);
+    piano(H * 0.45, 0.125, 0.25, 0.875, 1);
+  }
   else { quad(1, 0, 0, 0.5, 1, 1); quad(0, 1, 0, 0, 1, 0.5); }      // 'righe': vista 1 sopra, vista 2 sotto
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9, metalness: 0 });
+  if (cfg.luce) { m.emissive = new THREE.Color(0xffffff); m.emissiveMap = tex; m.emissiveIntensity = cfg.luce; }   // la resa e' gia' illuminata: schiarisce
   const vento = cfg.vento || 0.08;
   m.onBeforeCompile = sh => {
     sh.uniforms.uT = { value: 0 }; VENTO_SH.push(sh);
@@ -2678,22 +3031,311 @@ function buildImpostor(cfg){
     posAt(sS, tmpA); tanAt(sS, tmpB);
     const x = tmpA.x - tmpB.z * dist * lato, z2 = tmpA.z + tmpB.x * dist * lato;
     let y = terraVera(x, z2, tmpA.y + 5); if (y < -1e3) y = groundAt(x, z2);
-    posti.push([x, y - 0.05, z2, rnd() * Math.PI, 0.8 + rnd() * 0.45, sS]);
+    posti.push([x, y - 0.05, z2, rnd() * Math.PI, (cfg.sc0 || 0.8) + rnd() * (cfg.sc1 || 0.45), sS]);
   }
   const im = new THREE.InstancedMesh(g, m, posti.length);
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(), P = new THREE.Vector3();
-  posti.forEach((p, i) => { P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); S.setScalar(p[4]); M.compose(P, Q, S); im.setMatrixAt(i, M); });
+  const up = new THREE.Vector3(0, 1, 0), nrm = new THREE.Vector3(), Qt = new THREE.Quaternion();
+  posti.forEach((p, i) => {
+    P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); S.setScalar(p[4]);
+    if (cfg.layout === 'cuscino') {   // i cuscini seguono la pendenza del suolo
+      const h = 1.2, gx = (terraVera(p[0] + h, p[2], p[1] + 6) - terraVera(p[0] - h, p[2], p[1] + 6)) / (2 * h), gz = (terraVera(p[0], p[2] + h, p[1] + 6) - terraVera(p[0], p[2] - h, p[1] + 6)) / (2 * h);
+      if (Math.abs(gx) < 3 && Math.abs(gz) < 3) { nrm.set(-gx, 1, -gz).normalize(); Qt.setFromUnitVectors(up, nrm); Q.premultiply(Qt); }
+    }
+    M.compose(P, Q, S); im.setMatrixAt(i, M);
+  });
   im.instanceMatrix.needsUpdate = true; im.castShadow = cfg.ombra !== false; im.frustumCulled = false; im.name = cfg.nome;
-  im.userData.posti = posti; im.userData.scheda = cfg.scheda;
+  im.userData.posti = posti; im.userData.scheda = cfg.scheda; im.userData.piccola = !!cfg.piccola;
   scene.add(im);
   IMPOSTORS.push(im);
   return im;
 }
+
+// ---------- piante low-poly 3D, nello stile degli alberi a cono del paesaggio ----------
+// Geometria costruita in codice (metri), sfaccettata, colori per vertice + tinta per pianta,
+// vento nello shader, una InstancedMesh per specie, cliccabili come gli impostor.
+function rngDa(seme){ let sd = seme; return () => (sd = (sd * 16807) % 2147483647) / 2147483647; }
+function sfaccetta(g0, rnd, amp, colFn){
+  // sposta i vertici a caso (amp relativo al raggio), poi sfaccetta e colora per faccia.
+  // Le geometrie poliedriche di three.js NON condividono i vertici fra le facce: prima si saldano
+  // (mergeVertices), altrimenti lo spostamento apre fessure fra i triangoli.
+  const g = mergeVertices(g0, 1e-4);
+  const p = g.getAttribute('position');
+  for (let i = 0; i < p.count; i++) { const k = 1 + (rnd() - 0.5) * 2 * amp; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k); }
+  const f = g.toNonIndexed(); f.computeVertexNormals();
+  const fp = f.getAttribute('position'), fn = f.getAttribute('normal'), col = new Float32Array(fp.count * 3), c = new THREE.Color();
+  for (let i = 0; i < fp.count; i += 3) {
+    colFn(c, (fp.getY(i) + fp.getY(i + 1) + fp.getY(i + 2)) / 3, (fn.getY(i) + fn.getY(i + 1) + fn.getY(i + 2)) / 3, rnd);
+    for (let j = 0; j < 3; j++) { col[(i + j) * 3] = c.r; col[(i + j) * 3 + 1] = c.g; col[(i + j) * 3 + 2] = c.b; }
+  }
+  f.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return f;
+}
+// latifoglia low-poly parametrica: tronco + lobi di chioma, colori per faccia. spec:
+//  tronco [r su, r giu, altezza], lobi [[x,y,z,raggio,scalaY]...], det (suddivisioni), amp (bozze),
+//  col(c, y, ny, r) colore della chioma, cort(c, r) colore della corteccia
+function geoLatifoglia(seme, spec){
+  const rnd = rngDa(seme), parti = [];
+  const [r0, r1, h] = spec.tronco;
+  const tr = new THREE.CylinderGeometry(r0, r1, h, 7, 1); tr.translate(0, h / 2, 0);
+  parti.push(sfaccetta(tr, rnd, 0.04, (c, y, ny, r) => spec.cort(c, r)));
+  for (const [x, y, z, r, sy] of spec.lobi) {
+    const g = new THREE.IcosahedronGeometry(r, spec.det); g.scale(1, sy, 1); g.translate(x, y, z);
+    parti.push(sfaccetta(g, rnd, spec.amp, spec.col));
+  }
+  const g = mergeGeometries(parti, false); g.computeBoundingSphere(); return g;
+}
+function geoPioppo(seme){
+  // tronco snello, corteccia grigio-verde chiara; chioma ovoide allungata, giallo d'autunno piu' chiaro in alto (~1.400 tris)
+  return geoLatifoglia(seme, { tronco: [0.17, 0.30, 4.2], det: 2, amp: 0.11,
+    lobi: [[0, 7.6, 0, 2.3, 1.55], [0.9, 6.2, 0.4, 1.6, 1.3], [-0.9, 6.5, -0.3, 1.5, 1.3], [0.2, 9.8, -0.5, 1.4, 1.5], [-0.3, 4.6, 0.9, 1.2, 1.1]],
+    cort: (c, r) => c.setHSL(0.19, 0.08, 0.50 + r() * 0.10),
+    col: (c, yy, ny, rr) => c.setHSL(0.11 + (rr() - 0.5) * 0.03, 0.78, 0.42 + 0.10 * ny + (yy - 4) / 70 + (rr() - 0.5) * 0.08) });
+}
+// roverella (Quercus pubescens) del paesaggio: bassa e larga, chioma a cupola irregolare; a meta' ottobre
+// il verde-oliva vira a ocra e bruno, in modo diverso da pianta a pianta (la tinta per istanza fa il resto).
+// Poche facce (3 lobi a suddivisione 1): e' l'albero piu' numeroso, ~250 triangoli.
+function geoQuercia(seme){
+  return geoLatifoglia(seme, { tronco: [0.26, 0.42, 2.2], det: 1, amp: 0.09,
+    lobi: [[0, 4.6, 0, 2.6, 0.85], [1.5, 3.9, 0.5, 1.8, 0.9], [-1.4, 4.1, -0.8, 1.9, 0.85], [0.3, 3.6, 1.5, 1.5, 0.9]],
+    cort: (c, r) => c.setHSL(0.08, 0.16, 0.24 + r() * 0.08),
+    col: (c, yy, ny, rr) => c.setHSL(0.165 + (rr() - 0.5) * 0.04, 0.46, 0.31 + 0.09 * ny + (rr() - 0.5) * 0.05) });
+}
+// faggio / nocciolo delle boscaglie fresche (fondovalle di Valle Majelama): chioma alta e piena,
+// a ottobre rame-arancio con residui di verde (~330 triangoli)
+function geoFaggio(seme){
+  return geoLatifoglia(seme, { tronco: [0.16, 0.26, 3.6], det: 1, amp: 0.10,
+    lobi: [[0, 7.4, 0, 2.6, 1.25], [1.2, 5.6, 0.5, 1.8, 1.0], [-1.1, 6.0, -0.6, 1.7, 1.0], [0.1, 10.2, 0.2, 1.5, 1.0]],
+    cort: (c, r) => c.setHSL(0.10, 0.06, 0.52 + r() * 0.08),
+    col: (c, yy, ny, rr) => c.setHSL(0.075 + (rr() - 0.5) * 0.04, 0.72, 0.40 + 0.09 * ny + (rr() - 0.5) * 0.07) });
+}
+function geoSilene(seme){
+  // cuscino morbido: cupola schiacciata un po' bitorzoluta, ombreggiatura liscia; i fiori stanno nella texture
+  const rnd = rngDa(seme);
+  const g = mergeVertices(new THREE.IcosahedronGeometry(0.5, 3), 1e-4); g.scale(1, 0.26, 0.88); g.translate(0, -0.012, 0);
+  const p = g.getAttribute('position');
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const k = 1 + (Math.sin(x * 23.1 + z * 17.7) * 0.5 + Math.sin(x * 41.3 - z * 29.9) * 0.3) * 0.055 + (rnd() - 0.5) * 0.02;
+    p.setXYZ(i, x * k, y * k, z * k);
+  }
+  g.computeVertexNormals(); g.computeBoundingSphere();
+  return g;
+}
+function texSilene(seme){
+  // texture procedurale: verde cupo screziato con fiori rosa-viola rotondi, piu' fitti verso la sommita' (v alto)
+  const rnd = rngDa(seme), S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#2c4a22'; c.fillRect(0, 0, S, S);
+  for (let i = 0; i < 2600; i++) { c.fillStyle = 'hsl(' + (96 + rnd() * 20) + ',' + (30 + rnd() * 25) + '%,' + (16 + rnd() * 16) + '%)'; const r = 1 + rnd() * 3; c.beginPath(); c.arc(rnd() * S, rnd() * S, r, 0, 6.3); c.fill(); }
+  for (let i = 0; i < 1500; i++) {
+    const v = Math.pow(rnd(), 0.55), y = (1 - v) * S;                 // v alto = sommita' della cupola
+    if (rnd() > 0.25 + v * 0.75) continue;
+    const x = rnd() * S, r = 1.7 + rnd() * 1.3;                       // fiori piccoli e fitti
+    c.fillStyle = 'hsl(' + (312 + rnd() * 16) + ',' + (62 + rnd() * 18) + '%,' + (58 + rnd() * 14) + '%)';
+    for (let k = 0; k < 5; k++) { const aa = k / 5 * 6.283; c.beginPath(); c.arc(x + Math.cos(aa) * r * 0.55, y + Math.sin(aa) * r * 0.55, r * 0.5, 0, 6.3); c.fill(); }
+    c.fillStyle = '#f7e9a8'; c.beginPath(); c.arc(x, y, r * 0.22, 0, 6.3); c.fill();
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4;
+  return t;
+}
+// fattore radiale della forma del masso in un punto della sfera unitaria (usato anche per posare i cuscini)
+function bozzaRoccia(x, y, z){ return 1 + 0.10 * (Math.sin(x * 2.3 + z * 1.7) * Math.cos(y * 2.9 - x * 1.1)) + 0.06 * Math.sin(x * 5.1 + y * 4.3 + z * 3.7); }
+function geoRoccia(seme, det){
+  // blocco di calcare: ellissoide schiacciato e sfaccettato, grigio chiaro con facce piu' scure in basso
+  const rnd = rngDa(seme);
+  const g = new THREE.IcosahedronGeometry(1, det || 3);   // sfera unitaria: le dimensioni le da' l'istanza (rx, ry, rz)
+  // bozze larghe e coerenti (rumore sulla posizione) piu' una grana fine: forma da masso, non da palla
+  const p = g.getAttribute('position');
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const k = bozzaRoccia(x, y, z);
+    p.setXYZ(i, x * k, y * k, z * k);
+  }
+  return sfaccetta(g, rnd, 0.025, (c, y, ny, r) => c.setHSL(0.10 + (r() - 0.5) * 0.03, 0.05 + r() * 0.05, 0.17 + 0.09 * ny + (r() - 0.5) * 0.06));
+}
+function buildPiantaLowPoly(cfg){
+  const K = (route.lino_h || 7.8) / 1.7;
+  const geo = cfg.geo;
+  const m = cfg.map ? new THREE.MeshStandardMaterial({ map: cfg.map, roughness: 0.95, metalness: 0 })
+                    : new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, flatShading: true });
+  const vento = cfg.vento || 0, hMax = cfg.hVento || 10;
+  if (vento) m.onBeforeCompile = sh => {
+    sh.uniforms.uT = { value: 0 }; VENTO_SH.push(sh);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+{ vec4 wp = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0); float fase = wp.x * 0.05 + wp.z * 0.037; float h = clamp(position.y / ${hMax.toFixed(1)}, 0.0, 1.0);
+  float sw = sin(uT * 1.7 + fase) * 0.12 + sin(uT * 3.1 + fase * 1.7) * 0.05 + sin(uT * 6.3 + position.y * 2.0 + fase) * 0.02;
+  transformed.x += sw * h * h * ${vento.toFixed(2)}; transformed.z += sw * h * h * ${(vento * 0.6).toFixed(2)}; }`);
+  };
+  m.customProgramCacheKey = () => 'lowpoly-' + cfg.nome;
+  const rnd = rngDa(cfg.seme), posti = cfg.posti || [], rocce = [];
+  for (const z of (cfg.zone || [])) for (let k = 0; k < z.n; k++) {
+    const sS = z.a + rnd() * (z.b - z.a);
+    const lato = z.lato || (rnd() < 0.5 ? -1 : 1), dist = z.d0 + rnd() * (z.d1 - z.d0);   // z.lato: -1 sinistra / +1 destra (nel verso di gara)
+    posAt(sS, tmpA); tanAt(sS, tmpB);
+    const cx = tmpA.x - tmpB.z * dist * K * lato, cz = tmpA.z + tmpB.x * dist * K * lato;
+    // colonie: attorno al punto, da grp[0] a grp[1] piante entro cfg.rGrp metri
+    const nG = z.grp ? z.grp[0] + Math.floor(rnd() * (z.grp[1] - z.grp[0] + 1)) : 1;
+    let roccia = null;
+    if (cfg.roccia) {
+      // un blocco di roccia per colonia, affondato per meta', inclinato con il pendio: i cuscini ci crescono sopra
+      let cy = terraVera(cx, cz, tmpA.y + 8); if (cy < -1e3) cy = groundAt(cx, cz);
+      const rx = ((cfg.rGrp || 1.5) * (nG > 1 ? 1.25 : 0.7) + rnd() * 0.5) * K, rz = rx * (0.7 + rnd() * 0.4), ry = rx * (0.22 + rnd() * 0.12);
+      const h = 1.5, gx = (terraVera(cx + h, cz, cy + 6) - terraVera(cx - h, cz, cy + 6)) / (2 * h), gz = (terraVera(cx, cz + h, cy + 6) - terraVera(cx, cz - h, cy + 6)) / (2 * h);
+      const q = new THREE.Quaternion(), rotY = rnd() * Math.PI * 2;
+      if (Math.abs(gx) < 3 && Math.abs(gz) < 3) q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-gx, 1, -gz).normalize());
+      q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotY, 0)));
+      roccia = { x: cx, y: cy - ry * 0.35, z: cz, rx, ry, rz, q };
+      rocce.push(roccia);
+    }
+    for (let j = 0; j < nG; j++) {
+      const ang = rnd() * Math.PI * 2;
+      if (roccia) {
+        // posizione sulla superficie superiore dell'ellissoide della roccia (coordinate locali, poi ruotate)
+        const u = Math.sqrt(rnd()) * 0.72, ux = Math.cos(ang) * u, uz = Math.sin(ang) * u, uy = Math.sqrt(Math.max(0, 1 - ux * ux - uz * uz));
+        const kb = bozzaRoccia(ux, uy, uz) * 0.97, lx = ux * kb * roccia.rx, ly = uy * kb * roccia.ry, lz = uz * kb * roccia.rz;
+        const loc = new THREE.Vector3(lx, ly, lz).applyQuaternion(roccia.q);
+        const n = new THREE.Vector3(lx / roccia.rx ** 2, ly / roccia.ry ** 2, lz / roccia.rz ** 2).normalize().applyQuaternion(roccia.q);
+        posti.push([roccia.x + loc.x, roccia.y + loc.y + (cfg.affonda || 0), roccia.z + loc.z, rnd() * Math.PI * 2, (cfg.sc0 || 0.85) + rnd() * (cfg.sc1 || 0.3), sS, n]);
+      } else {
+        const rr = nG > 1 ? Math.sqrt(rnd()) * (cfg.rGrp || 1.5) * K : 0;
+        const x = cx + Math.cos(ang) * rr, z2 = cz + Math.sin(ang) * rr;
+        let y = terraVera(x, z2, tmpA.y + 8); if (y < -1e3) y = groundAt(x, z2);
+        posti.push([x, y + (cfg.affonda || 0), z2, rnd() * Math.PI * 2, (cfg.sc0 || 0.85) + rnd() * (cfg.sc1 || 0.3), sS]);
+      }
+    }
+  }
+  const im = new THREE.InstancedMesh(geo, m, posti.length);
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(), P = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0), nrm = new THREE.Vector3(), Qt = new THREE.Quaternion(), col = new THREE.Color();
+  posti.forEach((p, i) => {
+    P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); S.setScalar(p[4] * K);
+    if (p[6]) { Qt.setFromUnitVectors(up, p[6]); Q.premultiply(Qt); }   // normale della roccia
+    else if (cfg.pendenza) {
+      const h = 1.2, gx = (terraVera(p[0] + h, p[2], p[1] + 6) - terraVera(p[0] - h, p[2], p[1] + 6)) / (2 * h), gz = (terraVera(p[0], p[2] + h, p[1] + 6) - terraVera(p[0], p[2] - h, p[1] + 6)) / (2 * h);
+      if (Math.abs(gx) < 3 && Math.abs(gz) < 3) { nrm.set(-gx, 1, -gz).normalize(); Qt.setFromUnitVectors(up, nrm); Q.premultiply(Qt); }
+    }
+    M.compose(P, Q, S); im.setMatrixAt(i, M);
+    const r = rnd();
+    if (cfg.tinta) cfg.tinta(col, r, rnd); else col.setHSL(0, 0, 0.88 + r * 0.24);   // tinta per pianta (chiaro/scuro)
+    im.setColorAt(i, col);
+  });
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  im.castShadow = cfg.ombra !== false; im.receiveShadow = true; im.frustumCulled = false; im.name = cfg.nome;
+  im.userData.posti = posti; im.userData.scheda = cfg.scheda; im.userData.piccola = !!cfg.piccola;
+  scene.add(im); IMPOSTORS.push(im);
+  if (rocce.length) {
+    const rm = new THREE.InstancedMesh(geoRoccia(cfg.seme + 7), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, flatShading: true }), rocce.length);
+    rocce.forEach((r, i) => { P.set(r.x, r.y, r.z); S.set(r.rx, r.ry, r.rz); M.compose(P, r.q, S); rm.setMatrixAt(i, M); });
+    rm.instanceMatrix.needsUpdate = true; rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false; rm.name = cfg.nome + '_rocce';
+    scene.add(rm); im.userData.rocce = rm;
+  }
+  return im;
+}
 function buildGenziane(){
-  buildImpostor({ nome: 'Genziane', file: 'genziana.png', layout: 'colonne', hReale: 1.4, aspetto: 0.5, seme: 19702,
+  buildImpostor({ nome: 'Genziane', file: 'genziana.png', piccola: true, layout: 'colonne', hReale: 1.4, aspetto: 0.5, seme: 19702,
     zone: [{ a: 19700, b: 21000, n: 22, d0: 4, d1: 18 }], scheda: schedaGenziana });
-  buildImpostor({ nome: 'Adonidi', file: 'adonide.png', layout: 'righe', hReale: 0.38, aspetto: 1.85, seme: 14201, vento: 0.03,
+  buildImpostor({ nome: 'Adonidi', file: 'adonide.png', piccola: true, layout: 'righe', hReale: 0.38, aspetto: 1.85, seme: 14201, vento: 0.03,
     zone: [{ a: 14200, b: 14620, n: 14, d0: 1.5, d1: 6 }, { a: 17300, b: 18400, n: 22, d0: 2, d1: 9 }], scheda: schedaAdonide });
+  // Pioppo tremulo in veste d'autunno (giallo): boscaglie umide nelle conche fresche. Il tracciato
+  // scende in una conca a ~930 m fra il km 6,3 e il km 7 (la quota piu' bassa della salita) e ne
+  // tocca un'altra in discesa verso i 1.100 m (km 24,6-25): tre alberi qui, due la'.
+  // Piano di gestione RNO M. Velino (unita' PT, Corylo-Populetum tremuli facies a Populus tremula): boschetti
+  // frammentari fra 1.200 e 1.700 m, 6-10 m di altezza; 9 frammenti alla giunzione fra Valle Majelama e Valle
+  // della Genzana (1.400-1.600 m) = la grande discesa km 22,2-23,3; 4 frammenti nei valloni del versante SW
+  // del Velino sotto la scarpata di faglia (1.200-1.300 m) = salita verso Passo Le Forche km 9,7-10,4.
+  if (FLORA_3D) buildPiantaLowPoly({ nome: 'Pioppi', geo: geoPioppo(64), seme: 6401, vento: 1.4, hVento: 11, sc0: 0.6, sc1: 0.3,
+    zone: [{ a: 22200, b: 23300, n: 4, d0: 8, d1: 22, grp: [2, 3] }, { a: 9700, b: 10400, n: 2, d0: 10, d1: 24, grp: [1, 2] }], rGrp: 4, scheda: schedaPioppo });
+  else buildImpostor({ nome: 'Pioppi', file: 'pioppo.webp', layout: 'colonne', hReale: 12, aspetto: 0.67, seme: 6401, vento: 0.25, sc0: 0.85, sc1: 0.35, luce: 0.45,
+    zone: [{ a: 6350, b: 7000, n: 3, d0: 9, d1: 22 }, { a: 24600, b: 25000, n: 2, d0: 10, d1: 20 }], scheda: schedaPioppo });
+  // Silene acaulis ssp. cenisia: Piano di gestione RNO M. Velino, unita' SS (Saxifrago speciosae-Silenetum
+  // cenisiae, habitat 8240*): SOLO zona sommitale (vette di Velino, Cafornia, Sevice e creste fra esse),
+  // fascia 2.100-2.480 m, pendii debolmente inclinati esposti a NW, copertura 10-40%, "presente solo in
+  // cinque biotopi relitti". Qui dunque cinque biotopi, uno per tratto di cresta sopra i 2.240 m, ognuno
+  // di 1-2 blocchi rocciosi con 3-6 cuscini, sempre sul lato NW del tracciato (verso di gara):
+  //   km 15,55-15,70  2.245-2.270 m  versante di M. di Sevice      lato destro
+  //   km 16,55-16,65  ~2.300 m       cresta Sevice-Velino           lato destro
+  //   km 17,05-17,15  ~2.365 m       spalla del Velino              lato sinistro
+  //   km 18,15-18,25  2.385 m        cresta Velino-Cafornia (tetto) lato destro
+  //   km 19,00-19,15  2.265-2.285 m  verso M. Cafornia              lato sinistro
+  // Fioritura giugno-luglio: qui si mostra in fiore per farla riconoscere, la scheda dice il periodo.
+  try { buildSassiCresta(); } catch (e) { console.warn('sassi cresta:', e); }
+  const bioSS = (a, b, lato, n) => ({ a, b, n, d0: 1.2, d1: 4.5, grp: [3, 6], lato });
+  if (FLORA_3D) buildPiantaLowPoly({ nome: 'Silene', geo: geoSilene(153), map: texSilene(154), seme: 15301, pendenza: true, roccia: true, ombra: false, piccola: true, sc0: 0.5, sc1: 0.55, affonda: -0.03, rGrp: 1.1,
+    zone: [bioSS(15550, 15700, 1, 2), bioSS(16550, 16650, 1, 1), bioSS(17050, 17150, -1, 2), bioSS(18150, 18250, 1, 1), bioSS(19000, 19150, -1, 2)], scheda: schedaSilene });
+  else buildImpostor({ nome: 'Silene', file: 'silene.webp', piccola: true, layout: 'cuscino', hReale: 0.06, larg: 0.38, seme: 15301, vento: 0, ombra: false, sc0: 0.7, sc1: 0.7, luce: 0.35,
+    zone: [{ a: 15100, b: 16400, n: 18, d0: 1.2, d1: 4.5 }, { a: 16400, b: 18600, n: 24, d0: 1.2, d1: 5 }], scheda: schedaSilene });
+}
+function schedaPioppo(sS){
+  const km = (sS / 1000).toFixed(1).replace('.', ',');
+  const dove = sS > 20000 ? 'Qui, nella grande discesa, il Piano di gestione censisce nove boschetti alla giunzione fra Valle Majelama e Valle della Genzana, fra 1.400 e 1.600 m, a contatto con i noccioleti e con i ghiaioni.'
+                         : 'Qui, sotto la scarpata di faglia del versante sud-occidentale del Velino, il Piano di gestione censisce quattro boschetti fra 1.200 e 1.300 m, in contatto con le praterie secondarie.';
+  openCard('<h2>Pioppo tremulo</h2><h3><i>Populus tremula</i> · km ' + km + '</h3>' +
+    '<p>L’albero che «trema»: il picciolo delle foglie è appiattito e basta un filo d’aria perché tutta la chioma frusci e scintilli. In ottobre vira a un <b>giallo intenso</b>, inconfondibile anche di corsa; la corteccia è liscia e grigio-verde. Sul Velino resta basso, da 6 a 10 m.</p>' +
+    '<table><tr><th>Dove</th><td>Boschetti frammentari e minuscoli (in tutta la Riserva appena un ettaro, lo 0,2% del territorio), fra 1.200 e 1.700 m, su versanti esposti a sud dove accumuli argillosi trattengono l’acqua: il pioppo tradisce l’umidità nel suolo. ' + dove + '</td></tr>' +
+    '<tr><th>Compagni</th><td>Nocciolo, sorbo montano e viburno nello strato arbustivo; sotto, sigillo di Salomone, rosa canina e l’orchidea <i>Cephalanthera damasonium</i>.</td></tr>' +
+    '<tr><th>Come vive</th><td>Specie pioniera e di luce, cresce in fretta e si propaga per polloni dalle radici: un gruppo di pioppi vicini è spesso un unico individuo.</td></tr>' +
+    '<tr><th>Per chi corre</th><td>Dove ci sono i pioppi il fondo resta umido anche con il sole: attenzione a radici e foglie bagnate.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonti: Piano di gestione della Riserva Naturale Orientata Monte Velino (unità PT, <i>Corylo-Populetum tremuli</i>); Guida naturalistica SRM 2026.</p>');
+}
+// sassi del brecciaio e della roccia spaccata dal gelo lungo la cresta (km 10,5-21, sopra i 1.800 m):
+// blocchi low-poly (80 facce) posati con la pendenza, piu' fitti dove il pendio e' ripido e sui
+// pavimenti calcarei del tratto Sevice-Cafornia. Una InstancedMesh, ombre, non cliccabili.
+function buildSassiCresta(){
+  const K = (route.lino_h || 7.8) / 1.7, rnd = rngDa(777), posti = [];
+  const A = route.elev_a, B = route.elev_b;
+  for (let s = 10500; s < 21200; s += 9) {
+    posAt(s, tmpA); tanAt(s, tmpB);
+    const e = A * tmpA.y + B; if (e < 1800) continue;
+    const pav = s > 15000 && s < 18700 ? 1.6 : 1.0;               // pavimenti calcarei: piu' sassi
+    const lato = rnd() < 0.5 ? -1 : 1, dist = (2.5 + rnd() * 38) * K;
+    const x = tmpA.x - tmpB.z * dist * lato, z = tmpA.z + tmpB.x * dist * lato;
+    let y = terraVera(x, z, tmpA.y + 10); if (y < -1e3) continue;
+    const h = 2, gx = (terraVera(x + h, z, y + 6) - terraVera(x - h, z, y + 6)) / (2 * h), gz = (terraVera(x, z + h, y + 6) - terraVera(x, z - h, y + 6)) / (2 * h);
+    if (Math.abs(gx) > 3 || Math.abs(gz) > 3) continue;
+    const pend = Math.hypot(gx, gz);
+    if (rnd() > (0.18 + 0.9 * Math.min(pend, 0.7)) * pav) continue;
+    const r = (0.18 + rnd() * rnd() * 0.75) * K;                    // 18 cm - ~95 cm, piu' piccoli che grandi
+    posti.push([x, y - r * 0.35, z, rnd() * Math.PI * 2, r, gx, gz, 0.6 + rnd() * 0.5, 0.7 + rnd() * 0.5]);
+  }
+  if (!posti.length) return;
+  const im = new THREE.InstancedMesh(geoRoccia(778, 2), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 , flatShading: true }), posti.length);
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(), P = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), nrm = new THREE.Vector3(), Qt = new THREE.Quaternion(), col = new THREE.Color();
+  posti.forEach((p, i) => {
+    P.set(p[0], p[1], p[2]); Q.setFromEuler(E.set(0, p[3], 0)); S.set(p[4], p[4] * p[7], p[4] * p[8]);
+    nrm.set(-p[5], 1, -p[6]).normalize(); Qt.setFromUnitVectors(up, nrm); Q.premultiply(Qt);
+    M.compose(P, Q, S); im.setMatrixAt(i, M);
+    col.setHSL(0.09, 0.04, 0.80 + rnd() * 0.35); im.setColorAt(i, col);
+  });
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; im.name = 'SassiCresta';
+  scene.add(im); VEG_IM.push({ im, n: posti.length });
+  console.log('sassi di cresta:', posti.length);
+}
+function schedaRoverella(){
+  openCard('<h2>Roverella</h2><h3><i>Quercus pubescens</i> · querceto termofilo</h3>' +
+    '<p>La quercia dei versanti caldi e assolati: bassa, tozza, con foglie lobate vellutate di sotto che a metà ottobre virano dal verde oliva all’ocra e al bruno e restano sui rami secche fino all’inverno. Con lei orniello e citiso, e nelle radure i prati aridi ricchi di orchidee.</p>' +
+    '<table><tr><th>Dove</th><td>Sul Velino i querceti di roverella sopravvivono in pochi lembi: il versante sud-occidentale del Monte Rozza fino a 1.200 m, strisce nei valloni esposti a sud e il bosco di Valle Porclaneta. Le colline verso Rosciolo alternano boschetti, campi e carrarecce.</td></tr>' +
+    '<tr><th>Perché conta</th><td>Habitat prioritario europeo 91AA* (boschi orientali di quercia bianca), fra i più fragili del massiccio: formatosi solo 5–10.000 anni fa e in gran parte distrutto dall’uomo dal Medioevo. Il tracciato lo lambisce a monte di Passo Le Forche senza mai attraversarlo.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonti: Piano di gestione della Riserva Naturale Orientata Monte Velino; Guida naturalistica SRM 2026.</p>');
+}
+function schedaBoscaglia(){
+  openCard('<h2>Boscaglie fresche di fondovalle</h2><h3>nocciolo, faggio, pioppo tremulo · Valle Majelama</h3>' +
+    '<p>Nelle conche fresche e sul fondo della Valle Majelama, dove il suolo trattiene l’acqua, crescono boscaglie di <b>nocciolo</b> con pioppo tremulo e, nei punti più freschi, lembi di <b>faggeta</b>. A ottobre sono la macchia di colore della discesa: rame, arancio e giallo contro i pascoli già spenti.</p>' +
+    '<table><tr><th>Dove</th><td>Fondovalle di Valle Majelama fra 1.400 e 1.700 m, a contatto con i ghiaioni e con le praterie; l’unica vera foresta di faggio del massiccio è invece nella Val di Teve, oltre la cresta.</td></tr>' +
+    '<tr><th>Per chi corre</th><td>Fondo umido anche con il sole, radici e foglie bagnate: il tratto più scivoloso della grande discesa.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonti: Piano di gestione della Riserva Naturale Orientata Monte Velino (unità CA, PT, PF); Guida naturalistica SRM 2026.</p>');
+}
+function schedaSilene(sS){
+  const km = (sS / 1000).toFixed(1).replace('.', ',');
+  openCard('<h2>Silene a cuscinetto</h2><h3><i>Silene acaulis</i> subsp. <i>cenisia</i> · km ' + km + '</h3>' +
+    '<p>Un cuscino compattissimo di foglioline, largo una mano e alto due dita, che si stringe su sé stesso per resistere a gelo e vento. <b>Fiorisce fra giugno e luglio</b>, quando si copre di piccoli fiori rosa-viola: qui la vedi in fiore per riconoscerla, ma a ottobre è solo un cuscino verde fra i sassi.</p>' +
+    '<table><tr><th>Dove</th><td>Solo nella zona sommitale del massiccio: vette di Velino, Cafornia e Sevice e creste fra di esse, fra 2.100 e 2.480 m (il Velino è l’unico massiccio dove scende sotto i 2.300). Su pendii poco inclinati esposti a nord-ovest e spazzati dal vento, fra i clasti della roccia spaccata dal gelo: un chilometro quadrato in tutto. Insieme a lei la <i>Saxifraga speciosa</i>.</td></tr>' +
+    '<tr><th>Tundra</th><td>È un relitto delle glaciazioni di 500.000 anni fa: suolo gelato otto mesi l’anno, gelate notturne tutto l’anno, copertura vegetale dal 10 al 40%. L’ambiente più freddo del Velino (habitat 8240*, pavimenti calcarei, prioritario).</td></tr>' +
+    '<tr><th>Età</th><td>Cresce di pochi millimetri l’anno: un cuscino largo una mano può avere decenni di vita. I cuscini trattengono il poco suolo che si forma.</td></tr>' +
+    '<tr><th>Attenzione</th><td>Associazione rara, presente in cinque soli biotopi relitti; oggi in buone condizioni, ma la sua tenuta dipende da un gesto solo: <b>corri sulla roccia, non sui cuscinetti</b>. Un piede fuori sentiero cancella mezzo secolo di crescita.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonti: Piano di gestione della Riserva Naturale Orientata Monte Velino (unità SS, <i>Saxifrago speciosae-Silenetum cenisiae</i>); Guida naturalistica SRM 2026.</p>');
 }
 // ---------- coturnici: un gruppetto fermo sui pascoli sassosi sopra Passo Le Forche (km ~10,7) ----------
 // Il modello (semplificato, 6.000 triangoli) guarda verso +z e poggia su un sasso: si posa su terraVera,
@@ -2734,8 +3376,9 @@ function schedaCoturnice(sS){
     '<p>La pernice delle montagne appenniniche: grossa come un piccione tozzo, dorso grigio-bruno, gola bianca bordata di nero e fianchi barrati di nero, bianco e castano; becco e zampe rosso corallo. Si alza in volo solo all’ultimo, con un frullo rumoroso, e preferisce scendere il pendio di corsa fra i sassi.</p>' +
     '<table><tr><th>Dove</th><td>Versanti aperti, assolati e sassosi fra i 1.000 e i 2.500 m, con erba rada e rocce affioranti: pascoli sopra Passo Le Forche, valloni laterali del Velino, creste del Cafornia. In inverno scende di quota sui pendii spazzati dal vento.</td></tr>' +
     '<tr><th>Abitudini</th><td>Vive in piccoli gruppi familiari (brigate) di 5–15 individui; nidifica a terra fra maggio e giugno. Il richiamo, un «ciò-ciò-ciò-ciock» ripetuto, si sente soprattutto all’alba.</td></tr>' +
-    '<tr><th>Perché conta</th><td>Specie di interesse comunitario, in calo in tutto l’Appennino per l’abbandono dei pascoli e il disturbo: nella Riserva è fra le specie che si cerca di tutelare. In gara non si esce dal tracciato e si tengono i cani al guinzaglio.</td></tr></table>' +
-    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026; Riserva Naturale Monte Velino.</p>');
+    '<tr><th>Quante sono</th><td>I monitoraggi della Riserva (2019 e 2021, 67 punti di campionamento) contano <b>50–70 animali</b>, concentrati soprattutto nelle due grandi valli glaciali: Val di Teve e Valle Majelama. Questo gruppetto sopra Passo Le Forche è ai margini del loro areale.</td></tr>' +
+    '<tr><th>Perché conta</th><td>Specie di interesse comunitario, valutata <b>in decremento</b> (soprattutto l’area riproduttiva si restringe) per l’abbandono dei pascoli e il disturbo: nella Riserva è fra le specie che si cerca di tutelare. In gara non si esce dal tracciato e si tengono i cani al guinzaglio.</td></tr></table>' +
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonti: Piano di gestione della Riserva Naturale Orientata Monte Velino (monitoraggio <i>Alectoris graeca</i>); Guida naturalistica SRM 2026.</p>');
 }
 function schedaAdonide(sS){
   const km = (sS / 1000).toFixed(1).replace('.', ',');
@@ -2743,8 +3386,10 @@ function schedaAdonide(sS){
     '<p>Un piccolo cuscinetto di foglie finemente divise, alto una spanna, che a inizio estate si copre di fiori gialli larghi come una moneta. Non esiste in nessun altro luogo al mondo se non sulle montagne dell’Appennino centrale: è un <b>endemismo</b>, e il Velino ne ospita una delle popolazioni più importanti.</p>' +
     '<table><tr><th>Dove</th><td>Ghiaioni e pietraie calcaree sopra i 1.800 m, spesso in pieno sentiero: qui poco prima della Capanna di Sevice (una cinquantina di piante a bordo pista) e sulla cresta fra Velino e Cafornia (circa duecento).</td></tr>' +
     '<tr><th>Fioritura</th><td>Giugno–luglio, subito dopo lo scioglimento della neve; in ottobre resta il cuscinetto verde-grigio fra i sassi.</td></tr>' +
+    '<tr><th>Quante sono</th><td>Nella Riserva il Piano di gestione censisce <b>16 popolamenti, 4.658 piante</b> su poco meno di sei ettari, in stato di conservazione favorevole. Vive solo fra 1.900 e 2.600 m su Velino, Sirente, Gran Sasso, Majella e Sibillini.</td></tr>' +
+    '<tr><th>Storia</th><td>Fu scoperta proprio qui: il botanico <b>Michele Tenore</b>, con Mauri e Orsini, la descrisse al mondo scientifico dopo la prima esplorazione botanica del Velino, il 10 luglio 1829, sedici ore fra salita e discesa da Massa d’Albe. Dal 2023 il «Sentiero Michele Tenore dell’Adonis distorta» (Corona – Fonte Canale – Costa Cafornia – Velino) ricalca quell’itinerario: la discesa della gara ne percorre un tratto.</td></tr>' +
     '<tr><th>Perché conta</th><td>Specie protetta di interesse europeo: cresce lentissima e un calpestio ripetuto la cancella. In gara si resta sul tracciato segnato proprio per non uscire sui ghiaioni dove vive.</td></tr></table>' +
-    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonte: Guida naturalistica SRM 2026.</p>');
+    '<p style="margin-top:8px;color:var(--grigio);font-size:12px">Fonti: Piano di gestione della Riserva Naturale Orientata Monte Velino; Guida naturalistica SRM 2026.</p>');
 }
 function schedaGenziana(sS){
   const km = (sS / 1000).toFixed(1).replace('.', ',');
@@ -2927,7 +3572,15 @@ function buildTigli(){
 // ---------- chiesa di Santa Maria ad Nives (Meshy decimato, 80k tri) al posto della torre stilizzata ----------
 async function buildChiesaNives(loader){
   const g = await loadGLB(loader, 'assets/chiesa_nives.glb?' + VER, () => {});
-  g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { o.material.metalness = 0; o.material.roughness = 0.95; } } });
+  g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) {
+    o.material.metalness = 0; o.material.roughness = 0.95;
+    // la texture Meshy e' scura e satura, con le ombre "cotte" dentro: si schiarisce (gamma 0,78),
+    // si desatura un quarto e si scalda, per avvicinarla alla pietra chiara e agli intonaci del paese
+    o.material.customProgramCacheKey = () => 'nives';
+    o.material.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+{ vec3 c = pow(max(diffuseColor.rgb, 0.0), vec3(0.78)); float l = dot(c, vec3(0.299, 0.587, 0.114));
+  c = mix(c, vec3(l), 0.25) * vec3(1.30, 1.25, 1.14); diffuseColor.rgb = clamp(c, 0.0, 1.0); }`); };
+  } } });
   // via la torre + croce stilizzate di borghi.glb
   let px = -1375, pz = 4611;
   scene.traverse(o => { if (o.isMesh && (o.name === 'Borghi_8' || o.name === 'Borghi_9')) { o.visible = false; if (o.name === 'Borghi_8') { o.geometry.computeBoundingBox(); const c = o.geometry.boundingBox.getCenter(tmpC); o.localToWorld(c); px = c.x; pz = c.z; } } });
@@ -3332,11 +3985,12 @@ function flyStart(){
   if (RIG && RIG.sp.terra) cervoInizio(false);
   if (!FLY.fogSaved) FLY.fogSaved = [scene.fog.near, scene.fog.far];
   scene.fog.near = 700; scene.fog.far = FOG_VOLO[QUAL.liv];
+  applicaQualita(QUAL.liv);   // ombre 1024, flora minuta nascosta, nebbia di volo
   luceGrifone(true);
   document.body.classList.add('grif');
   document.body.classList.toggle('touch', isTouch());
   controls.enabled = false;
-  $('b-grif').classList.add('on'); $('b-grif').textContent = 'TORNA A LINO';
+  $('b-grif').classList.add('on'); $('b-grif').textContent = 'TORNA A ' + nomeAvatar();
   const lab = document.querySelectorAll('#bar .slot .lab');
   lab[0].textContent = (RIG && RIG.sp.terra) ? 'A terra' : 'In volo'; lab[1].textContent = 'Velocità'; lab[3].textContent = (RIG && RIG.sp.terra) ? 'Pendenza' : 'Vario';
   $('zona-n').textContent = nomeVolo(); $('zona-s').textContent = '';
@@ -3358,6 +4012,7 @@ function flyStop(){
   if (FLY.mode === 'tour') { $('b-tour').classList.remove('on'); document.body.classList.remove('tour'); }
   FLY.mode = 'volo'; grifP.visible = false; skirt.visible = false; if (OMBRA_C) OMBRA_C.visible = false;
   if (FLY.fogSaved) { scene.fog.near = FLY.fogSaved[0]; scene.fog.far = QUAL.liv === 0 ? 11000 : FLY.fogSaved[1]; FLY.fogSaved = null; }
+  applicaQualita(QUAL.liv);   // ombre piene, flora minuta di nuovo in scena
   $('fade').style.opacity = 0; $('impatto').classList.remove('on');
   camera.fov = 55; camera.updateProjectionMatrix();
   luceGrifone(false);
@@ -4048,6 +4703,31 @@ function posaCervo(dt, gp, L){
 // ombra di contatto sotto il cervo: macchia morbida che resta anche quando le ombre vere sono spente
 // (qualita' bassa) e "incolla" l'animale al suolo
 let OMBRA_C = null;
+// ombra di contatto di Lino: disco sfumato sul terreno, sempre presente (anche senza ombre vere, e come
+// occlusione ai piedi quando ci sono). Si rifa' la texture del cervo, dimensionata su Lino.
+let OMBRA_L = null;
+function buildOmbraLino(){
+  if (OMBRA_L) return OMBRA_L;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const x = cv.getContext('2d'); const gr = x.createRadialGradient(64, 64, 3, 64, 64, 62);
+  gr.addColorStop(0, 'rgba(0,0,0,0.5)'); gr.addColorStop(0.5, 'rgba(0,0,0,0.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(cv);
+  const K = (route.lino_h || 7.8) / 1.7;
+  const geo = new THREE.PlaneGeometry(0.9 * K, 1.1 * K); geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  OMBRA_L = new THREE.Mesh(geo, mat); OMBRA_L.renderOrder = 3; OMBRA_L.name = 'OmbraLino'; OMBRA_L.frustumCulled = false;
+  scene.add(OMBRA_L);
+  return OMBRA_L;
+}
+function tickOmbraContatto(p, yaw){
+  const o = OMBRA_L || buildOmbraLino();
+  o.visible = !FLY.on && !(st.view === 'fpv');
+  if (!o.visible) return;
+  o.position.set(p.x, p.y + 0.08, p.z); o.rotation.y = yaw;
+  // con le ombre vere il disco resta tenue (occlusione di contatto); senza, e' l'unica ombra
+  o.material.opacity = QUAL.liv > 0 ? 0.45 : 0.9;
+}
 function buildOmbraCervo(){
   if (OMBRA_C) return OMBRA_C;
   const cv = document.createElement('canvas'); cv.width = cv.height = 128;
@@ -4405,8 +5085,12 @@ function tiltOff(){
 
 // ---------- ciclo ----------
 function tick(){
+  // cadenza dimezzata (gradino economico sul telefono): un frame si', uno no. Il dt si accumula da solo
+  // nel clock, cosi' movimento e animazioni vanno alla stessa velocita' reale.
+  if (QUAL.cap30 && (++QUAL.frame & 1)) return;
   const dtReale = clock.getDelta();
   const dt = Math.min(dtReale, 0.05);
+  if (QUAL.resPend) applicaRisoluzione(true);   // ridimensiona il buffer e lo ridisegna nello stesso giro
   if (SKY) SKY.position.copy(camera.position);
   if (NUVOLE.length) tickNuvole(dt);
   if (VENTO_SH.length) { const tt = performance.now() / 1000; for (const sh of VENTO_SH) sh.uniforms.uT.value = tt; }
@@ -4450,13 +5134,13 @@ function tick(){
   lino.rotateZ(-0.10 - pitch * 0.18);
   if (mixer && LINOACT) {
     // pesi: fermo -> cammina (fino a ~30 km/h di scena) -> corre -> carica quando tiene premuto a lungo
-    const v = st.speed, sprint = st.hold > 2.2 ? 1 : 0;
+    const v = st.speed, sprint = (st.hold > 2.2 && LINOACT.charge) ? 1 : 0;   // senza clip "charge" lo sprint resta corsa (piu' veloce)
     const wWalk = clamp(1 - (v - 40) / 40, 0, 1), wRun = clamp((v - 40) / 40, 0, 1) * (1 - sprint), wCh = clamp((v - 40) / 40, 0, 1) * sprint;
     const k = 1 - Math.exp(-6 * dt);
     if (LINOACT.walk) LINOACT.walk.setEffectiveWeight(lerp(LINOACT.walk.getEffectiveWeight(), wWalk, k));
     if (LINOACT.run) LINOACT.run.setEffectiveWeight(lerp(LINOACT.run.getEffectiveWeight(), wRun, k));
     if (LINOACT.charge) LINOACT.charge.setEffectiveWeight(lerp(LINOACT.charge.getEffectiveWeight(), wCh, k));
-    mixer.timeScale = v < 1 ? 0 : clamp(0.35 + v / 90, 0.35, 2.2);
+    mixer.timeScale = v < 1 ? 0 : clamp(0.35 + v / 90, 0.35, 2.2) * (st.hold > 2.2 && !LINOACT.charge ? 1.25 : 1);
     mixer.update(dt);
     // i bastoncini si prendono a S. Maria in Valle Porclaneta (km 8,2)
     const conPoli = st.s >= 8200;
@@ -4496,7 +5180,10 @@ function tick(){
     sunLight.position.set(tmpA.x + SUNDIR.x * 2300, tmpA.y + SUNDIR.y * 2300, tmpA.z + SUNDIR.z * 2300);
     sunLight.target.position.copy(tmpA);
     sunLight.target.updateMatrixWorld();
+    // quadro delle ombre: stretto quando si segue Lino da vicino (ombra nitida ai piedi), largo da lontano
+    inquadraOmbre(clamp(camera.position.distanceTo(tmpA) * 1.5, 110, 430));
   }
+  tickOmbraContatto(tmpA, rotY);
   // grifoni
   const tNow = performance.now() / 1000;
   for (const m of grifs) {

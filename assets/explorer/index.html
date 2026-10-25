@@ -117,15 +117,39 @@ html,body{height:100%;overflow:hidden;background:var(--verde);color:var(--avorio
   filter:drop-shadow(0 1px 3px rgba(0,0,0,.45))}
 #logo-top img{height:48px;display:block}
 @media (max-width:1280px){#logo-top{display:none}}
+#av-titolo{display:none;margin:16px auto -6px;height:50px;flex-direction:column;align-items:center;justify-content:center;
+  text-shadow:0 3px 8px rgba(0,0,0,.5)}
+#av-titolo.on{display:flex}
+#av-titolo b{font-family:Anton,Oswald,sans-serif;font-weight:400;font-size:30px;line-height:1;letter-spacing:.06em;color:var(--avorio)}
+#av-titolo span{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--arancio);margin-top:5px}
 #spinbox{position:relative;width:470px;height:330px;margin:10px auto 0;max-width:94vw}
 #spin-img{position:absolute;left:50%;top:0;transform:translateX(-50%);width:240px;height:320px;
   background-repeat:no-repeat;display:none;filter:drop-shadow(0 10px 16px rgba(0,0,0,.45))}
 #spin-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
-#spin-chip{position:absolute;max-width:170px;padding:6px 9px;border:1px solid rgba(243,239,226,.45);
-  border-radius:7px;background:rgba(12,31,20,.88);font-family:"JetBrains Mono",monospace;
-  font-size:10px;line-height:1.5;letter-spacing:.03em;color:var(--avorio);text-transform:uppercase;
+#spin-chip{position:absolute;max-width:105px;padding:4px 7px;border:1px solid rgba(243,239,226,.45);
+  border-radius:6px;background:rgba(12,31,20,.88);font-family:"JetBrains Mono",monospace;
+  font-size:8.5px;line-height:1.45;letter-spacing:.02em;color:var(--avorio);text-transform:uppercase;
   text-align:left;opacity:0;transition:opacity .45s}
 #spin-chip b{color:var(--arancio)}
+
+/* ---------- scelta del personaggio (loader): due frecce ai lati di Lino ---------- */
+.av-arr{position:absolute;top:50%;width:44px;height:44px;margin-top:-22px;padding:0;border:0;background:none;cursor:pointer;z-index:3;
+  display:none;align-items:center;justify-content:center;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+.av-arr.on{display:flex}
+.av-arr svg{width:30px;height:38px;display:block}
+.av-arr svg path{fill:rgba(243,239,226,.92);stroke:rgba(12,31,20,.6);stroke-width:1.2;stroke-linejoin:round;transition:fill .15s,transform .15s}
+.av-arr:hover svg path,.av-arr:active svg path{fill:var(--arancio)}
+.av-arr:hover svg{transform:scale(1.08)}
+#av-prev{left:-6px}#av-next{right:-6px}
+#av-ghost{position:absolute;left:50%;top:0;transform:translateX(-50%);width:240px;height:320px;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;text-align:center;pointer-events:none}
+#av-ghost.on{display:flex}
+#av-ghost svg{width:150px;height:190px;opacity:.16}
+#av-ghost svg path,#av-ghost svg circle{fill:var(--avorio)}
+#av-ghost .q{position:absolute;top:70px;font-family:Anton,sans-serif;font-size:96px;line-height:1;color:var(--arancio);text-shadow:0 4px 16px rgba(0,0,0,.6);opacity:.9}
+#av-ghost .lab{font-family:Oswald,sans-serif;font-size:17px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--avorio);margin-top:6px}
+#av-ghost .nota{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--grigio)}
+#go-btn.spento{background:rgba(243,239,226,.18);color:var(--grigio);cursor:default}
 /* ---------- modalità grifone ---------- */
 #fly{display:none;position:fixed;inset:0;z-index:11;pointer-events:none}
 body.grif #fly{display:block}
@@ -220,6 +244,13 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
   #ctrls{gap:4px}
   #nav-hint{display:none}
 }
+@media (max-width:520px){
+  .av-arr{top:auto;bottom:-4px;margin-top:0}            /* sul telefono le frecce scendono agli angoli: la colonna delle targhette resta libera */
+  #spin-chip{font-size:8px;padding:3px 5px}
+  #av-titolo b{font-size:22px}
+  #loader{padding-left:6px;padding-right:6px}
+  #spinbox{max-width:calc(100vw - 12px)}
+}
 </style>
 </head>
 <body>
@@ -251,7 +282,7 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
     <div class="lab" id="g-lab">Cancello</div>
     <div class="val" id="v-g">&mdash;</div>
   </div>
-  <div id="logo-top"><img src="assets/srm_logo.png?v=78" alt="Skyrace del Maglio"></div>
+  <div id="logo-top"><img src="assets/srm_logo.png?v=81" alt="Skyrace del Maglio"></div>
   <div class="slot" id="slot-sent">
     <div id="chip">E1</div>
     <div id="sent-lab">SENTIERO</div>
@@ -297,8 +328,12 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
 <div class="cover" id="loader">
   <div id="load-t">SRM <span>EXPLORER</span></div>
   <div id="load-sub">Skyrace del Maglio 2026 · percorso in 3D</div>
-  <img id="lino-nome" src="assets/lino_nome.png?v=78" alt="LINO">
+  <img id="lino-nome" src="assets/lino_nome.png?v=81" alt="LINO">
+  <div id="av-titolo"><b></b><span></span></div>
   <div id="spinbox">
+    <button class="av-arr" id="av-prev" type="button" aria-label="Personaggio precedente"><svg viewBox="0 0 30 38"><path d="M27 2 L3 19 L27 36 Z"/></svg></button>
+    <button class="av-arr" id="av-next" type="button" aria-label="Personaggio successivo"><svg viewBox="0 0 30 38"><path d="M3 2 L27 19 L3 36 Z"/></svg></button>
+    <div id="av-ghost"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="27" cy="7" r="4.2"/><path d="M23.5 12.5c2.4-.6 4.3.6 5 2.4l2.6 6.3 6.4 2.4c1.1.4 1.6 1.6 1.2 2.6-.4 1-1.5 1.5-2.6 1.1l-7.6-2.8c-.7-.3-1.2-.8-1.5-1.5l-1.1-2.6-3.1 6.2 5.2 4.8c.5.5.8 1.2.7 1.9l-1.2 8.4c-.2 1.2-1.3 2-2.5 1.8-1.2-.2-2-1.3-1.8-2.5l1-7.1-6.1-5.4-4.3 6.6c-.3.5-.8.8-1.4.9l-7.9 1.2c-1.2.2-2.3-.6-2.5-1.8-.2-1.2.6-2.3 1.8-2.5l6.8-1 6.3-10.5-3.7 1.4-2.2 5.1c-.5 1.1-1.7 1.6-2.8 1.1-1.1-.5-1.6-1.7-1.1-2.8l2.8-6.4c.3-.6.8-1.1 1.4-1.3z"/></svg><div class="q">?</div><div class="lab" id="av-lab"></div><div class="nota" id="av-nota"></div></div>
     <div id="spin-img"></div>
     <svg id="spin-svg"></svg>
     <div id="spin-chip"></div>
@@ -322,6 +357,6 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="app.js?v=78"></script>
+<script type="module" src="app.js?v=84"></script>
 </body>
 </html>
