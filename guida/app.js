@@ -170,7 +170,7 @@ function preparaSenso(v) {
   tAttiva = v === 'contrario' ? invertiTraccia(traccia) : traccia;
 }
 const biviAttivi = () => verso === 'contrario' ? invertiBivi(bivi, tAttiva) : bivi;
-const rassicura = () => { const v = leggi('srm-guida-rassicura'); return v == null ? 180000 : +v; };
+const rassicura = () => { const v = leggi('srm-guida-rassicura2'); return v == null ? 300000 : +v; };
 const nuovoMotore = () => new Motore(tAttiva, biviAttivi(), { kmGara, meta: verso === 'contrario' ? 'partenza' : 'arrivo', rassicura: rassicura() });
 function nuovaMappa() {
   mappa?.rimuovi();
@@ -450,7 +450,7 @@ $('b-segna').addEventListener('click', () => {
 });
 $('sel-voce').addEventListener('change', e => { salva('srm-guida-voce2', e.target.value); voce.scegli(); $('b-prova-voce').click(); });
 $('sel-rassicura').value = String(rassicura());
-$('sel-rassicura').addEventListener('change', e => { salva('srm-guida-rassicura', +e.target.value); if (motore) motore.o.rassicura = +e.target.value; });
+$('sel-rassicura').addEventListener('change', e => { salva('srm-guida-rassicura2', +e.target.value); if (motore) motore.o.rassicura = +e.target.value; });
 $('sel-rate').addEventListener('change', e => { salva('srm-guida-rate', e.target.value); voce.rate = +e.target.value; $('b-prova-voce').click(); });
 $('b-prova-voce').addEventListener('click', () => {
   voce.sblocca();

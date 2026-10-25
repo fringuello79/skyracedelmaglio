@@ -26,7 +26,7 @@ export const OPZIONI = {
   kmGara: k => k,          // chilometro come lo conta la gara (serve quando si va al contrario)
   meta: 'arrivo',          // 'arrivo' oppure 'partenza' (guida al contrario)
   attesaDirezione: 45000,
-  rassicura: 180000,       // ms di silenzio dopo cui dire «Sei sul percorso» (0 = mai)  // ms: nel tratto fatto due volte si aspetta di capire il senso di marcia
+  rassicura: 300000,       // ms di silenzio dopo cui dire «Sei sul percorso» (0 = mai)  // ms: nel tratto fatto due volte si aspetta di capire il senso di marcia
 };
 
 // ---------- frasi ----------
