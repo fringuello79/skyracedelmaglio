@@ -90,7 +90,8 @@ details summary { cursor: pointer; font: 700 18px var(--font-titolo); text-trans
 .mk-km span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #153821; color: #fff; font: 700 12px var(--font-testo); border: 2px solid #fff; }
 .leaflet-tooltip.tip { font: 700 13px/1.2 var(--font-testo); border-radius: 8px; border: 0; padding: 5px 8px; }
 .leaflet-control-attribution { font-size: 9px; line-height: 1.3; max-width: 70%; }
-.voce-scelta { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+.voce-scelta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
+.voce-scelta label:first-child { grid-column: 1 / -1; }
 /* schermo nero: nero puro, testo grigio scuro (sugli OLED i pixel neri non consumano); scelta voluta in entrambi i temi */
 .nero { position: fixed; inset: 0; z-index: 5000; background: #000; color: #6f6f6f; display: grid; align-content: center; justify-items: center; gap: 10px; padding: 24px max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); text-align: center; }
 .nero .n-dist { font: 700 64px/1 var(--font-titolo); font-variant-numeric: tabular-nums; }
@@ -212,6 +213,10 @@ html.con-nero, html.con-nero body { background: #000; overflow: hidden; }
     <h2>Voce</h2>
     <div class="voce-scelta">
       <label>Voce italiana<select id="sel-voce"><option value="">Automatica</option></select></label>
+      <label>«Sei sul percorso»<select id="sel-rassicura">
+        <option value="120000">Ogni 2 minuti</option><option value="180000" selected>Ogni 3 minuti</option>
+        <option value="300000">Ogni 5 minuti</option><option value="0">Mai</option>
+      </select></label>
       <label>Velocità<select id="sel-rate">
         <option value="1">Normale</option><option value="0.9">Più lenta</option><option value="1.1">Più veloce</option>
       </select></label>

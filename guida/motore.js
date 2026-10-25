@@ -25,7 +25,8 @@ export const OPZIONI = {
   indietroFix: 3, indietroMetri: 25,
   kmGara: k => k,          // chilometro come lo conta la gara (serve quando si va al contrario)
   meta: 'arrivo',          // 'arrivo' oppure 'partenza' (guida al contrario)
-  attesaDirezione: 45000,  // ms: nel tratto fatto due volte si aspetta di capire il senso di marcia
+  attesaDirezione: 45000,
+  rassicura: 180000,       // ms di silenzio dopo cui dire «Sei sul percorso» (0 = mai)  // ms: nel tratto fatto due volte si aspetta di capire il senso di marcia
 };
 
 // ---------- frasi ----------
@@ -195,10 +196,34 @@ export class Motore {
       this.gpsAvvisato = true;
       ev.push({ tipo: 'gps', priorita: PRIORITA.info, suono: 'attenzione', testo: 'Segnale GPS debole. Avviso di fuori percorso sospeso.' });
     }
+    // tratti lunghi senza indicazioni: una conferma breve, così si sa che la guida è accesa.
+    // Solo se ci si muove, il GPS è buono, si è sul percorso e il prossimo bivio non è vicino.
+    const r = this.o.rassicura;
+    if (r > 0 && this.km != null && !this.arrivato && !this.fuori && !this.gpsAvvisato &&
+        t - (this.ultimoParlato ?? t) >= r && t - this.ultimoMovimento < 20000 && t - (this.ultimaValida ?? 0) < 10000) {
+      const p = this.prossimoBivio();
+      if (!p || p.d > 300) {
+        const kmG = this.o.kmGara(this.km);
+        let testo = `Sei sul percorso, chilometro ${kmParlati(kmG)}.`;
+        if (p) testo += ` Prossimo bivio fra ${p.d >= 1000 ? kmParlati(p.d / 1000) + ' chilometri' : metriParlati(p.d) + ' metri'}.`;
+        else testo += ` ${this.o.meta === 'partenza' ? 'Partenza' : 'Arrivo'} fra ${kmParlati(Math.max(0, this.t.kmTot - this.km))} chilometri.`;
+        ev.push({ tipo: 'conferma', priorita: PRIORITA.info, testo });
+      }
+      this.ultimoParlato = t;   // se il bivio è vicino si riprova al giro successivo
+    }
+    if (ev.length) this.ultimoParlato = t;
     return ev;
   }
 
+  // ogni messaggio detto azzera il conto per la conferma «Sei sul percorso»
   posizione(fix) {
+    const ev = this._posizione(fix);
+    if (ev.some(e => e.testo)) this.ultimoParlato = fix.t;
+    else if (this.ultimoParlato == null && this.km != null) this.ultimoParlato = fix.t;
+    return ev;
+  }
+
+  _posizione(fix) {
     const ev = [];
     const o = this.o, T = this.t;
     if (this.arrivato) return ev;
