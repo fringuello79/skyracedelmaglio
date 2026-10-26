@@ -466,14 +466,16 @@ $('b-prova-voce').addEventListener('click', () => {
 
 // ---------------- scelta traccia e modo ----------------
 // ---------------- percorso da link Google Maps ----------------
-const LINK_ROMA = 'https://www.google.com/maps/dir/?api=1&origin=Stadio%20Nando%20Martellini%2C%20Roma&destination=Stadio%20Nando%20Martellini%2C%20Roma&travelmode=walking&waypoints=Porta%20San%20Sebastiano%2C%20Roma%7CChiesa%20Domine%20Quo%20Vadis%2C%20Roma%7CSepolcro%20di%20Annia%20Regilla%2C%20Roma%7CNinfeo%20di%20Egeria%2C%20Roma%7CCasale%20della%20Vaccareccia%2C%20Roma%7CVia%20Cilicia%2017%2C%20Roma%7CPorta%20Latina%2C%20Roma';
+const LINK_ROMA = 'https://www.google.com/maps/dir/?api=1&origin=Stadio%20Nando%20Martellini%2C%20Roma&destination=Stadio%20Nando%20Martellini%2C%20Roma&travelmode=walking&waypoints=Porta%20San%20Sebastiano%2C%20Roma%7CChiesa%20Domine%20Quo%20Vadis%2C%20Roma%7CSepolcro%20di%20Annia%20Regilla%2C%20Roma%7CNinfeo%20di%20Egeria%2C%20Roma%7CCasale%20della%20Vaccareccia%2C%20Roma%20%4041.8634%2C12.5209%7CVia%20Cilicia%2017%2C%20Roma%7CPorta%20Latina%2C%20Roma';
 const codice = t => { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36); };
-$('testo-link').value = leggi('srm-guida-ultimo-link') || LINK_ROMA;
+// il vecchio link di Roma (senza coordinate del Casale) viene sostituito da quello corretto
+const ultimoLink = leggi('srm-guida-ultimo-link');
+$('testo-link').value = !ultimoLink || ultimoLink === LINK_ROMA.replace('%20%4041.8634%2C12.5209', '') ? LINK_ROMA : ultimoLink;
 let pacchetto = null;
 function usaPacchetto(pk) {
   pacchetto = pk;
   traccia = new Traccia(pk.traccia);
-  tracciaId = 'link:' + codice(pk.link); versioneBivi = 1;
+  tracciaId = 'link2:' + codice(pk.link); versioneBivi = 1;
   biviBase = pk.bivi.filter(b => b.tipo !== 'luogo' || $('c-luoghi').checked);
   bivi = leggi(chiave()) || structuredClone(biviBase);
   if (!$('c-luoghi').checked) bivi = bivi.filter(b => b.tipo !== 'luogo');
@@ -488,7 +490,7 @@ function usaPacchetto(pk) {
 async function caricaLink(rifai = false) {
   const link = $('testo-link').value.trim();
   salva('srm-guida-ultimo-link', link);
-  const k = 'srm-guida-percorso:' + codice(link);
+  const k = 'srm-guida-percorso2:' + codice(link);   // 2: dopo la correzione delle tappe omonime
   const c = !rifai && leggi(k);
   if (c) { usaPacchetto(c); return; }
   traccia = null; disegnaBivi(); $('b-gpx').disabled = true;
@@ -496,7 +498,7 @@ async function caricaLink(rifai = false) {
   try {
     const pk = await preparaDaLink(link, t => messaggioPrepara(t));
     salva(k, pk);
-    try { localStorage.removeItem('srm-guida-bivi:link:' + codice(link)); } catch { /* niente */ }
+    try { localStorage.removeItem('srm-guida-bivi:link2:' + codice(link)); localStorage.removeItem('srm-guida-percorso:' + codice(link)); } catch { /* niente */ }
     usaPacchetto(pk);
   } catch (e) {
     messaggioPrepara(`Non riesco a preparare il percorso: ${e.message || e}. Serve la connessione a internet; riprova tra poco.`);

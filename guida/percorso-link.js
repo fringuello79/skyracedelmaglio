@@ -34,32 +34,43 @@ export function leggiLink(testo) {
 }
 
 // ---------- tappe → coordinate ----------
-const coordInTesto = s => { const m = String(s).match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/); return m ? { lat: +m[1], lon: +m[2] } : null; };
-async function geocodifica(nome, vicino) {
+// «Nome @ 41.8634, 12.5209»: coordinate certe con il nome da annunciare
+const RE_COORD = /@?\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/;
+const coordInTesto = s => { const m = String(s).match(RE_COORD); return m ? { lat: +m[1], lon: +m[2] } : null; };
+const nomePulito = s => String(s).replace(RE_COORD, '').replace(/[\s,@]+$/, '').trim() || String(s);
+// zona = { lat, lon, km }: con `vincolo` si accettano solo risultati entro quei km (stesso nome altrove = scartato)
+const lontano = (p, zona) => zona && dist([p.lat, p.lon], [zona.lat, zona.lon]) / 1000 > zona.km;
+async function geocodifica(nome, zona = null, vincolo = false) {
   const c = coordInTesto(nome);
   if (c) return { ...c, fonte: 'coordinate' };
   const q = encodeURIComponent(nome);
+  const ok = p => p && !(vincolo && lontano(p, zona));
+  const box = zona ? (() => { const dl = zona.km / 111, dg = zona.km / (111 * Math.cos(zona.lat * Math.PI / 180));
+    return `&viewbox=${(zona.lon - dg).toFixed(4)},${(zona.lat + dl).toFixed(4)},${(zona.lon + dg).toFixed(4)},${(zona.lat - dl).toFixed(4)}${vincolo ? '&bounded=1' : ''}`; })() : '';
   // 1. OpenStreetMap (Nominatim)
   try {
-    const r = await json(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=it&q=${q}`);
-    if (r[0]) return { lat: +r[0].lat, lon: +r[0].lon, fonte: 'OpenStreetMap' };
+    const r = await json(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=it&q=${q}${box}`);
+    const p = r.map(x => ({ lat: +x.lat, lon: +x.lon, fonte: 'OpenStreetMap' })).find(ok);
+    if (p) return p;
   } catch { /* si prova il servizio successivo */ }
-  // 2. Photon (OpenStreetMap, ricerca più tollerante)
+  // 2. Photon (OpenStreetMap, ricerca più tollerante); con la zona, i risultati vicini vengono prima
   try {
-    const bias = vicino ? `&lat=${vicino.lat}&lon=${vicino.lon}` : '';
-    const r = await json(`https://photon.komoot.io/api/?limit=1&q=${q}${bias}`);
-    const f = r.features?.[0];
-    if (f) return { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], fonte: 'Photon' };
+    const bias = zona ? `&lat=${zona.lat}&lon=${zona.lon}&location_bias_scale=0.9` : '';
+    const r = await json(`https://photon.komoot.io/api/?limit=5&q=${q}${bias}`);
+    const p = (r.features || []).map(f => ({ lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], fonte: 'Photon' })).find(ok);
+    if (p) return p;
   } catch { /* si prova Wikipedia */ }
   // 3. Wikipedia (coordinate della voce)
   try {
     const solo = nome.split(',')[0];
-    const r = await json(`https://it.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=1&gsrsearch=${encodeURIComponent(solo)}&prop=coordinates`);
-    const pg = Object.values(r.query?.pages || {})[0];
-    if (pg?.coordinates?.[0]) return { lat: pg.coordinates[0].lat, lon: pg.coordinates[0].lon, fonte: 'Wikipedia' };
+    const r = await json(`https://it.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=5&gsrsearch=${encodeURIComponent(solo)}&prop=coordinates`);
+    const p = Object.values(r.query?.pages || {}).sort((a, b) => a.index - b.index)
+      .filter(pg => pg.coordinates?.[0]).map(pg => ({ lat: pg.coordinates[0].lat, lon: pg.coordinates[0].lon, fonte: 'Wikipedia' })).find(ok);
+    if (p) return p;
   } catch { /* nessun risultato */ }
   return null;
 }
+const mediana = v => { const s = [...v].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
 
 // ---------- percorso a piedi ----------
 const AZ_OSRM = { 'left': 'gira-sx', 'right': 'gira-dx', 'slight left': 'tieni-sx', 'slight right': 'tieni-dx',
@@ -118,7 +129,7 @@ function tracciaDaPunti(ll) {
 }
 
 // ---------- luoghi d'interesse (Wikipedia) ----------
-const NON_LUOGHI = /^(via|viale|vicolo|piazza|piazzale|largo|lungotevere|circonvallazione|stazione|fermata|scuola|istituto|liceo|ospedale)\b|quartiere|rione|zona urbanistica|suburbio|\(metropolitana|linea [a-c] |municipio/i;
+const NON_LUOGHI = /\((zona|quartiere|rione|suburbio)\b|^(via|viale|vicolo|piazza|piazzale|largo|lungotevere|circonvallazione|stazione|fermata|scuola|istituto|liceo|ospedale)\b|quartiere|rione|zona urbanistica|suburbio|\(metropolitana|linea [a-c] |municipio/i;
 function frase1(testo) {
   let t = String(testo || '').replace(/\s*\([^()]*\)/g, '').replace(/\s*\([^()]*\)/g, '').replace(/\s+/g, ' ').trim();
   const m = t.match(/^(.{40,}?[.;])\s/);
@@ -203,13 +214,27 @@ ${trk}
 export async function preparaDaLink(link, avanza = () => {}) {
   const tappe = leggiLink(link);
   const punti = [];
+  // 1° giro: ogni tappa, preferendo la zona della prima trovata
   for (let i = 0; i < tappe.length; i++) {
     avanza(`Cerco le tappe sulla mappa… ${i + 1}/${tappe.length}: ${tappe[i]}`);
     const uguale = tappe.findIndex(t => t === tappe[i]);
-    let p = uguale < i ? { ...punti[uguale] } : await geocodifica(tappe[i], punti.at(-1));
+    const zona = punti[0] ? { lat: punti[0].lat, lon: punti[0].lon, km: 15 } : null;
+    let p = uguale < i ? { ...punti[uguale] } : await geocodifica(tappe[i], zona);
     if (!p) throw new Error(`Non trovo sulla mappa la tappa «${tappe[i]}».`);
-    punti.push({ ...p, nome: tappe[i] });
-    if (uguale === i) await attesa(1100);   // regola d'uso di Nominatim: una richiesta al secondo
+    punti.push({ ...p, nome: nomePulito(tappe[i]) });
+    if (uguale === i && p.fonte !== 'coordinate') await attesa(1100);   // regola d'uso di Nominatim: una richiesta al secondo
+  }
+  // 2° giro: una tappa lontana dalle altre è quasi sempre un omonimo (es. un'altra «Vaccareccia» a 40 km):
+  // la si ricerca solo entro 6 km dal centro delle altre
+  for (let i = 0; i < punti.length; i++) {
+    const altri = punti.filter((_, j) => j !== i);
+    const centro = { lat: mediana(altri.map(p => p.lat)), lon: mediana(altri.map(p => p.lon)), km: 6 };
+    if (!lontano(punti[i], centro) || punti[i].fonte === 'coordinate') continue;
+    avanza(`La tappa «${tappe[i]}» risulta lontana dalle altre: la ricerco nella zona giusta…`);
+    await attesa(1100);
+    const p = await geocodifica(tappe[i], centro, true);
+    if (!p) throw new Error(`La tappa «${tappe[i]}» risulta lontana dalle altre e non la trovo vicino. Scrivila in modo più preciso o mettine le coordinate (es. 41.8634, 12.5209).`);
+    punti[i] = { ...p, nome: nomePulito(tappe[i]) };
   }
   avanza('Calcolo il percorso a piedi…');
   let r;
@@ -245,7 +270,10 @@ export async function preparaDaLink(link, avanza = () => {}) {
   luoghi.forEach((l, i) => bivi.push({ id: 'L' + String(i + 1).padStart(2, '0'), tipo: 'luogo', km: Math.round(l.km * 1000) / 1000,
     nome: l.nome, plat: l.lat, plon: l.lon, testo: l.testo || '', fonte: 'wikipedia' }));
   bivi.sort((a, b) => a.km - b.km);
-  const nome = tappe.length > 2 ? tappe.slice(1, -1).map(t => t.split(',')[0]).slice(0, 3).join(', ') : tappe.at(-1).split(',')[0];
+  const nome = punti.length > 2 ? punti.slice(1, -1).map(t => t.nome.split(',')[0]).slice(0, 3).join(', ') : punti.at(-1).nome.split(',')[0];
   const rip = trattiRipetuti(traccia);
+  // controllo: un percorso a piedi è di solito 1,1-1,6 volte la somma delle linee d'aria tra le tappe
+  const aria = punti.slice(1).reduce((t, p, i) => t + dist([punti[i].lat, punti[i].lon], [p.lat, p.lon]) / 1000, 0);
+  if (aria > 0 && traccia.kmTot > 2.2 * aria) throw new Error(`il percorso calcolato (${traccia.kmTot.toFixed(1)} km) è anomalo rispetto alle tappe (${aria.toFixed(1)} km in linea d'aria). Controlla le tappe del link`);
   return { nome, link, tappe: punti, traccia: dati, bivi, fonte: r.fonte, ripetuti: rip, creato: new Date().toISOString() };
 }
