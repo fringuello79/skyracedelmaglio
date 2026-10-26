@@ -163,6 +163,12 @@ export class MappaGuida {
   impostaBivi(bivi) {
     this.gBivi.clearLayers(); this.mkBivi.clear();
     for (const b of bivi) {
+      if (b.tipo === 'tornanti' || b.tipo === 'sentiero') continue;
+      if (b.tipo === 'luogo') {
+        L.marker([b.plat, b.plon], { pane: 'bivi', keyboard: false, icon: L.divIcon({ className: 'mk-luogo', iconSize: [22, 22], iconAnchor: [11, 11], html: '<span>i</span>' }) })
+          .bindTooltip(b.nome, { className: 'tip', direction: 'top', offset: [0, -10] }).addTo(this.gBivi);
+        continue;
+      }
       const mk = L.marker([b.lat, b.lon], { pane: 'bivi', keyboard: false, icon: iconaBivio(b, 'normale') })
         .bindTooltip(`${b.id} · ${b.titolo}`, { className: 'tip', direction: 'top', offset: [0, -14] });
       mk.addTo(this.gBivi);

@@ -99,6 +99,14 @@ details summary { cursor: pointer; font: 700 18px var(--font-titolo); text-trans
 .nero.errore { color: #b0473f; }
 .nero .n-tocca { position: absolute; bottom: max(28px, env(safe-area-inset-bottom)); left: 0; right: 0; margin: 0; font-size: 14px; color: #444; }
 html.con-nero, html.con-nero body { background: #000; overflow: hidden; }
+/* percorso da link */
+.scelta label.largo { grid-column: 1 / -1; }
+.riga-link { display: grid; gap: 8px; }
+.riga-link textarea { font: 14px/1.35 var(--font-testo); padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linea); background: var(--fondo); color: var(--inchiostro); width: 100%; resize: vertical; word-break: break-all; }
+.spunta { display: flex; gap: 8px; align-items: center; color: var(--inchiostro); }
+.spunta input { width: 20px; height: 20px; }
+.mk-luogo { background: none; border: 0; }
+.mk-luogo span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #6b2fa0; color: #fff; font: 700 13px/1 Georgia, serif; font-style: italic; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
 @media (prefers-reduced-motion: no-preference) { .indicazione { transition: background .2s, border-color .2s; } }
 </style>
 </head>
@@ -117,9 +125,19 @@ html.con-nero, html.con-nero body { background: #000; overflow: hidden; }
     <div>
       <p class="tenue" id="lbl-traccia">Traccia</p>
       <div class="scelta" role="radiogroup" aria-labelledby="lbl-traccia">
-        <input type="radio" name="traccia" id="t-srm" value="srm" checked><label for="t-srm">Percorso SRM<small>29,7 km, 20 bivi dal piano segnaletica</small></label>
+        <input type="radio" name="traccia" id="t-srm" value="srm" checked><label for="t-srm">Percorso SRM<small>29,7 km, 47 bivi e svolte</small></label>
         <input type="radio" name="traccia" id="t-gpx" value="gpx"><label for="t-gpx">GPX di prova<small>Un tuo giro, bivi dalle svolte</small></label>
+        <input type="radio" name="traccia" id="t-link" value="link"><label for="t-link" class="largo">Percorso da link Google Maps<small>Pronto il giro di Roma: Appia Antica e Caffarella, con i luoghi d'interesse</small></label>
       </div>
+    </div>
+    <div id="riga-link" class="riga-link" hidden>
+      <label>Link delle indicazioni (Google Maps)<textarea id="testo-link" rows="3" spellcheck="false"></textarea></label>
+      <div class="griglia">
+        <button class="btn secondario" id="b-link" type="button">Prepara il percorso</button>
+        <button class="btn secondario" id="b-link-rifai" type="button">Ricalcola</button>
+      </div>
+      <button class="btn secondario" id="b-gpx" type="button" disabled>Scarica il GPX</button>
+      <label class="spunta"><input type="checkbox" id="c-luoghi" checked> Racconta i luoghi d'interesse</label>
     </div>
     <label id="riga-gpx" hidden>File GPX dal telefono
       <input type="file" id="file-gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml">

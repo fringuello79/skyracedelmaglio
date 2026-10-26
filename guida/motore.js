@@ -96,6 +96,8 @@ export function preparaBivio(traccia, b) {
   const coda2 = (sentiero ? ` Sentiero ${sentiero}.` : '') + (segno ? ' ' + maiuscola(segno) + '.' : '');
   const base = { ...b, tipo: tipoP, km, lat, lon, entrata, uscita, delta, salita, azioneEff: azione, verificaM: b.verifica || OPZIONI.verifica, segnoTesto: segno };
 
+  if (tipoP === 'luogo') return { ...base, icona: 0, titolo: b.nome, silenzioso: true,
+    frasi: { pre: null, ind: null, ora: null, giusto: '' } };
   if (tipoP === 'tornanti') return { ...base, icona: 0, titolo: 'Tornanti', silenzioso: true,
     frasi: { pre: null, ind: 'Tornanti: resta sul sentiero.', ora: null, giusto: '' } };
   if (tipoP === 'sentiero') return { ...base, icona: 0, titolo: `Sentiero ${sentiero}`, silenzioso: true,
@@ -355,6 +357,12 @@ export class Motore {
       const f = this._flag(b);
       const D = (b.km - this.km) * 1000;
       if (primoAggancio && D < 0) { f.pre = f.ind = f.ora = f.ver = true; continue; }
+      // luogo d'interesse: si annuncia avvicinandosi al punto del percorso più vicino
+      if (b.tipo === 'luogo') {
+        if (!f.ind && D <= 40 && D > -60) { f.ind = f.ver = true; ev.push(this._luogo(b, fix)); }
+        else if (!f.ind && D <= -60) f.ind = f.ver = true;
+        continue;
+      }
       // l'inizio di un sentiero si dice sul posto; il resto con il margine per reagire
       const dInd = b.tipo === 'sentiero' ? 10 : Math.max(o.indicazione, v * 12);
       // il preavviso parte solo se prima non c'è un altro punto ancora da annunciare: mai fuori ordine
@@ -379,6 +387,21 @@ export class Motore {
           testo: f.sbagliato ? 'Bene, ora sei sul percorso.' : b.frasi.giusto });
       }
     }
+  }
+
+  // «Guarda a sinistra: Porta San Sebastiano. …» — dove guardare rispetto al senso di marcia
+  _luogo(b, fix) {
+    const qui = [fix.lat, fix.lon], la = [b.plat, b.plon];
+    const d = dist(qui, la), bp = bearing(qui, la);
+    let dove;
+    if (d < 25) dove = 'Qui accanto';
+    else if (this.direzione == null) dove = `Verso ${cardinale(bp)}`;
+    else {
+      const r = norm(bp - this.direzione);
+      dove = Math.abs(r) <= 35 ? 'Davanti a te' : Math.abs(r) >= 145 ? 'Alle tue spalle' : r > 0 ? 'Guarda a destra' : 'Guarda a sinistra';
+    }
+    const quanto = d >= 80 ? `, a ${metriParlati(d)} metri` : '';
+    return { tipo: 'luogo', priorita: PRIORITA.info, bivio: b.id, testo: `${dove}${quanto}: ${b.nome}.${b.testo ? ' ' + b.testo : ''}` };
   }
 
   silenziaIndietro(t, ms = 300000) { this.silenzioIndietroFino = t + ms; }
@@ -438,6 +461,7 @@ export function invertiBivi(bivi, tInv) {
       sentiero: dopo && prima !== dopo ? dopo : undefined };
     if (b.tipo === 'tornanti') { out.km = Math.round((K - b.fino - 0.03) * 1000) / 1000; out.fino = Math.round((K - b.km) * 1000) / 1000; }
     if (b.tipo === 'sentiero') out.sentiero = tInv.sentiero(km + 0.05);
+    if (b.tipo === 'luogo') Object.assign(out, { nome: b.nome, plat: b.plat, plon: b.plon, testo: b.testo });
     return out;
   });
 }

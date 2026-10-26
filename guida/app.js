@@ -3,6 +3,7 @@ import { Traccia, dist, bearing, cardinale } from '../posizione/geo.js';
 import { Motore, invertiTraccia, invertiBivi, AZIONI, POSIZIONI, PRIORITA, metriParlati, kmParlati, svolteAutomatiche, tracciaDaGpx, preparaBivio } from './motore.js';
 import { Simulatore } from './simulatore.js';
 import { MappaGuida } from './mappa.js';
+import { preparaDaLink, trattiRipetuti, gpxDaPacchetto } from './percorso-link.js';
 
 const $ = id => document.getElementById(id);
 const salva = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* memoria non disponibile */ } };
@@ -464,7 +465,61 @@ $('b-prova-voce').addEventListener('click', () => {
 });
 
 // ---------------- scelta traccia e modo ----------------
+// ---------------- percorso da link Google Maps ----------------
+const LINK_ROMA = 'https://www.google.com/maps/dir/?api=1&origin=Stadio%20Nando%20Martellini%2C%20Roma&destination=Stadio%20Nando%20Martellini%2C%20Roma&travelmode=walking&waypoints=Porta%20San%20Sebastiano%2C%20Roma%7CChiesa%20Domine%20Quo%20Vadis%2C%20Roma%7CSepolcro%20di%20Annia%20Regilla%2C%20Roma%7CNinfeo%20di%20Egeria%2C%20Roma%7CCasale%20della%20Vaccareccia%2C%20Roma%7CVia%20Cilicia%2017%2C%20Roma%7CPorta%20Latina%2C%20Roma';
+const codice = t => { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36); };
+$('testo-link').value = leggi('srm-guida-ultimo-link') || LINK_ROMA;
+let pacchetto = null;
+function usaPacchetto(pk) {
+  pacchetto = pk;
+  traccia = new Traccia(pk.traccia);
+  tracciaId = 'link:' + codice(pk.link); versioneBivi = 1;
+  biviBase = pk.bivi.filter(b => b.tipo !== 'luogo' || $('c-luoghi').checked);
+  bivi = leggi(chiave()) || structuredClone(biviBase);
+  if (!$('c-luoghi').checked) bivi = bivi.filter(b => b.tipo !== 'luogo');
+  disegnaBivi();
+  const nl = pk.bivi.filter(b => b.tipo === 'luogo').length, ns = pk.bivi.filter(b => b.tipo !== 'luogo').length;
+  const rip = pk.ripetuti || trattiRipetuti(traccia);
+  const dove = rip.tratti.map(t => `km ${fmtKm(t.da)}–${fmtKm(t.a)}`).join(', ');
+  const ripTesto = rip.metri < 50 ? 'nessuna strada ripetuta' : `circa ${metriParlati(rip.metri)} m su strade già fatte (${dove})`;
+  $('b-gpx').disabled = false;
+  messaggioPrepara(`Pronto: ${fmtKm(traccia.kmTot)} km, ${ripTesto}, ${ns} svolte, ${nl} luoghi d'interesse. Per correre: «GPS vero» e «Avvia la guida» dalla partenza o da dove sei sul percorso.`);
+}
+async function caricaLink(rifai = false) {
+  const link = $('testo-link').value.trim();
+  salva('srm-guida-ultimo-link', link);
+  const k = 'srm-guida-percorso:' + codice(link);
+  const c = !rifai && leggi(k);
+  if (c) { usaPacchetto(c); return; }
+  traccia = null; disegnaBivi(); $('b-gpx').disabled = true;
+  $('b-link').disabled = $('b-link-rifai').disabled = true;
+  try {
+    const pk = await preparaDaLink(link, t => messaggioPrepara(t));
+    salva(k, pk);
+    try { localStorage.removeItem('srm-guida-bivi:link:' + codice(link)); } catch { /* niente */ }
+    usaPacchetto(pk);
+  } catch (e) {
+    messaggioPrepara(`Non riesco a preparare il percorso: ${e.message || e}. Serve la connessione a internet; riprova tra poco.`);
+  } finally { $('b-link').disabled = $('b-link-rifai').disabled = false; }
+}
+$('b-link').addEventListener('click', () => caricaLink(false));
+// GPX: su iPhone si apre il foglio di condivisione (Salva su File, invia…); altrimenti si scarica
+$('b-gpx').addEventListener('click', async () => {
+  if (!pacchetto) return;
+  const nomeFile = 'percorso-' + pacchetto.nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '.gpx';
+  const file = new File([gpxDaPacchetto(pacchetto)], nomeFile, { type: 'application/gpx+xml' });
+  try {
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: pacchetto.nome }); return; }
+  } catch (e) { if (e?.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = nomeFile;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+$('b-link-rifai').addEventListener('click', () => caricaLink(true));
+$('c-luoghi').addEventListener('change', () => { if (pacchetto) usaPacchetto(pacchetto); });
+
 for (const r of document.querySelectorAll('input[name=traccia]')) r.addEventListener('change', async () => {
+  if (r.checked) $('riga-link').hidden = r.value !== 'link';
+  if (r.value === 'link' && r.checked) { $('riga-gpx').hidden = true; await caricaLink(false); return; }
   const gpx = r.value === 'gpx' && r.checked;
   $('riga-gpx').hidden = !gpx;
   if (!gpx && r.checked) { await caricaSrm(); messaggioPrepara(''); }
@@ -481,7 +536,7 @@ for (const r of document.querySelectorAll('input[name=modo]')) r.addEventListene
 // ---------------- elenco ed editor dei bivi ----------------
 const NOMI_AZ = { auto: 'Automatica (dalla traccia)', 'dritto': 'Prosegui dritto', 'tieni-dx': 'Tieni la destra', 'tieni-sx': 'Tieni la sinistra', 'gira-dx': 'Gira a destra', 'gira-sx': 'Gira a sinistra', 'stretta-dx': 'Svolta stretta a destra', 'stretta-sx': 'Svolta stretta a sinistra' };
 const NOMI_POS = { '': 'Non serve', sx: 'Il più a sinistra', centro: 'Quello centrale', dx: 'Il più a destra', '2sx': 'Il secondo da sinistra', '2dx': 'Il secondo da destra' };
-const NOMI_FONTE = { segnaletica: 'piano segnaletica', cai: 'sentiero CAI che si stacca', sentiero: 'inizio sentiero', svolta: 'svolta della traccia', tornanti: 'tornanti', utente: 'segnato da te' };
+const NOMI_FONTE = { percorso: 'svolta del percorso', wikipedia: 'luogo d\'interesse', segnaletica: 'piano segnaletica', cai: 'sentiero CAI che si stacca', sentiero: 'inizio sentiero', svolta: 'svolta della traccia', tornanti: 'tornanti', utente: 'segnato da te' };
 
 function salvaBivi() {
   bivi.sort((a, b) => a.km - b.km);
