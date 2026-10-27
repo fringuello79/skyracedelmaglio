@@ -3,7 +3,7 @@ import { Traccia, dist, bearing, cardinale } from '../posizione/geo.js';
 import { Motore, invertiTraccia, invertiBivi, AZIONI, POSIZIONI, PRIORITA, metriParlati, kmParlati, svolteAutomatiche, tracciaDaGpx, preparaBivio } from './motore.js';
 import { Simulatore } from './simulatore.js';
 import { MappaGuida } from './mappa.js';
-import { preparaDaLink, trattiRipetuti, gpxDaPacchetto } from './percorso-link.js';
+import { preparaDaLink, trattiRipetuti, gpxDaPacchetto, luoghiPerTraccia } from './percorso-link.js';
 
 const $ = id => document.getElementById(id);
 const salva = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* memoria non disponibile */ } };
@@ -42,8 +42,12 @@ class Voce {
   scegli() {
     const voci = this.voci(), pref = leggi('srm-guida-voce2');
     this.voce = voci.find(v => v.voiceURI === pref) || voci[0] || null;
+    // voce dei luoghi diversa da quella delle indicazioni (di base una maschile, per distinguerle subito)
+    const prefL = leggi('srm-guida-voce-luoghi');
+    this.voceLuoghi = voci.find(v => v.voiceURI === prefL) || voci.find(v => v !== this.voce && MASCHILI.test(v.name))
+      || voci.find(v => v !== this.voce) || this.voce;
     this.rate = +(leggi('srm-guida-rate') || 1);
-    selettoreVoci(voci, this.voce);
+    selettoreVoci(voci, this.voce, this.voceLuoghi);
   }
   tono(tipo) {
     const c = this.ctx;
@@ -63,6 +67,7 @@ class Voce {
   }
   dici(ev) {
     if (ev.priorita >= PRIORITA.info && Date.now() < this.silenzioInfoFino && !ev.forza) return;
+    if (ev.parti) { ev.idx = 0; ev.t0 = Date.now(); }
     if (ev.priorita <= PRIORITA.bivio && ev.tipo !== 'giusto') this.ultimoImportante = ev;
     if (ev.bivio) this.coda = this.coda.filter(e => e.bivio !== ev.bivio);
     const c = this.corrente;
@@ -75,27 +80,39 @@ class Voce {
     if (!this.corrente) this._prossimo();
   }
   _interrompi() {
+    // una descrizione interrotta torna in coda e riprende dalla frase in corso, dopo l'indicazione
+    const c = this.corrente;
+    if (c?.parti) { c.ripresa = true; this.coda.push(c); this.coda.sort((a, b) => a.priorita - b.priorita); }
     clearTimeout(this.timer); this.corrente = null;
     try { speechSynthesis.cancel(); } catch { /* niente */ }
     setTimeout(() => this._prossimo(), 80);
   }
   _prossimo() {
     if (this.corrente || !this.coda.length) return;
-    const ev = this.coda.shift(); this.corrente = ev;
-    const attesa = ev.suono ? this.tono(ev.suono) : 0;
+    const ev = this.coda.shift();
+    // una descrizione rimasta indietro di oltre 90 secondi non serve più (il luogo è passato)
+    if (ev.parti && Date.now() - ev.t0 > 90000) return this._prossimo();
+    this.corrente = ev;
+    const testo = ev.parti ? ev.parti[ev.idx] : ev.testo;
+    const attesa = ev.suono && !(ev.parti && ev.idx) ? this.tono(ev.suono) : (ev.ripresa ? 350 : 0);
+    ev.ripresa = false;
+    const tok = ev.tok = (ev.tok || 0) + 1;
     setTimeout(() => {
-      if (this.corrente !== ev) return;
-      if (!this.disponibile || !ev.testo) return this._fine(ev);   // conferma con il solo tono
-      const u = new SpeechSynthesisUtterance(ev.testo);
-      u.lang = 'it-IT'; if (this.voce) u.voice = this.voce; u.rate = this.rate || 1; u.pitch = 1;
-      u.onend = u.onerror = () => this._fine(ev);
+      if (this.corrente !== ev || ev.tok !== tok) return;
+      if (!this.disponibile || !testo) return this._fine(ev, tok);   // conferma con il solo tono
+      const u = new SpeechSynthesisUtterance(testo);
+      const v = ev.voce === 'luoghi' ? this.voceLuoghi : this.voce;
+      u.lang = 'it-IT'; if (v) u.voice = v; u.rate = this.rate || 1; u.pitch = 1;
+      u.onend = u.onerror = () => this._fine(ev, tok);
       speechSynthesis.speak(u);
-      this.timer = setTimeout(() => this._fine(ev), 2500 + ev.testo.length * 90);
+      this.timer = setTimeout(() => this._fine(ev, tok), 2500 + testo.length * 90);
     }, attesa);
   }
-  _fine(ev) {
-    if (this.corrente !== ev) return;
+  _fine(ev, tok) {
+    if (this.corrente !== ev || (tok && ev.tok !== tok)) return;
     clearTimeout(this.timer); this.corrente = null;
+    // frase successiva della descrizione: torna in coda, così un'indicazione arrivata nel frattempo passa prima
+    if (ev.parti && ev.idx < ev.parti.length - 1) { ev.idx++; this.coda.push(ev); this.coda.sort((a, b) => a.priorita - b.priorita); }
     setTimeout(() => this._prossimo(), 150);
   }
   ripeti() { if (this.ultimoImportante) this.dici({ ...this.ultimoImportante, priorita: PRIORITA.errore, bivio: null, forza: true }); }
@@ -105,17 +122,20 @@ const ESCLUSE = /elsa|cosimo/i;   // troppo robotiche
 const FEMMINILI = /alice|federica|emma|paola|elsa|isabella|chiara|giulia|silvia|francesca|google italiano/i;
 const MASCHILI = /\bluca\b|cosimo|diego|giuseppe|paolo|marco|roberto|\bmale\b/i;
 const voce = new Voce();
+window.SRMguida = { voce };   // solo per le prove
 if (voce.disponibile) speechSynthesis.addEventListener?.('voiceschanged', () => voce.scegli());
 voce.scegli();
 
-function selettoreVoci(voci, scelta) {
-  const sel = $('sel-voce'); if (!sel) return;
-  sel.replaceChildren();
-  if (!voci.length) { const o = document.createElement('option'); o.value = ''; o.textContent = 'Nessuna voce italiana'; sel.append(o); return; }
-  for (const v of voci) {
-    const o = document.createElement('option'); o.value = v.voiceURI;
-    o.textContent = v.name + (MASCHILI.test(v.name) ? ' (maschile)' : '');
-    o.selected = v === scelta; sel.append(o);
+function selettoreVoci(voci, scelta, sceltaLuoghi) {
+  for (const [id, sc] of [['sel-voce', scelta], ['sel-voce-luoghi', sceltaLuoghi]]) {
+    const sel = $(id); if (!sel) continue;
+    sel.replaceChildren();
+    if (!voci.length) { const o = document.createElement('option'); o.value = ''; o.textContent = 'Nessuna voce italiana'; sel.append(o); continue; }
+    for (const v of voci) {
+      const o = document.createElement('option'); o.value = v.voiceURI;
+      o.textContent = v.name + (MASCHILI.test(v.name) ? ' (maschile)' : '');
+      o.selected = v === sc; sel.append(o);
+    }
   }
   $('sel-rate').value = String(+(leggi('srm-guida-rate') || 1));
 }
@@ -133,6 +153,8 @@ const datiSrm = Promise.all([
   fetch('bivi-srm2026.json').then(r => r.json()),
 ]);
 let traccia = null, tracciaId = null, biviBase = [], bivi = [];
+let luoghi = [];   // guida turistica del percorso caricato (punti di tipo «luogo»)
+const datiLuoghiSrm = fetch('luoghi-srm2026.json').then(r => r.json()).catch(() => ({ luoghi: [] }));
 let versioneBivi = 1;
 const chiave = () => 'srm-guida-bivi:' + tracciaId + (versioneBivi > 1 ? ':v' + versioneBivi : '');
 
@@ -142,6 +164,9 @@ async function caricaSrm() {
   versioneBivi = 1; const vecchi = leggi(chiave());
   versioneBivi = b.versione || 1;
   bivi = leggi(chiave()) || structuredClone(biviBase);
+  // luoghi della guida turistica SRM (dalle schede dell'Explorer): sono sul percorso, quindi senza «guarda a…»
+  luoghi = (await datiLuoghiSrm).luoghi.map((l, i) => { const p = traccia.at(l.km);
+    return { id: 'P' + String(i + 1).padStart(2, '0'), tipo: 'luogo', km: l.km, nome: l.nome, testo: l.testo, plat: p[0], plon: p[1], senzaDirezione: true, fonte: 'explorer' }; });
   // nuova versione dei bivi: si tengono quelli segnati a mano sul telefono
   if (!leggi(chiave()) && vecchi && versioneBivi > 1) {
     for (const u of vecchi.filter(x => x.fonte === 'utente')) if (!bivi.some(x => x.id === u.id)) bivi.push(u);
@@ -156,8 +181,11 @@ async function caricaGpx(file) {
   tracciaId = `gpx:${file.name}:${traccia.pts.length}`;
   biviBase = svolteAutomatiche(traccia);
   bivi = leggi(chiave()) || structuredClone(biviBase);
+  luoghi = leggi('srm-guida-luoghi:' + tracciaId) || [];
   disegnaBivi();
-  return `Traccia di ${fmtKm(traccia.kmTot)} km con ${bivi.length} svolte trattate come bivi.`;
+  const msg = `Traccia di ${fmtKm(traccia.kmTot)} km con ${bivi.length} svolte trattate come bivi.`;
+  if ($('c-luoghi').checked && !luoghi.length) caricaLuoghiWiki(msg);
+  return msg + (luoghi.length ? ` ${luoghi.length} luoghi d'interesse.` : '');
 }
 
 // ---------------- stato della guida ----------------
@@ -170,7 +198,25 @@ function preparaSenso(v) {
   verso = v;
   tAttiva = v === 'contrario' ? invertiTraccia(traccia) : traccia;
 }
-const biviAttivi = () => verso === 'contrario' ? invertiBivi(bivi, tAttiva) : bivi;
+const biviAttivi = () => {
+  const lista = $('c-luoghi').checked ? [...bivi, ...luoghi] : bivi;
+  return verso === 'contrario' ? invertiBivi(lista, tAttiva) : lista;
+};
+// luoghi da Wikipedia per un GPX caricato (serve internet; restano in memoria)
+async function caricaLuoghiWiki(prima = '') {
+  const id = tracciaId, t = traccia;
+  try {
+    const l = await luoghiPerTraccia(t, m => messaggioPrepara(`${prima} ${m}`.trim()));
+    if (tracciaId !== id) return;
+    luoghi = l; salva('srm-guida-luoghi:' + id, l);
+    messaggioPrepara(`${prima} ${l.length} luoghi d'interesse trovati.`.trim());
+    aggiornaLuoghiInGuida();
+  } catch { messaggioPrepara(`${prima} Luoghi d'interesse non disponibili (serve internet).`.trim()); }
+}
+function aggiornaLuoghiInGuida() {
+  if (!motore) return;
+  motore.impostaBivi(biviAttivi()); mappa?.impostaBivi(motore.bivi);
+}
 const rassicura = () => { const v = leggi('srm-guida-rassicura2'); return v == null ? 300000 : +v; };
 const nuovoMotore = () => new Motore(tAttiva, biviAttivi(), { kmGara, meta: verso === 'contrario' ? 'partenza' : 'arrivo', rassicura: rassicura() });
 function nuovaMappa() {
@@ -450,6 +496,10 @@ $('b-segna').addEventListener('click', () => {
   $('sez-bivi').open = true; apriEditor(nuovo);
 });
 $('sel-voce').addEventListener('change', e => { salva('srm-guida-voce2', e.target.value); voce.scegli(); $('b-prova-voce').click(); });
+$('sel-voce-luoghi').addEventListener('change', e => {
+  salva('srm-guida-voce-luoghi', e.target.value); voce.scegli(); voce.sblocca();
+  voce.dici({ tipo: 'prova', priorita: PRIORITA.info, voce: 'luoghi', forza: true, parti: ['Guarda a sinistra: Porta San Sebastiano.', 'È la più grande e meglio conservata porta delle Mura Aureliane.'], testo: '' });
+});
 $('sel-rassicura').value = String(rassicura());
 $('sel-rassicura').addEventListener('change', e => { salva('srm-guida-rassicura2', +e.target.value); if (motore) motore.o.rassicura = +e.target.value; });
 $('sel-rate').addEventListener('change', e => { salva('srm-guida-rate', e.target.value); voce.rate = +e.target.value; $('b-prova-voce').click(); });
@@ -476,9 +526,9 @@ function usaPacchetto(pk) {
   pacchetto = pk;
   traccia = new Traccia(pk.traccia);
   tracciaId = 'link2:' + codice(pk.link); versioneBivi = 1;
-  biviBase = pk.bivi.filter(b => b.tipo !== 'luogo' || $('c-luoghi').checked);
-  bivi = leggi(chiave()) || structuredClone(biviBase);
-  if (!$('c-luoghi').checked) bivi = bivi.filter(b => b.tipo !== 'luogo');
+  biviBase = pk.bivi.filter(b => b.tipo !== 'luogo');
+  bivi = (leggi(chiave()) || structuredClone(biviBase)).filter(b => b.tipo !== 'luogo');
+  luoghi = pk.bivi.filter(b => b.tipo === 'luogo');
   disegnaBivi();
   const nl = pk.bivi.filter(b => b.tipo === 'luogo').length, ns = pk.bivi.filter(b => b.tipo !== 'luogo').length;
   const rip = pk.ripetuti || trattiRipetuti(traccia);
@@ -517,7 +567,10 @@ $('b-gpx').addEventListener('click', async () => {
   document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 });
 $('b-link-rifai').addEventListener('click', () => caricaLink(true));
-$('c-luoghi').addEventListener('change', () => { if (pacchetto) usaPacchetto(pacchetto); });
+$('c-luoghi').addEventListener('change', e => {
+  if (e.target.checked && !luoghi.length && tracciaId?.startsWith('gpx:')) caricaLuoghiWiki();
+  aggiornaLuoghiInGuida();
+});
 
 for (const r of document.querySelectorAll('input[name=traccia]')) r.addEventListener('change', async () => {
   if (r.checked) $('riga-link').hidden = r.value !== 'link';

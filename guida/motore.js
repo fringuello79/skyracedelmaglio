@@ -123,6 +123,21 @@ export function preparaBivio(traccia, b) {
   };
 }
 
+// Divide in frasi senza spezzare numeri (1.767 m) e abbreviazioni (S. Maria, Ss. Pietro, ecc.)
+export function dividiFrasi(testo) {
+  const t = String(testo || '').replace(/\s+/g, ' ').trim();
+  if (!t) return [];
+  const out = []; let da = 0;
+  const re = /[.!?]+\s+(?=[A-ZÀ-ÖØ-Ý«"(])/g; let m;
+  while ((m = re.exec(t))) {
+    const prima = t.slice(da, m.index).split(' ').pop();
+    if (/^(S|Ss|St|Sig|Dott|Prof|ecc|es|p|n|ca|Mons|Card|Fr)$/i.test(prima) || /^[A-Z]$/.test(prima)) continue;
+    out.push(t.slice(da, m.index + m[0].trimEnd().length).trim()); da = m.index + m[0].length;
+  }
+  out.push(t.slice(da).trim());
+  return out.filter(Boolean);
+}
+
 // ---------- motore ----------
 export class Motore {
   constructor(traccia, bivi = [], opzioni = {}) {
@@ -391,6 +406,10 @@ export class Motore {
 
   // «Guarda a sinistra: Porta San Sebastiano. …» — dove guardare rispetto al senso di marcia
   _luogo(b, fix) {
+    // divisa in frasi: se un'indicazione la interrompe, la voce riprende dalla frase interrotta
+    const frasi = dividiFrasi(b.testo);
+    if (b.senzaDirezione) return { tipo: 'luogo', priorita: PRIORITA.info, voce: 'luoghi', bivio: b.id,
+      testo: [`${b.nome}.`, ...frasi].join(' '), parti: [`${b.nome}.`, ...frasi] };
     const qui = [fix.lat, fix.lon], la = [b.plat, b.plon];
     const d = dist(qui, la), bp = bearing(qui, la);
     let dove;
@@ -401,7 +420,8 @@ export class Motore {
       dove = Math.abs(r) <= 35 ? 'Davanti a te' : Math.abs(r) >= 145 ? 'Alle tue spalle' : r > 0 ? 'Guarda a destra' : 'Guarda a sinistra';
     }
     const quanto = d >= 80 ? `, a ${metriParlati(d)} metri` : '';
-    return { tipo: 'luogo', priorita: PRIORITA.info, bivio: b.id, testo: `${dove}${quanto}: ${b.nome}.${b.testo ? ' ' + b.testo : ''}` };
+    const intro = `${dove}${quanto}: ${b.nome}.`;
+    return { tipo: 'luogo', priorita: PRIORITA.info, voce: 'luoghi', bivio: b.id, testo: [intro, ...frasi].join(' '), parti: [intro, ...frasi] };
   }
 
   silenziaIndietro(t, ms = 300000) { this.silenzioIndietroFino = t + ms; }
@@ -461,7 +481,7 @@ export function invertiBivi(bivi, tInv) {
       sentiero: dopo && prima !== dopo ? dopo : undefined };
     if (b.tipo === 'tornanti') { out.km = Math.round((K - b.fino - 0.03) * 1000) / 1000; out.fino = Math.round((K - b.km) * 1000) / 1000; }
     if (b.tipo === 'sentiero') out.sentiero = tInv.sentiero(km + 0.05);
-    if (b.tipo === 'luogo') Object.assign(out, { nome: b.nome, plat: b.plat, plon: b.plon, testo: b.testo });
+    if (b.tipo === 'luogo') Object.assign(out, { nome: b.nome, plat: b.plat, plon: b.plon, testo: b.testo, senzaDirezione: b.senzaDirezione });
     return out;
   });
 }

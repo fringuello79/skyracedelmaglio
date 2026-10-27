@@ -174,6 +174,13 @@ async function luoghiLungo(traccia, avanza) {
   return scelti;
 }
 
+// Luoghi d'interesse per una traccia qualsiasi (GPX), già nel formato dei punti della guida
+export async function luoghiPerTraccia(traccia, avanza) {
+  const l = await luoghiLungo(traccia, avanza);
+  return l.map((x, i) => ({ id: 'L' + String(i + 1).padStart(2, '0'), tipo: 'luogo', km: Math.round(x.km * 1000) / 1000,
+    nome: x.nome, plat: x.lat, plon: x.lon, testo: x.testo || '', fonte: 'wikipedia' }));
+}
+
 // ---------- controlli: tratti ripetuti ----------
 // Un punto è "ripetuto" se a meno di 12 m passa un'altra parte del percorso lontana almeno 300 m lungo la traccia.
 export function trattiRipetuti(traccia) {
