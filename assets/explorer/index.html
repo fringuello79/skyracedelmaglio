@@ -111,6 +111,12 @@ html,body{height:100%;overflow:hidden;background:var(--verde);color:var(--avorio
   background:var(--arancio);color:#1d1206;font-family:Oswald,sans-serif;font-size:15px;
   font-weight:600;letter-spacing:.08em;cursor:pointer}
 #card ul{margin:8px 0 0 18px;font-size:14px;line-height:1.7}
+#card ul.nat{margin:4px 0 0 0;padding:0;list-style:none;font-size:13px;line-height:1.5}
+#card ul.nat li{padding:5px 0;border-bottom:1px solid rgba(243,239,226,.08)}
+#card ul.nat i{color:var(--grigio)}
+#card ul.nat .nota{color:var(--grigio);font-size:12px}
+#card ul.nat a{color:var(--avorio);text-decoration:none}
+#card ul.nat a.vai{color:var(--arancio);white-space:nowrap;font-size:12px}
 #lino-nome{display:block;margin:16px auto -6px;width:150px;max-width:62vw;
   filter:drop-shadow(0 3px 8px rgba(0,0,0,.5))}
 #logo-top{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;
@@ -236,7 +242,7 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
   #poi-n{font-size:13px;line-height:1.15}
   #poi-s{font-size:10px;line-height:1.3}
   #ctrls{right:8px;gap:6px}
-  .btn{height:29px;font-size:9.5px;padding:0 5px;border-radius:7px;letter-spacing:.02em}
+  .btn{height:29px;font-size:9px;padding:0 4px;border-radius:7px;letter-spacing:0;white-space:nowrap}
   #ctrls{right:6px}
   #minimap{left:8px}
   .btn.big{width:40px;height:32px;font-size:14px}
@@ -305,6 +311,7 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
     <button class="btn" id="b-grif">GRIFONE</button>
     <button class="btn" id="b-tour">SORVOLO</button>
     <button class="btn" id="b-sent" title="sentieri CAI della zona">SENTIERI</button>
+    <button class="btn" id="b-nat" title="specie e habitat della Riserva">NATURA</button>
     <button class="btn" id="b-gara">LA GARA</button>
     <button class="btn" id="b-help">?</button>
   </div>
@@ -357,6 +364,6 @@ body.grif.tour #ctrls{bottom:calc(108px + env(safe-area-inset-bottom))}
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="app.js?v=84"></script>
+<script type="module" src="app.js?v=88"></script>
 </body>
 </html>
