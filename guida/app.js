@@ -43,11 +43,15 @@ class Voce {
     const voci = this.voci(), pref = leggi('srm-guida-voce2');
     this.voce = voci.find(v => v.voiceURI === pref) || voci[0] || null;
     // voce dei luoghi diversa da quella delle indicazioni (di base una maschile, per distinguerle subito)
-    const prefL = leggi('srm-guida-voce-luoghi');
-    this.voceLuoghi = voci.find(v => v.voiceURI === prefL) || voci.find(v => v !== this.voce && MASCHILI.test(v.name))
-      || voci.find(v => v !== this.voce) || this.voce;
+    // voce dei luoghi: un'altra voce se c'è; se no la stessa con tono più basso (su iPhone di serie c'è solo Alice).
+    // Valore salvato: «voiceURI» oppure «voiceURI|basso».
+    const [uriL, modoL] = String(leggi('srm-guida-voce-luoghi') || '').split('|');
+    const scelta = voci.find(v => v.voiceURI === uriL);
+    const altra = voci.find(v => v !== this.voce && MASCHILI.test(v.name)) || voci.find(v => v !== this.voce);
+    this.voceLuoghi = scelta || altra || this.voce;
+    this.toniLuoghi = scelta ? (modoL === 'basso' ? 0.75 : 1) : (altra ? 1 : 0.75);
     this.rate = +(leggi('srm-guida-rate') || 1);
-    selettoreVoci(voci, this.voce, this.voceLuoghi);
+    selettoreVoci(voci, this.voce, this.voceLuoghi, this.toniLuoghi < 1);
   }
   tono(tipo) {
     const c = this.ctx;
@@ -102,7 +106,9 @@ class Voce {
       if (!this.disponibile || !testo) return this._fine(ev, tok);   // conferma con il solo tono
       const u = new SpeechSynthesisUtterance(testo);
       const v = ev.voce === 'luoghi' ? this.voceLuoghi : this.voce;
-      u.lang = 'it-IT'; if (v) u.voice = v; u.rate = this.rate || 1; u.pitch = 1;
+      const luoghi = ev.voce === 'luoghi';
+      u.lang = 'it-IT'; if (v) u.voice = v;
+      u.rate = (this.rate || 1) * (luoghi && this.toniLuoghi < 1 ? 0.95 : 1); u.pitch = luoghi ? this.toniLuoghi : 1;
       u.onend = u.onerror = () => this._fine(ev, tok);
       speechSynthesis.speak(u);
       this.timer = setTimeout(() => this._fine(ev, tok), 2500 + testo.length * 90);
@@ -126,16 +132,27 @@ window.SRMguida = { voce };   // solo per le prove
 if (voce.disponibile) speechSynthesis.addEventListener?.('voiceschanged', () => voce.scegli());
 voce.scegli();
 
-function selettoreVoci(voci, scelta, sceltaLuoghi) {
+function selettoreVoci(voci, scelta, sceltaLuoghi, bassoLuoghi) {
   for (const [id, sc] of [['sel-voce', scelta], ['sel-voce-luoghi', sceltaLuoghi]]) {
     const sel = $(id); if (!sel) continue;
     sel.replaceChildren();
     if (!voci.length) { const o = document.createElement('option'); o.value = ''; o.textContent = 'Nessuna voce italiana'; sel.append(o); continue; }
     for (const v of voci) {
-      const o = document.createElement('option'); o.value = v.voiceURI;
-      o.textContent = v.name + (MASCHILI.test(v.name) ? ' (maschile)' : '');
-      o.selected = v === sc; sel.append(o);
+      const nome = v.name + (MASCHILI.test(v.name) ? ' (maschile)' : '');
+      const o = document.createElement('option'); o.value = v.voiceURI; o.textContent = nome;
+      o.selected = v === sc && !(id === 'sel-voce-luoghi' && bassoLuoghi); sel.append(o);
+      // per i luoghi ogni voce si può usare anche con tono più basso
+      if (id === 'sel-voce-luoghi') {
+        const b = document.createElement('option'); b.value = v.voiceURI + '|basso'; b.textContent = nome + ' · tono più basso';
+        b.selected = v === sc && bassoLuoghi; sel.append(b);
+      }
     }
+  }
+  // poche voci installate: come aggiungerne altre
+  const aiuto = $('aiuto-voci');
+  if (aiuto) {
+    aiuto.hidden = voci.length > 1;
+    aiuto.textContent = `Sul telefono c'è solo la voce ${voci[0]?.name || 'di sistema'}: per i luoghi la uso con un tono più basso. Per avere una voce diversa (per esempio Luca o Federica): Impostazioni › Accessibilità › Contenuto letto › Voci › Italiano, scarica la voce, poi chiudi e riapri questa pagina.`;
   }
   $('sel-rate').value = String(+(leggi('srm-guida-rate') || 1));
 }
