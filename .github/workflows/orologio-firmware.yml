@@ -34,20 +34,17 @@ jobs:
           git clone --filter=blob:none https://github.com/meshtastic/firmware.git fw
           git -C fw checkout 332b5b0a2c4fec2896de3c5fa63f46d5cd05ea98
           git -C fw submodule update --init --recursive
-      - name: Strumenti
-        run: pip install -r fw/.github/actions/setup-base/requirements.txt
       - name: Inserisce la Guida SRM
         run: python3 orologio/firmware/meshtastic/integra.py fw
-      - uses: actions/cache@v4
-        with:
-          path: ~/.platformio/.cache
-          key: pio-srm-${{ hashFiles('fw/**/*.ini') }}
       - name: Compila per il T-Watch Ultra
         shell: bash
         run: |
           cd fw
           set +e
-          bash bin/build-esp32.sh t-watch-ultra-srm > build.log 2>&1
+          # stesso ambiente di compilazione usato da Meshtastic (immagine docker ufficiale)
+          docker run --rm -e MT_ENV=t-watch-ultra-srm -e MT_PLATFORM=esp32s3 -e MT_TARGET=build \
+            -e PLATFORMIO_BUILD_DIR=/workspace/.pio/build -v "$PWD":/workspace \
+            ghcr.io/meshtastic/gh-action-firmware:develop-esp32s3 > build.log 2>&1
           esito=$?
           tail -n 40 build.log
           # errori come annotazioni (leggibili anche senza scaricare il registro)
