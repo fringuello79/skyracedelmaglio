@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace srm
@@ -10,6 +11,72 @@ namespace srm
 static const double K_PI = 3.14159265358979323846;
 static inline double rad(double d) { return d * K_PI / 180; }
 static inline double norm(double a) { return std::fmod(std::fmod(a, 360.0) + 540.0, 360.0) - 180.0; }
+
+static int primoNumero(const std::string &s)
+{
+    for (size_t i = 0; i < s.size(); i++)
+        if (s[i] >= '0' && s[i] <= '9')
+            return atoi(s.c_str() + i);
+    return -1;
+}
+
+// distanza parlata → pezzo registrato più vicino
+static std::string pezzoMetri(const char *pre, int m, const int *valori, int n)
+{
+    int best = valori[0];
+    for (int i = 0; i < n; i++)
+        if (std::abs(valori[i] - m) < std::abs(best - m))
+            best = valori[i];
+    return std::string(pre) + std::to_string(best);
+}
+
+std::vector<std::string> clipPerEvento(const Evento &e, bool dopoErrore)
+{
+    static const int PRE[] = {100, 150, 200, 250, 300, 350, 400, 450, 500};
+    static const int DIST[] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 400, 500};
+    const std::string &k = e.tipo, &t = e.testo;
+    std::vector<std::string> v;
+    if (k == "preavviso")
+        v = {"fra", pezzoMetri("m", primoNumero(t), PRE, 9), "pre_" + e.bivio};
+    else if (k == "indicazione")
+        v = {"ind_" + e.bivio};
+    else if (k == "ora")
+        v = {"ora_" + e.bivio};
+    else if (k == "giusto")
+        v = {dopoErrore ? "bene" : "ok_" + e.bivio};
+    else if (k == "fuori") {
+        v.push_back(t.rfind("Ancora", 0) == 0 ? "ancora_fuori" : "fuori");
+        bool km = t.find("chilometri") != std::string::npos;
+        v.push_back("percorso_a");
+        v.push_back(km ? "d500" : pezzoMetri("d", primoNumero(t.substr(t.find("Percorso a"))), DIST, 16));
+        v.push_back(t.find("destra") != std::string::npos      ? "lato_destra"
+                    : t.find("sinistra") != std::string::npos  ? "lato_sinistra"
+                    : t.find("davanti") != std::string::npos   ? "lato_davanti"
+                                                               : "lato_spalle");
+        if (t.find("sui tuoi passi") != std::string::npos)
+            v.push_back("torna_passi");
+    } else if (k == "sbagliato")
+        v = {t.rfind("Sentiero", 0) == 0 ? "sbagliato" : "torna_indietro"};
+    else if (k == "rientro")
+        v = {"rientro"};
+    else if (k == "indietro")
+        v = {"contrario"};
+    else if (k == "gps")
+        v = {"gps_debole"};
+    else if (k == "gps-ok")
+        v = {"gps_ok"};
+    else if (k == "aggancio" || k == "conferma" || k == "attesa")
+        v = {"sul_percorso"};
+    else if (k == "arrivo")
+        v = {"arrivo"};
+    else if (k == "sos")
+        v = {"sos_inviato"};
+    else if (k == "sos-ok")
+        v = {"sos_ok"};
+    else if (k == "lontano")
+        v = {"fuori"};
+    return v;
+}
 
 App::App(const Traccia &t, const Bivio *bivi, int nBivi, int pett, Opzioni o)
     : motore(t, bivi, nBivi, [&] {
@@ -98,7 +165,8 @@ void App::evento(const Evento &e)
         sottotitolo = testo;
         sottotitoloFino = oraMs + 7000;
         az.diario.push_back(testo);
-        az.voce = k + (e.bivio.empty() ? "" : ":" + e.bivio);
+        bool dopoErrore = !e.bivio.empty() && testo.rfind("Bene", 0) == 0;
+        az.voce = clipPerEvento({e.tipo, e.priorita, e.suono, e.bivio, testo}, dopoErrore);
     }
     ultimoTipo = k;
     ultimoT = oraMs;

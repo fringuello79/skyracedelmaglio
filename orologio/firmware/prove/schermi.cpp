@@ -159,6 +159,8 @@ template <class F> static void corri(const char *caso, int pett, F quando)
         Azioni a = app.prendiAzioni();
         for (auto &m : a.messaggi)
             printf("RADIO %lld %s\n", r.t, m.c_str());
+        for (auto &c : a.voce)
+            printf("VOCE %s\n", c.c_str());
         if (quando(app, r.t, a))
             break;
     }

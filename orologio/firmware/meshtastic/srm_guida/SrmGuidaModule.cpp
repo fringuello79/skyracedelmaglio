@@ -10,6 +10,7 @@
 #include "main.h"
 #include "mesh/MeshTypes.h"
 #include "srm_dati.h"
+#include "srm_voce.h"
 #include <cstring>
 
 #if HAS_SCREEN
@@ -169,11 +170,35 @@ void SrmGuidaModule::inviaTesto(const std::string &s, uint8_t salti)
     LOG_INFO("SRM: inviato «%s»", s.c_str());
 }
 
+// frasi registrate (srm_voce.cpp): se ci sono tutte si dicono in fila, altrimenti si usa il suono breve
+bool SrmGuidaModule::parla(std::vector<std::string> &pezzi, bool urgente)
+{
+#ifdef HAS_I2S
+    if (pezzi.empty() || !audioThread)
+        return false;
+    for (auto &p : pezzi)
+        if (!srm::trovaClip(p.c_str()))
+            return false;
+    if (urgente) {
+        codaVoce.clear();
+        audioThread->stop();
+        suonando = false;
+    }
+    codaVoce.insert(codaVoce.end(), pezzi.begin(), pezzi.end());
+    return true;
+#else
+    (void)pezzi;
+    (void)urgente;
+    return false;
+#endif
+}
+
 void SrmGuidaModule::esegui(srm::Azioni &a)
 {
     if (a.vibra != srm::Vibra::NESSUNA)
         vibra(a.vibra);
-    if (a.suono != srm::Suono::NESSUNO)
+    bool urgente = a.vibra == srm::Vibra::ERRORE || a.vibra == srm::Vibra::SOS;
+    if (!parla(a.voce, urgente) && a.suono != srm::Suono::NESSUNO)
         suona(a.suono);
     for (auto &m : a.messaggi)
         inviaTesto(m, 3); // SOS e avvisi arrivano alla base anche passando per due ripetitori
@@ -181,6 +206,8 @@ void SrmGuidaModule::esegui(srm::Azioni &a)
         LOG_INFO("SRM: %s", d.c_str());
     if (a.sveglia)
         portaAvanti();
+    if (!codaVoce.empty())
+        setIntervalFromNow(20); // la prima frase parte subito
 #if HAS_SCREEN
     UIFrameEvent e;
     e.action = UIFrameEvent::Action::REDRAW_ONLY;
@@ -194,9 +221,18 @@ int32_t SrmGuidaModule::runOnce()
 #ifdef HAS_I2S
     if (suonando && audioThread) {
         if (audioThread->isPlaying())
-            return 20; // l'RTTTL va «pompato» spesso finché suona
+            return 20; // suoni e frasi vanno «pompati» spesso finché suonano
         audioThread->stop();
         suonando = false;
+    }
+    if (!codaVoce.empty() && audioThread) {
+        const srm::Clip *c = srm::trovaClip(codaVoce.front().c_str());
+        codaVoce.erase(codaVoce.begin());
+        if (c) {
+            audioThread->beginWav(c->dati, c->len);
+            suonando = true;
+            return 20;
+        }
     }
 #endif
     if (primaVolta) {
@@ -231,7 +267,7 @@ int32_t SrmGuidaModule::runOnce()
     esegui(a);
     if (app.tieniAcceso(ora))
         portaAvanti();
-    return 1000;
+    return codaVoce.empty() && !suonando ? 1000 : 20;
 }
 
 ProcessMessage SrmGuidaModule::handleReceived(const meshtastic_MeshPacket &mp)

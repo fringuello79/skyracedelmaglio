@@ -45,6 +45,8 @@ class SrmGuidaModule : public SinglePortModule, public Observable<const UIFrameE
     int32_t ultimaPos = 0;          // per riconoscere una posizione nuova
     uint32_t ultimoTempoPos = 0;
     bool suonando = false;
+    std::vector<std::string> codaVoce; // frasi registrate ancora da dire
+    bool parla(std::vector<std::string> &pezzi, bool urgente);
     bool primaVolta = true;
 };
 

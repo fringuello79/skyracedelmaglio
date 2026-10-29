@@ -20,7 +20,7 @@ struct Azioni {
     bool sveglia = false;              // accendere lo schermo e mostrare la pagina SRM
     std::vector<std::string> messaggi; // testi SRM da mandare sulla rete
     std::vector<std::string> diario;   // frasi dette (per il registro e per la voce)
-    std::string voce;                  // chiave della frase da riprodurre (voce registrata), vuota = nessuna
+    std::vector<std::string> voce;     // frasi registrate da dire in fila (nomi in voce/frasi.tsv); vuota = solo suono
 };
 
 class App
@@ -85,6 +85,9 @@ class App
     void numeroGrande(Tela &t, int x, int y, int h, const char *s, Allinea a);
     void testoCentrato(Tela &t, const char *s, int y, Dim d, int maxW);
 };
+
+// pezzi di voce registrata per un avviso (vedi orologio/firmware/voce/frasi.tsv)
+std::vector<std::string> clipPerEvento(const Evento &e, bool sbagliatoPrima);
 
 void lineaSpessa(Tela &t, double x0, double y0, double x1, double y1, double w);
 void punta(Tela &t, double x, double y, double ang, double k);

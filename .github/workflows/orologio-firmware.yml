@@ -38,6 +38,17 @@ jobs:
           git clone --filter=blob:none https://github.com/meshtastic/firmware.git fw
           git -C fw checkout 332b5b0a2c4fec2896de3c5fa63f46d5cd05ea98
           git -C fw submodule update --init --recursive
+      - name: Voce delle frasi (registrazioni, oppure voce sintetica Piper)
+        shell: bash
+        run: |
+          pip install numpy
+          if ls orologio/firmware/voce/wav/*.wav >/dev/null 2>&1; then
+            python3 orologio/firmware/strumenti/voce_firmware.py --anteprima voce_anteprima
+          else
+            pip install piper-tts
+            python3 orologio/firmware/strumenti/voce_sintesi.py /tmp/voce_sintetica
+            python3 orologio/firmware/strumenti/voce_firmware.py --cartella /tmp/voce_sintetica --anteprima voce_anteprima
+          fi
       - name: Inserisce la Guida SRM
         run: python3 orologio/firmware/meshtastic/integra.py fw
       - name: Compila per il T-Watch Ultra
@@ -82,7 +93,8 @@ jobs:
           printf '{"versione":"%s","commit":"%s","data":"%s"}\n' "$(basename "$f" .factory.bin)" "${GITHUB_SHA::7}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > orologio/installa/versione.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add orologio/installa/firmware.factory.bin orologio/installa/versione.json
+          mkdir -p orologio/voce/anteprima && rm -f orologio/voce/anteprima/*.wav && cp voce_anteprima/*.wav orologio/voce/anteprima/ 2>/dev/null || true
+          git add orologio/installa/firmware.factory.bin orologio/installa/versione.json orologio/voce/anteprima
           git commit -m "Orologio SRM: firmware compilato (${GITHUB_SHA::7})" || exit 0
           for i in 1 2 3 4 5; do
             git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && exit 0
