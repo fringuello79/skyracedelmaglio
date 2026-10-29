@@ -4,6 +4,7 @@
 // Schermo 410×502 AMOLED: sfondo nero (pixel spenti = batteria), acceso solo quando serve.
 import { Motore, metriParlati, kmParlati } from '../motore.js';
 import { bearing, dist } from '../../posizione/geo.js';
+import { ZOOM } from './mappa-orologio.js';
 
 export const W = 410, H = 502;
 const VERDE = '#3ddc84', AMBRA = '#ffb020', ROSSO = '#ff4d4d', GRIGIO = '#7d8580', BIANCO = '#f4f4f0', TENUE = '#9aa39c';
@@ -21,8 +22,9 @@ const NOMI_VIBRA = { preavviso: 'una lunga', indicazione: 'due brevi', ora: 'tre
 
 // consumi (mA) — stime da verificare con la prova sul polso
 export const CONSUMI = {
-  realistico: { mcu: 45, gps: 25, rx: 5, schermo: 45, voce: 60, vibra: 70, tx: 118, fisso: 2 },
-  ottimistico: { mcu: 20, gps: 15, rx: 5, schermo: 35, voce: 50, vibra: 60, tx: 118, fisso: 1 },
+  // «mappa»: schermo pieno di colori (AMOLED: più pixel accesi) e ridisegno continuo, al posto di «schermo»
+  realistico: { mcu: 45, gps: 25, rx: 5, schermo: 45, mappa: 110, voce: 60, vibra: 70, tx: 118, fisso: 2 },
+  ottimistico: { mcu: 20, gps: 15, rx: 5, schermo: 35, mappa: 80, voce: 50, vibra: 60, tx: 118, fisso: 1 },
 };
 export const BATTERIA_MAH = 1100;
 
@@ -34,6 +36,7 @@ export class AppOrologio {
     this.motore = new Motore(traccia, bivi, { rassicura: 600000 });
     this.pagina = 'guida'; this.pagine = ['guida', 'mappa', 'gara', 'sos'];
     this.acceso = true; this.spegniA = 8000; this.sempreAcceso = sempreAcceso;
+    this.visuale = false; this.zoom = 0; this.cartografia = null; this.ridisegna = null;
     this.ora = 0; this.fix = null; this.km = null;
     this.vibra = null; this.sottotitolo = null; this.ultimoEvento = null;
     this.sos = { stato: 'pronto', tentativi: 0, prossimo: 0, rif: 0, tConferma: null };
@@ -85,8 +88,19 @@ export class AppOrologio {
   }
 
   // ---------- interazione ----------
-  tocca() { if (!this.acceso) return this._sveglia(6000); this.scorri(1); }
-  scorri(d) { const i = this.pagine.indexOf(this.pagina); this.pagina = this.pagine[(i + d + this.pagine.length) % this.pagine.length]; this._sveglia(8000); }
+  tocca() {
+    if (!this.acceso) return this._sveglia(6000);
+    if (this.visuale) { this.zoom = (this.zoom + 1) % ZOOM.length; return; }   // in modalità mappa il tocco cambia la scala
+    this.scorri(1);
+  }
+  // pulsante laterale, pressione breve: accende o spegne la modalità visuale (mappa sempre accesa)
+  pulsante() {
+    if (this.sos.stato === 'conto') return this.annullaSos();
+    this.visuale = !this.visuale || !this.acceso;
+    if (this.visuale) { this.acceso = true; this.zoom = 0; this._log('Modalità mappa accesa.'); }
+    else { this.spegniA = this.ora + 4000; this._log('Modalità mappa spenta: lo schermo torna a spegnersi da solo.'); }
+  }
+  scorri(d) { if (this.visuale) { this.visuale = false; } const i = this.pagine.indexOf(this.pagina); this.pagina = this.pagine[(i + d + this.pagine.length) % this.pagine.length]; this._sveglia(8000); }
   alzaPolso() { this._sveglia(6000); }
   _sveglia(ms) { this.acceso = true; this.spegniA = Math.max(this.spegniA, this.ora + ms); }
   _vibra(nome) { if (!VIBRAZIONI[nome]?.length) return; this.vibra = { nome, da: this.ora, testo: NOMI_VIBRA[nome] }; this.energia.tVibra += VIBRAZIONI[nome].filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0); this.onVibra?.(nome, VIBRAZIONI[nome]); }
@@ -127,12 +141,13 @@ export class AppOrologio {
     }
     this._sosOgniSecondo(oraReale);
     if (st.fuori || this.sos.stato === 'inviato') this._sveglia(2000);
-    if (!this.sempreAcceso && this.ora > this.spegniA) this.acceso = false;
-    if (this.sempreAcceso) this.acceso = true;
+    if (!this.sempreAcceso && !this.visuale && this.ora > this.spegniA) this.acceso = false;
+    if (this.sempreAcceso || this.visuale) this.acceso = true;
     // energia: un secondo di consumi
     const c = this.energia.consumi;
-    let mA = c.fisso + c.mcu + c.gps + c.rx + (this.acceso ? c.schermo : 0);
+    let mA = c.fisso + c.mcu + c.gps + c.rx + (this.acceso ? (this.visuale ? c.mappa : c.schermo) : 0);
     if (this.acceso) this.energia.tSchermo += 1000;
+    if (this.visuale) this.energia.tMappa = (this.energia.tMappa || 0) + 1000;
     const aria = this.rete.nodo ? this.rete.nodo.ariaTot : 0;
     const daria = aria - this.energia.ariaPrima; this.energia.ariaPrima = aria;
     this.energia.mAs += mA + c.tx * daria / 1000;
@@ -149,16 +164,50 @@ export class AppOrologio {
     c.save();
     c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
     if (!this.acceso) { c.restore(); return; }
-    this._barra(c);
     const st = this.motore.stato();
-    if (this.pagina === 'sos' || this.sos.stato === 'conto') this._paginaSos(c, oraReale);
-    else if (st.fuori || (this.ultimoEvento?.tipo === 'indietro' && this.ora - this.ultimoEvento.t < 15000)) this._paginaErrore(c, st);
+    const errore = st.fuori || (this.ultimoEvento?.tipo === 'indietro' && this.ora - this.ultimoEvento.t < 15000);
+    const sos = this.pagina === 'sos' || this.sos.stato === 'conto';
+    if (this.visuale && !errore && !sos) { this._paginaVisuale(c, st); c.restore(); return; }
+    this._barra(c);
+    if (sos) this._paginaSos(c, oraReale);
+    else if (errore) this._paginaErrore(c, st);
     else if (this.pagina === 'guida') this._paginaGuida(c, st);
     else if (this.pagina === 'mappa') this._paginaMappa(c, st);
     else if (this.pagina === 'gara') this._paginaGara(c, st);
     // puntini delle pagine
     this.pagine.forEach((p, i) => { c.beginPath(); c.arc(W / 2 + (i - 1.5) * 18, H - 12, p === this.pagina ? 5 : 3.5, 0, 7); c.fillStyle = p === this.pagina ? BIANCO : '#4a4f4c'; c.fill(); });
     c.restore();
+  }
+
+  // modalità visuale: carta con il percorso e la posizione, come la mappa della pagina; le indicazioni restano sopra
+  _paginaVisuale(c, st) {
+    const z = ZOOM[this.zoom];
+    const centro = z.mpp > 10 ? this.cartografia?.centroTraccia : this.fix ? [this.fix.lat, this.fix.lon] : st.km != null ? this.t.at(st.km) : this.t.at(0);
+    if (this.cartografia && centro) this.cartografia.disegna(c, { x: 0, y: 0, w: W, h: H }, { centro, mpp: z.mpp, km: st.km, bivi: this.motore.bivi, fix: this.fix, direzione: this.motore.direzione }, this.ridisegna);
+    // barra in alto su fondo scuro
+    c.fillStyle = 'rgba(0,0,0,.72)'; c.fillRect(0, 0, W, 58);
+    this._barra(c);
+    // in basso: il prossimo bivio, o chilometro e sentiero
+    const p = st.prossimo;
+    const vicino = p && p.d <= 300 && !st.arrivato;
+    const hB = vicino ? 118 : 74;
+    c.fillStyle = 'rgba(0,0,0,.78)'; c.fillRect(0, H - hB, W, hB);
+    if (vicino) {
+      c.save(); this._bivio(c, p.b, 60, H - 62, 0.36); c.restore();
+      c.textAlign = 'left'; c.fillStyle = AMBRA; c.font = F(700, 44); c.fillText(p.d < 30 ? 'ORA' : `${metriParlati(p.d)} m`, 112, H - 72);
+      c.font = F(600, 27); c.fillStyle = BIANCO;
+      let t = p.b.titolo; while (c.measureText(t).width > W - 124 && t.length > 4) t = t.slice(0, -2) + '…';
+      c.fillText(t, 112, H - 32);
+    } else if (st.km != null) {
+      c.textAlign = 'left'; c.fillStyle = BIANCO; c.font = F(700, 30); c.fillText(`km ${kmParlati(st.km)}`, 20, H - 40);
+      c.textAlign = 'right'; c.font = T(700, 19); c.fillStyle = VERDE; c.fillText(st.sentiero ? `Sentiero ${st.sentiero}` : '', W - 20, H - 48);
+      c.fillStyle = TENUE; c.font = T(400, 17); c.fillText(p ? `bivio fra ${p.d >= 1000 ? kmParlati(p.d / 1000) + ' km' : metriParlati(p.d) + ' m'}` : 'verso l\'arrivo', W - 20, H - 24);
+    }
+    // scala
+    const et = `MAPPA · ${z.nome}`; c.font = T(700, 14); c.textAlign = 'left';
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(12, 66, c.measureText(et).width + 14, 26);
+    c.fillStyle = BIANCO; c.fillText(et, 19, 80);
+    c.textAlign = 'left';
   }
 
   _barra(c) {

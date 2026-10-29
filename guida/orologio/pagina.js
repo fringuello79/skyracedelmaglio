@@ -4,6 +4,7 @@ import { Simulatore } from '../simulatore.js';
 import { Terreno, APPARATI, PRESET, sensibilita, collegamento, BOSCO } from './radio.js';
 import { creaGara, Andature } from './gara.js';
 import { AppOrologio, W, H, CONSUMI } from './orologio.js';
+import { MappaOrologio } from './mappa-orologio.js';
 
 const $ = id => document.getElementById(id);
 const fmt = (n, d = 0) => n.toLocaleString('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -21,6 +22,7 @@ const traccia = new Traccia(tracciaJ);
 const terreno = new Terreno(demJ, new Int16Array(demB));
 const bivi = biviJ.bivi;
 const nodiBase = reteJ.nodi.map(n => ({ ...n }));
+const cartografia = new MappaOrologio(traccia, terreno);
 let aggiunti = 0;
 
 // ---------- stato ----------
@@ -35,6 +37,7 @@ function opzioniRete() {
 function nuovaApp() {
   app = new AppOrologio(traccia, bivi, { consumi: $('sel-consumi').value, sempreAcceso: $('c-acceso').checked });
   app.onVoce = parla; app.onVibra = vibra; app.onDiario = disegnaDiario;
+  app.cartografia = cartografia; app.ridisegna = () => disegna();
   sim = new Simulatore(traccia, { km: kmPartenza, velocita: +$('sel-passo').value, rumore: 4, precisione: 6, seme: 1 + Math.floor(Math.random() * 1e5) });
 }
 
@@ -85,7 +88,7 @@ cv.addEventListener('pointerup', e => {
   if (Math.abs(dx) > 40 && app.acceso) app.scorri(dx < 0 ? 1 : -1); else app.tocca();
   disegna();
 });
-// pulsante: premuto breve = sveglia / pagina; tenuto 3 s = SOS; durante il conto alla rovescia = annulla
+// pulsante: premuto breve = modalità mappa sì/no; tenuto 3 s = SOS; durante il conto alla rovescia = annulla
 function pulsante(el) {
   let timer = null, lungo = false;
   el.addEventListener('pointerdown', e => {
@@ -93,7 +96,7 @@ function pulsante(el) {
     if (app.sos.stato === 'conto') { app.annullaSos(); disegna(); return; }
     timer = setTimeout(() => { lungo = true; app.avviaConto(performance.now()); disegna(); }, 3000);
   });
-  const fine = () => { if (!timer) return; clearTimeout(timer); timer = null; if (!lungo) { app.tocca(); disegna(); } };
+  const fine = () => { if (!timer) return; clearTimeout(timer); timer = null; if (!lungo) { app.pulsante(); disegna(); } };
   el.addEventListener('pointerup', fine); el.addEventListener('pointerleave', () => { if (timer) { clearTimeout(timer); timer = null; } });
   el.addEventListener('contextmenu', e => e.preventDefault());
 }
@@ -137,7 +140,7 @@ function disegna() {
   const st = app.motore.stato();
   $('riga-stato').innerHTML = `<span>ore <b>${oraTesto(ora)}</b></span><span>km <b>${st.km != null ? fmt(st.km, 2) : '—'}</b></span>` +
     `<span>batteria <b>${fmt(app.batteria(), 0)}%</b>${app.batteriaA8ore() != null ? ` · a 8 ore <b>${fmt(app.batteriaA8ore(), 0)}%</b>` : ''}</span>` +
-    `<span>schermo acceso <b>${fmt(100 * app.energia.tSchermo / Math.max(1000, ora - (app.t0 || 0)), 0)}%</b> del tempo</span>`;
+    `<span>schermo acceso <b>${fmt(100 * app.energia.tSchermo / Math.max(1000, ora - (app.t0 || 0)), 0)}%</b> del tempo${app.energia.tMappa ? `, in modalità mappa <b>${fmt(100 * app.energia.tMappa / Math.max(1000, ora - (app.t0 || 0)), 0)}%</b>` : ''}</span>`;
 }
 $('b-via').onclick = () => {
   inCorso = !inCorso; $('b-via').textContent = inCorso ? '❚❚ Pausa' : '▶ Riprendi';

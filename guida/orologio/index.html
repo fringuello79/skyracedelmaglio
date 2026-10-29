@@ -109,7 +109,7 @@ ul { margin: 4px 0 0; padding-left: 20px; } li { margin: 3px 0; }
     <section class="pannello">
       <div class="cassa" id="cassa">
         <canvas id="schermo" width="410" height="502" aria-label="Schermo dell'orologio"></canvas>
-        <button class="tasto" id="tasto" aria-label="Pulsante laterale: premi per cambiare pagina, tieni premuto 3 secondi per l'SOS"></button>
+        <button class="tasto" id="tasto" aria-label="Pulsante laterale: premi per la modalità mappa, tieni premuto 3 secondi per l'SOS"></button>
       </div>
       <div class="etichetta-vibra" id="etichetta-vibra"></div>
       <div class="riga-stato" id="riga-stato"></div>
@@ -120,13 +120,13 @@ ul { margin: 4px 0 0; padding-left: 20px; } li { margin: 3px 0; }
       </div>
       <div class="griglia2">
         <button class="btn secondario" id="b-polso">Alza il polso</button>
-        <button class="btn pericolo" id="b-pulsante">Pulsante · tieni 3 s = SOS</button>
+        <button class="btn pericolo" id="b-pulsante">Pulsante<small style="display:block;font-weight:400;font-size:13px;margin-top:3px">premi = mappa · tieni 3 s = SOS</small></button>
       </div>
       <div class="griglia2">
         <button class="btn secondario" id="b-sbaglia">Sbaglia al prossimo bivio</button>
         <button class="btn secondario" id="b-fuori">Esci dal sentiero</button>
       </div>
-      <p class="tenue">Tocca lo schermo per accenderlo o cambiare pagina (Guida · Mappa · Gara · SOS); scorri a destra o a sinistra. Lo schermo si spegne da solo e si riaccende ai bivi.</p>
+      <p class="tenue">Tocca lo schermo per accenderlo o cambiare pagina (Guida · Mappa · Gara · SOS); scorri a destra o a sinistra. Lo schermo si spegne da solo e si riaccende ai bivi.<br><b>Pulsante laterale, pressione breve: modalità mappa</b> (carta con il percorso e la tua posizione, sempre accesa, consuma di più): tocca lo schermo per cambiare scala, ripremi il pulsante per tornare normale.</p>
       <details>
         <summary>Il tuo orologio</summary>
         <div style="display:grid;gap:8px;margin-top:8px">
@@ -197,6 +197,7 @@ ul { margin: 4px 0 0; padding-left: 20px; } li { margin: 3px 0; }
         <li><b>SOS</b>: pulsante tenuto 3 secondi, 5 secondi per annullare, poi invio ripetuto ogni 10 secondi finché la base risponde «ricevuto».</li>
         <li><b>Voce</b>: frasi registrate prima (non sintesi), suonate dall'altoparlante dell'orologio; vibrazioni diverse per preavviso, bivio, errore.</li>
         <li><b>Schermo</b>: nero e spento quasi sempre, si accende da solo ai bivi e negli errori: è la cosa che fa durare la batteria.</li>
+        <li><b>Modalità mappa</b> (pulsante laterale): carta della zona salvata prima sulla microSD dell'orologio, percorso in arancio, posizione e direzione. Resta accesa finché non si ripreme il pulsante; gli avvisi di bivio compaiono in basso, gli errori e l'SOS a schermo intero.</li>
       </ul>
       <details>
         <summary>Ipotesi del modello radio</summary>
