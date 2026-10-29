@@ -24,8 +24,12 @@ jobs:
   firmware:
     needs: prove
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -70,3 +74,18 @@ jobs:
             fw/release/*.bin
             fw/release/device-install.*
             fw/release/device-update.*
+      - name: Pubblica il firmware sul sito (orologio/installa)
+        shell: bash
+        run: |
+          f=$(ls fw/release/firmware-t-watch-ultra-srm-*.factory.bin | grep -v update | head -n 1)
+          cp "$f" orologio/installa/firmware.factory.bin
+          printf '{"versione":"%s","commit":"%s","data":"%s"}\n' "$(basename "$f" .factory.bin)" "${GITHUB_SHA::7}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > orologio/installa/versione.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add orologio/installa/firmware.factory.bin orologio/installa/versione.json
+          git commit -m "Orologio SRM: firmware compilato (${GITHUB_SHA::7})" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && exit 0
+            sleep 10
+          done
+          exit 1

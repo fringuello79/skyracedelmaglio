@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installa l'orologio SRM</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#153821">
+<link rel="icon" type="image/png" href="../../posizione/favicon.png">
+<script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+<style>
+:root { --bosco:#153821; --sole:#FF8102; --carta:#fffdf7; --fondo:#f3efe2; --inchiostro:#1b241d; --tenue:#5c6559; --linea:#ddd6c3; --rosso:#b3261e; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --carta:#18231b; --fondo:#101912; --inchiostro:#ece8dc; --tenue:#b5b9ad; --linea:#3b4b3f; --rosso:#ffb4ab; color-scheme: dark; } }
+:root[data-theme="dark"] { --carta:#18231b; --fondo:#101912; --inchiostro:#ece8dc; --tenue:#b5b9ad; --linea:#3b4b3f; --rosso:#ffb4ab; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--inchiostro); font: 16px/1.5 system-ui, sans-serif; }
+header { background: var(--bosco); color: #f3efe2; padding: 12px 16px; }
+header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: .03em; }
+header p { margin: 2px 0 0; opacity: .85; font-size: 14px; }
+main { max-width: 760px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+section { background: var(--carta); border: 1px solid var(--linea); border-radius: 12px; padding: 14px 16px; }
+h2 { margin: 0 0 8px; font-size: 16px; text-transform: uppercase; letter-spacing: .03em; }
+ol, ul { margin: 0; padding-left: 22px; } li { margin: 4px 0; }
+code { background: var(--fondo); padding: 1px 5px; border-radius: 5px; font-size: 14px; }
+.tenue { color: var(--tenue); font-size: 14px; }
+.avviso { color: var(--rosso); font-weight: 600; }
+esp-web-install-button button[slot="activate"] { font: 700 17px system-ui; background: var(--sole); color: #1b1200; border: 0; border-radius: 12px; padding: 14px 22px; cursor: pointer; }
+img { max-width: 100%; border-radius: 10px; }
+</style>
+</head>
+<body>
+<header><h1>Installa l'orologio SRM</h1><p>Firmware Meshtastic con la Guida SRM per LilyGO T-Watch Ultra 868 MHz</p></header>
+<main>
+  <section>
+    <h2>1 · Carica il firmware</h2>
+    <ol>
+      <li>Apri questa pagina sul <b>PC</b> con <b>Chrome o Edge</b> (Safari e i telefoni non possono scrivere sull'orologio).</li>
+      <li>Collega l'orologio con il cavo USB-C.</li>
+      <li>Premi il pulsante qui sotto e scegli la porta dell'orologio (di solito «USB JTAG/serial debug unit»).</li>
+      <li>Alla prima installazione accetta di <b>cancellare</b> il dispositivo; poi attendi la fine (un paio di minuti).</li>
+    </ol>
+    <p style="margin:14px 0 6px">
+      <esp-web-install-button manifest="manifest.json">
+        <button slot="activate">Installa sull'orologio</button>
+        <span slot="unsupported" class="avviso">Questo browser non può collegarsi all'orologio: usa Chrome o Edge su un computer.</span>
+        <span slot="not-allowed" class="avviso">Serve una pagina sicura (https).</span>
+      </esp-web-install-button>
+    </p>
+    <p class="tenue" id="versione">Versione del firmware: …</p>
+    <p class="tenue">Se l'orologio non si fa trovare: tieni premuto il pulsante BOOT mentre colleghi il cavo, poi riprova.</p>
+  </section>
+  <section>
+    <h2>2 · Configura</h2>
+    <p>Con l'orologio ancora collegato, dal PC (serve Python):</p>
+    <ol>
+      <li><code>pip install meshtastic</code></li>
+      <li>nella cartella <code>orologio/config</code> del sito: <code>python3 prepara.py --orologi 1-5</code> (una volta sola: crea il canale SRM e la sua chiave in <code>privato/</code>)</li>
+      <li><code>meshtastic --configure privato/orologio-001.yaml</code></li>
+    </ol>
+    <p class="tenue">Il nome «SRM pettorale 001» dice all'orologio il suo pettorale: è quello che compare negli SOS.</p>
+  </section>
+  <section>
+    <h2>3 · Come si usa</h2>
+    <ul>
+      <li><b>Schermo</b>: si accende da solo ai bivi e negli errori; tocco = pagina dopo (Guida · Mappa · Gara · SOS).</li>
+      <li><b>Corona premuta</b>: modalità mappa (tocco = scala), di nuovo per chiuderla.</li>
+      <li><b>Corona tenuta 2-3 secondi: SOS</b>, con 5 secondi per annullare; poi ripete l'invio finché la base conferma.</li>
+      <li><b>Vibrazioni</b>: una lunga = bivio fra 200 m · due = al bivio · tre brevi = ora · tre lunghe = errore.</li>
+    </ul>
+    <p style="margin-top:10px"><img src="../firmware/prove/schermi/tutte.png" alt="Le schermate dell'orologio: guida, mappa, gara, modalità mappa, SOS, errori" loading="lazy"></p>
+    <p class="tenue">Le schermate sono quelle prodotte dal programma dell'orologio fatto girare sul PC con i percorsi di prova.</p>
+  </section>
+</main>
+<script>
+fetch('versione.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(v => {
+  document.getElementById('versione').textContent = v ? `Versione del firmware: ${v.versione} · compilato il ${new Date(v.data).toLocaleString('it-IT')}` : 'Firmware non ancora pubblicato.';
+}).catch(() => {});
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "Orologio SRM (T-Watch Ultra)",
+  "version": "guida SRM",
+  "new_install_prompt_erase": true,
+  "builds": [
+    { "chipFamily": "ESP32-S3", "parts": [ { "path": "firmware.factory.bin", "offset": 0 } ] }
+  ]
+}
