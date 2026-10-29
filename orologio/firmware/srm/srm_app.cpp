@@ -7,8 +7,8 @@
 namespace srm
 {
 
-static const double PI = 3.14159265358979323846;
-static inline double rad(double d) { return d * PI / 180; }
+static const double K_PI = 3.14159265358979323846;
+static inline double rad(double d) { return d * K_PI / 180; }
 static inline double norm(double a) { return std::fmod(std::fmod(a, 360.0) + 540.0, 360.0) - 180.0; }
 
 App::App(const Traccia &t, const Bivio *bivi, int nBivi, int pett, Opzioni o)
@@ -327,7 +327,7 @@ void App::testoCentrato(Tela &t, const char *str, int y, Dim d, int maxW)
 void App::freccia(Tela &t, const Bivio *b, int cx, int cy, double k)
 {
     t.nero(false);
-    lineaSpessa(t, cx, cy + 110 * k, cx, cy, 20 * k); // tronco
+    lineaSpessa(t, cx, cy + 75 * k, cx, cy, 20 * k); // tronco
     auto ramo = [&](double ang, double L, double w, bool conPunta) {
         double x = cx + std::sin(rad(ang)) * L * k, y = cy - std::cos(rad(ang)) * L * k;
         lineaSpessa(t, cx, cy, x, y, w * k);

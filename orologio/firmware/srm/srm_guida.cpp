@@ -2,13 +2,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cctype>
 #include <cstring>
 
 namespace srm
 {
 
-static const double PI = 3.14159265358979323846;
-static inline double rad(double d) { return d * PI / 180; }
+static const double K_PI = 3.14159265358979323846;
+static inline double rad(double d) { return d * K_PI / 180; }
 static inline double norm(double a) { return std::fmod(std::fmod(a, 360.0) + 540.0, 360.0) - 180.0; }
 static inline double clampd(double v, double a, double b) { return std::max(a, std::min(b, v)); }
 static inline double roundJs(double x) { return std::floor(x + 0.5); } // Math.round di JavaScript
@@ -26,7 +27,7 @@ double rotta(double la1d, double lo1, double la2d, double lo2)
     double la1 = rad(la1d), la2 = rad(la2d), dlo = rad(lo2 - lo1);
     double y = std::sin(dlo) * std::cos(la2);
     double x = std::cos(la1) * std::sin(la2) - std::sin(la1) * std::cos(la2) * std::cos(dlo);
-    return std::fmod(std::atan2(y, x) * 180 / PI + 360, 360.0);
+    return std::fmod(std::atan2(y, x) * 180 / K_PI + 360, 360.0);
 }
 
 const char *cardinale(double b)

@@ -43,7 +43,23 @@ jobs:
           path: ~/.platformio/.cache
           key: pio-srm-${{ hashFiles('fw/**/*.ini') }}
       - name: Compila per il T-Watch Ultra
-        run: cd fw && bash bin/build-esp32.sh t-watch-ultra-srm
+        shell: bash
+        run: |
+          cd fw
+          set +e
+          bash bin/build-esp32.sh t-watch-ultra-srm > build.log 2>&1
+          esito=$?
+          tail -n 40 build.log
+          # errori come annotazioni (leggibili anche senza scaricare il registro)
+          grep -nE "error:|Error [0-9]|undefined reference|fatal" build.log | head -n 60 > errori.txt || true
+          if [ -s errori.txt ]; then
+            for parte in 0 1 2 3 4 5; do
+              righe=$(sed -n "$((parte*10+1)),$((parte*10+10))p" errori.txt | cut -c1-400 | sed ':a;N;$!ba;s/\n/%0A/g')
+              [ -n "$righe" ] && echo "::error title=compilazione $parte::$righe"
+            done
+          fi
+          if [ $esito -ne 0 ]; then echo "::error title=coda::$(tail -n 25 build.log | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')"; fi
+          exit $esito
       - uses: actions/upload-artifact@v4
         with:
           name: firmware-orologio-srm
