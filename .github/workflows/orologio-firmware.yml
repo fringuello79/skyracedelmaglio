@@ -95,9 +95,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p orologio/voce/anteprima && rm -f orologio/voce/anteprima/*.wav && cp voce_anteprima/*.wav orologio/voce/anteprima/ 2>/dev/null || true
           git add orologio/installa/firmware.factory.bin orologio/installa/versione.json orologio/voce/anteprima
+          git checkout -- orologio/firmware/srm/srm_voce.cpp   # generato qui: non si pubblica
           git commit -m "Orologio SRM: firmware compilato (${GITHUB_SHA::7})" || exit 0
           for i in 1 2 3 4 5; do
-            git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && exit 0
+            git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && exit 0
             sleep 10
           done
           exit 1

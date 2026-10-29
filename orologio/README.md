@@ -14,20 +14,21 @@ La simulazione da cui vengono le scelte (modulazione, ripetitori, intervalli) è
 | `firmware/srm/` | guida in C++ (stessa logica di `guida/motore.js`), app dell'orologio, dati di traccia e bivi |
 | `firmware/meshtastic/` | modulo per il firmware Meshtastic e `integra.py`, che lo inserisce e prepara la compilazione |
 | `firmware/prove/` | prove sul PC: confronto con la guida del telefono e schermate dell'orologio (`schermi/tutte.png`) |
+| `firmware/voce/` | `frasi.tsv`: le 133 frasi che l'orologio può dire (registrazioni in `wav/`, se ci sono) |
+| `installa/` | pagina per caricare il firmware dal browser e firmware compilato |
+| `voce/` | pagina per ascoltare la voce sintetica e registrare le frasi con la propria voce |
 
 ## Quando arriva l'orologio
 
 ### 1. Firmware
-Il firmware si compila da solo su GitHub, a ogni modifica di `orologio/firmware`. Si trova nella scheda *Actions* del
-repository, esecuzione «Firmware orologio SRM», sezione *Artifacts* → `firmware-orologio-srm`.
+Il firmware si compila da solo su GitHub a ogni modifica di `orologio/firmware`, e viene pubblicato sul sito.
+Per caricarlo sull'orologio:
+1. aprire **https://www.skyracedelmaglio.it/orologio/installa/** sul PC, con Chrome o Edge;
+2. collegare l'orologio con il cavo USB-C;
+3. premere «Installa sull'orologio».
 
-Per caricarlo:
-1. collegare l'orologio al PC con il cavo USB-C;
-2. aprire https://flasher.meshtastic.org con Chrome o Edge;
-3. scegliere «T-Watch Ultra», poi «Custom firmware» o il trascinamento del file;
-4. caricare `firmware-t-watch-ultra-srm-….factory.bin` (installazione completa, la prima volta).
-
-Da riga di comando, se preferisci: `esptool.py write_flash 0x0 firmware-t-watch-ultra-srm-….factory.bin`.
+Il file è anche in `orologio/installa/firmware.factory.bin`. Da riga di comando:
+`esptool.py write_flash 0x0 firmware.factory.bin`.
 
 ### 2. Configurazione
 ```
@@ -97,8 +98,10 @@ python3 orologio/sala/prova_sala.py          # messaggi e sala controllo
 ```
 
 ## Cosa manca
-- **Voce registrata:** per ora l'orologio fa suoni brevi e diversi per tipo di avviso. Le frasi parlate andranno
-  registrate e messe sulla memoria dell'orologio.
+- **Voce:** l'orologio dice frasi registrate e messe nel firmware.
+  - Finché non ci sono registrazioni vere usa una voce sintetica italiana (Piper, «Paola»).
+  - La pagina `orologio/voce/` permette di ascoltarla e di registrare le frasi con una voce vera.
+  - Le registrazioni vanno in `firmware/voce/wav/` (un file per frase, con il nome indicato nella pagina).
 - **Carta topografica nella modalità mappa:** per ora si vedono solo il percorso e i bivi. Le tessere della carta si
   possono mettere sulla microSD in un secondo momento.
 - **Prove sull'orologio vero:** il firmware è compilato ma non ancora provato sull'orologio, che non è ancora arrivato.
