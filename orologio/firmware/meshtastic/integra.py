@@ -27,16 +27,20 @@ def sostituisci(file, ancora, nuovo, una_volta_segno):
 
 def integra(fw):
     fw = Path(fw)
-    dest = fw / 'srm_guida'
-    dest.mkdir(exist_ok=True)
-    for f in ['srm_guida.h', 'srm_guida.cpp', 'srm_app.h', 'srm_app.cpp', 'srm_tela.h', 'srm_dati.h', 'srm_dati.cpp']:
-        shutil.copy(SRM / f, dest / f)
-    for f in (QUI / 'srm_guida').iterdir():
-        shutil.copy(f, dest / f.name)
+    # dentro src/, così PlatformIO trova le librerie; i .cpp compilano solo con SRM_GUIDA (gli altri apparecchi non cambiano)
+    dest = fw / 'src/modules/srm'
+    dest.mkdir(parents=True, exist_ok=True)
+    sorgenti = [SRM / f for f in ['srm_guida.h', 'srm_guida.cpp', 'srm_app.h', 'srm_app.cpp', 'srm_tela.h', 'srm_dati.h', 'srm_dati.cpp']]
+    sorgenti += sorted((QUI / 'srm_guida').iterdir())
+    for f in sorgenti:
+        testo = f.read_text()
+        if f.suffix == '.cpp' and not testo.lstrip().startswith('#include "SrmGuidaModule.h"'):
+            testo = '#ifdef SRM_GUIDA\n' + testo + '\n#endif // SRM_GUIDA\n'
+        (dest / f.name).write_text(testo)
     # registrazione del modulo: prima di TextMessageModule, così i messaggi «SRM …» non diventano notifiche
     m = fw / 'src/modules/Modules.cpp'
     sostituisci(m, '#include "modules/TextMessageModule.h"',
-                '#include "modules/TextMessageModule.h"\n#ifdef SRM_GUIDA\n#include "SrmGuidaModule.h"\n#endif', 'SrmGuidaModule.h')
+                '#include "modules/TextMessageModule.h"\n#ifdef SRM_GUIDA\n#include "modules/srm/SrmGuidaModule.h"\n#endif', 'SrmGuidaModule.h')
     sostituisci(m, '    textMessageModule = new TextMessageModule();',
                 '#ifdef SRM_GUIDA\n    srmGuidaModule = new SrmGuidaModule();\n#endif\n    textMessageModule = new TextMessageModule();',
                 'new SrmGuidaModule()')
@@ -60,8 +64,7 @@ def integra(fw):
 [env:t-watch-ultra-srm]
 board_level = extra
 extends = env:t-watch-ultra
-build_flags = ${env:t-watch-ultra.build_flags} -D SRM_GUIDA -Isrm_guida
-build_src_filter = ${env:t-watch-ultra.build_src_filter} +<../srm_guida/>
+build_flags = ${env:t-watch-ultra.build_flags} -D SRM_GUIDA -Isrc/modules/srm
 ''')
     print('Guida SRM integrata in', fw)
 
