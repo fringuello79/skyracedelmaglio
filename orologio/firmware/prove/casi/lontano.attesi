@@ -1,0 +1,11 @@
+61000	lontano	Raggiungi il percorso: è a 450 metri, davanti a te. Segui sentieri e strade.
+122000	lontano	Raggiungi il percorso: è a 150 metri, davanti a te. Segui sentieri e strade.
+151000	aggancio	Sei sul percorso, al chilometro 3.
+193000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+257000	indicazione	Bivio: tieni la sinistra.
+296000	giusto	
+310000	preavviso	Fra 200 metri, bivio: a destra.
+374000	indicazione	Bivio: a destra.
+384000	ora	Ora a destra.
+414000	giusto	
+456000	preavviso	Fra 200 metri, bivio: a sinistra, poi subito a destra.

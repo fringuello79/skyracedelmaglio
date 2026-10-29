@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sala controllo SRM</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="../../posizione/leaflet/leaflet.css">
+<style>
+:root { --bosco:#153821; --sole:#FF8102; --carta:#fffdf7; --fondo:#f3efe2; --inchiostro:#1b241d; --tenue:#5c6559; --linea:#ddd6c3;
+  --rosso:#b3261e; --rosso-chiaro:#fde7e4; --verde:#1e7a3c; --ambra:#a35d00; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --carta:#18231b; --fondo:#101912; --inchiostro:#ece8dc; --tenue:#b5b9ad; --linea:#3b4b3f; --rosso:#ffb4ab; --rosso-chiaro:#4a1714; --verde:#8fd8a2; --ambra:#ffc56b; color-scheme: dark; } }
+:root[data-theme="dark"] { --carta:#18231b; --fondo:#101912; --inchiostro:#ece8dc; --tenue:#b5b9ad; --linea:#3b4b3f; --rosso:#ffb4ab; --rosso-chiaro:#4a1714; --verde:#8fd8a2; --ambra:#ffc56b; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--inchiostro); font: 15px/1.4 system-ui, sans-serif; }
+header { background: var(--bosco); color: #f3efe2; padding: 10px 16px; display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+header h1 { margin: 0; font-size: 19px; text-transform: uppercase; letter-spacing: .03em; }
+header span { opacity: .85; font-size: 14px; }
+main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px 16px; }
+@media (min-width: 1000px) { main { grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr); } }
+.pannello { background: var(--carta); border: 1px solid var(--linea); border-radius: 12px; padding: 12px; min-width: 0; }
+h2 { margin: 0 0 8px; font-size: 15px; text-transform: uppercase; letter-spacing: .03em; }
+#mappa { height: min(70vh, 640px); border-radius: 10px; }
+.allarme { border-left: 5px solid var(--rosso); background: var(--rosso-chiaro); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.allarme.sos { animation: lampeggia 1s steps(2) infinite; }
+.allarme.chiuso { border-color: var(--verde); background: transparent; animation: none; opacity: .75; }
+.allarme b { font-size: 16px; }
+.allarme button { margin-top: 6px; font: 600 14px system-ui; padding: 6px 10px; border-radius: 8px; border: 0; background: var(--bosco); color: #fff; cursor: pointer; }
+@keyframes lampeggia { 50% { background: transparent; } }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 5px 6px; border-bottom: 1px solid var(--linea); text-align: left; }
+th { color: var(--tenue); font-weight: 400; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.v { color: var(--verde); font-weight: 700; } .a { color: var(--ambra); font-weight: 700; } .r { color: var(--rosso); font-weight: 700; }
+.scorre { max-height: 360px; overflow: auto; }
+.tenue { color: var(--tenue); }
+#audio { font: 600 14px system-ui; padding: 6px 10px; border-radius: 8px; border: 1px solid #fff6; background: transparent; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<header><h1>Sala controllo SRM</h1><span id="riassunto">collegamento…</span><button id="audio">Attiva l'allarme sonoro</button></header>
+<main>
+  <section class="pannello" style="align-self:start"><div id="mappa"></div></section>
+  <div style="display:grid;gap:12px;align-content:start">
+    <section class="pannello"><h2>Allarmi</h2><div id="allarmi" class="tenue">Nessun allarme.</div></section>
+    <section class="pannello"><h2>Atleti</h2><div class="scorre"><table><thead><tr><th>Pett.</th><th class="n">km</th><th class="n">ultima posizione</th><th>stato</th></tr></thead><tbody id="atleti"></tbody></table></div></section>
+    <section class="pannello"><h2>Ripetitori</h2><table><thead><tr><th>Nome</th><th class="n">batteria</th><th class="n">sentito</th></tr></thead><tbody id="ripetitori"></tbody></table></section>
+  </div>
+</main>
+<script src="../../posizione/leaflet/leaflet.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const mappa = L.map('mappa').setView([42.13, 13.37], 13);
+L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 16, attribution: '© OpenStreetMap · OpenTopoMap' }).addTo(mappa);
+fetch('../../posizione/traccia.json').then(r => r.json()).then(t => {
+  const l = L.polyline(t.pts.map(p => [p[0], p[1]]), { color: '#FF8102', weight: 4 }).addTo(mappa); mappa.fitBounds(l.getBounds().pad(0.05));
+});
+const punti = new Map();
+const eta = s => s == null ? '—' : s < 90 ? `${s} s` : `${Math.round(s / 60)} min`;
+const classe = s => s == null ? 'r' : s <= 300 ? 'v' : s <= 600 ? 'a' : 'r';
+let audio = null, suona = false;
+$('audio').onclick = () => { audio = audio || new AudioContext(); audio.resume(); $('audio').textContent = 'Allarme sonoro attivo'; };
+function bip() { if (!audio) return; const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 880; g.gain.value = .2; o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + .25); }
+setInterval(() => { if (suona) bip(); }, 900);
+async function chiudi(id) { const nota = prompt('Nota (chi interviene, cosa si fa):') ?? ''; await fetch('/chiudi', { method: 'POST', body: JSON.stringify({ id, nota }) }); aggiorna(); }
+async function aggiorna() {
+  let s; try { s = await (await fetch('/stato.json', { cache: 'no-store' })).json(); } catch { $('riassunto').textContent = 'sala.py non risponde'; return; }
+  const atleti = s.nodi.filter(n => n.tipo === 'atleta').sort((a, b) => (a.pettorale ?? 1e9) - (b.pettorale ?? 1e9));
+  const rip = s.nodi.filter(n => n.tipo === 'ripetitore');
+  const recenti = atleti.filter(a => a.eta != null && a.eta <= 300).length;
+  $('riassunto').textContent = `${atleti.length} orologi · ${recenti} con posizione recente · ${new Date(s.ora * 1000).toLocaleTimeString('it-IT')}`;
+  $('atleti').innerHTML = atleti.map(a => `<tr><td><b>${String(a.pettorale ?? '?').padStart(3, '0')}</b></td><td class="n">${a.km != null ? a.km.toFixed(1).replace('.', ',') : '—'}</td><td class="n ${classe(a.eta)}">${eta(a.eta)}</td><td>${a.stato && a.stato !== 'ok' ? `<span class="r">${a.stato}</span>` : 'ok'}</td></tr>`).join('');
+  $('ripetitori').innerHTML = rip.map(r => `<tr><td>${(r.nome || '').replace('SRM rip. ', '')}</td><td class="n">${r.batteria != null ? r.batteria + '%' : '—'}</td><td class="n">${eta(r.ultimoSentito ? Math.round(s.ora - r.ultimoSentito) : null)}</td></tr>`).join('');
+  const aperti = s.allarmi.filter(a => a.stato === 'aperto');
+  suona = aperti.some(a => a.tipo === 'SOS');
+  $('allarmi').innerHTML = s.allarmi.length ? s.allarmi.slice().reverse().map(a => {
+    const ora = new Date(a.t * 1000).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    const dove = a.lat ? ` · <a href="https://www.google.com/maps?q=${a.lat},${a.lon}" target="_blank">${a.lat.toFixed(5)}, ${a.lon.toFixed(5)}</a>` : '';
+    const chiuso = a.stato !== 'aperto';
+    return `<div class="allarme ${a.tipo === 'SOS' ? 'sos' : ''} ${chiuso ? 'chiuso' : ''}"><b>${a.tipo === 'SOS' ? 'SOS' : a.tipo === 'FUORI' ? 'Fuori percorso' : a.tipo === 'SBAGLIATO' ? 'Sentiero sbagliato' : a.tipo} · pettorale ${String(a.pettorale).padStart(3, '0')}</b><br>${ora} · km ${a.km ?? '—'}${dove}<br>stato: ${a.stato}${a.invii ? ` · ricevuto ${a.invii} volte, conferma inviata` : ''}${a.nota ? ` · ${a.nota}` : ''}${!chiuso ? `<br><button onclick="chiudi(${a.id})">Preso in carico</button>` : ''}</div>`;
+  }).join('') : 'Nessun allarme.';
+  for (const n of s.nodi) {
+    if (!n.lat) continue;
+    let m = punti.get(n.num);
+    const col = n.tipo === 'ripetitore' ? '#153821' : n.stato === 'SOS' ? '#d00' : n.stato && n.stato !== 'ok' ? '#d33' : n.eta <= 300 ? '#1e9e4a' : n.eta <= 600 ? '#e0a400' : '#d33';
+    const etichetta = n.tipo === 'atleta' ? `pettorale ${String(n.pettorale).padStart(3, '0')} · km ${n.km ?? '—'} · ${eta(n.eta)} fa` : n.nome;
+    if (!m) { m = L.circleMarker([n.lat, n.lon], { radius: n.tipo === 'atleta' ? 6 : 8, color: '#fff', weight: 2, fillOpacity: 1, fillColor: col }).addTo(mappa).bindTooltip(etichetta); punti.set(n.num, m); }
+    else { m.setLatLng([n.lat, n.lon]); m.setStyle({ fillColor: col, radius: n.stato === 'SOS' ? 11 : n.tipo === 'atleta' ? 6 : 8 }); m.setTooltipContent(etichetta); }
+  }
+}
+aggiorna(); setInterval(aggiorna, 3000);
+</script>
+</body>
+</html>

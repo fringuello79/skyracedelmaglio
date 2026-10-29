@@ -1,0 +1,13 @@
+1000	aggancio	Sei sul percorso, al chilometro 22,9.
+23000	indicazione	A sinistra, poi subito stretta a destra.
+116000	fuori	Fuori percorso! Percorso a 40 metri, alle tue spalle.
+146000	fuori	Ancora fuori. Percorso a 100 metri, alle tue spalle.
+176000	fuori	Ancora fuori. Percorso a 70 metri, davanti a te.
+198000	rientro	Di nuovo sul percorso.
+516000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+582000	indicazione	Bivio: tieni la sinistra.
+582000	preavviso	Fra 200 metri, bivio: a destra.
+621000	giusto	
+645000	indicazione	Bivio: a destra. Sentiero E1.
+654000	ora	Ora a destra.
+685000	giusto	Sentiero E1.

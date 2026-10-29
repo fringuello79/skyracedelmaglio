@@ -1,0 +1,14 @@
+1000	attesa	Sei sul percorso. Inizia a muoverti e capisco in che senso vai.
+10000	aggancio	Sei sul percorso, al chilometro 27,6.
+56000	indicazione	A destra, poi subito a sinistra.
+87000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+151000	indicazione	Bivio: tieni la sinistra.
+194000	giusto	
+201000	indicazione	Bivio: dritto. Ignora il sentiero a sinistra.
+243000	giusto	
+393000	indicazione	Svolta a destra.
+393000	preavviso	Fra 150 metri, bivio: a destra.
+432000	indicazione	Bivio: a destra.
+443000	ora	Ora a destra.
+474000	giusto	
+868000	arrivo	Arrivo. Complimenti, gara finita!

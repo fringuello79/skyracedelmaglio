@@ -1,0 +1,116 @@
+1000	attesa	Sei sul percorso. Inizia a muoverti e capisco in che senso vai.
+8000	aggancio	Sei sul percorso, al chilometro 0.
+217000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+263000	indicazione	Bivio: tieni la sinistra.
+285000	indicazione	Svolta a sinistra.
+291000	giusto	
+408000	indicazione	Bivio: dritto. Ignora il sentiero a destra.
+408000	preavviso	Fra 150 metri, bivio: tieni la destra.
+438000	giusto	
+441000	indicazione	Bivio: tieni la destra.
+468000	giusto	
+494000	indicazione	A destra, poi subito a sinistra.
+545000	indicazione	Svolta a destra.
+631000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+674000	indicazione	Bivio: tieni la sinistra.
+703000	giusto	
+731000	indicazione	Bivio: dritto.
+757000	giusto	
+808000	preavviso	Fra 250 metri, bivio: tieni la sinistra.
+859000	indicazione	Bivio: tieni la sinistra.
+886000	giusto	
+891000	preavviso	Fra 200 metri, bivio: a destra.
+936000	indicazione	Bivio: a destra.
+944000	ora	Ora a destra.
+964000	giusto	
+986000	preavviso	Fra 200 metri, bivio: a sinistra, poi subito a destra.
+1033000	indicazione	Bivio: a sinistra, poi subito a destra.
+1059000	giusto	
+1470000	preavviso	Fra 200 metri, bivio: a sinistra.
+1518000	indicazione	Bivio: a sinistra.
+1526000	ora	Ora a sinistra.
+1543000	giusto	
+1723000	preavviso	Fra 200 metri, bivio: a sinistra.
+1772000	indicazione	Bivio: a sinistra.
+1780000	ora	Ora a sinistra.
+1799000	giusto	
+1813000	indicazione	Svolta a sinistra.
+2090000	preavviso	Fra 200 metri, bivio: a destra.
+2135000	indicazione	Bivio: a destra. Sentiero 3.
+2143000	ora	Ora a destra.
+2163000	giusto	Sentiero 3.
+2517000	preavviso	Fra 200 metri, bivio: a destra, poi subito a sinistra.
+2561000	indicazione	Bivio: a destra, poi subito a sinistra.
+2590000	giusto	
+2629000	indicazione	Inizia il sentiero 3B.
+2884000	indicazione	Stretta a destra, poi subito stretta a sinistra.
+3023000	indicazione	Tornanti: resta sul sentiero.
+3378000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+3423000	indicazione	Bivio: tieni la sinistra.
+3450000	giusto	
+3679000	preavviso	Fra 200 metri, bivio: tieni la destra.
+3727000	indicazione	Bivio: tieni la destra.
+3754000	giusto	
+3763000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+3808000	indicazione	Bivio: tieni la sinistra. Sentiero 3.
+3836000	giusto	Sentiero 3.
+3968000	preavviso	Fra 250 metri, bivio: tieni la destra.
+4016000	indicazione	Bivio: tieni la destra.
+4043000	giusto	
+4129000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+4176000	indicazione	Bivio: tieni la sinistra.
+4204000	giusto	
+4427000	preavviso	Fra 200 metri, bivio: a sinistra.
+4466000	indicazione	Bivio: a sinistra. Sentiero 1.
+4474000	ora	Ora a sinistra.
+4495000	giusto	Sentiero 1.
+4759000	preavviso	Fra 200 metri, bivio: a sinistra.
+4807000	indicazione	Bivio: a sinistra.
+4815000	ora	Ora a sinistra.
+4834000	giusto	
+4868000	indicazione	Inizia il sentiero 7.
+4887000	indicazione	Bivio: dritto. Ignora il sentiero a sinistra.
+4913000	giusto	
+5120000	indicazione	A destra, poi subito a sinistra.
+5351000	indicazione	A sinistra, poi subito a destra.
+5466000	indicazione	Tornanti: resta sul sentiero.
+5477000	preavviso	Fra 200 metri, bivio: a sinistra.
+5517000	indicazione	Bivio: a sinistra.
+5523000	ora	Ora a sinistra.
+5545000	giusto	
+5707000	indicazione	Tornanti: resta sul sentiero.
+6040000	indicazione	A sinistra, poi subito stretta a destra.
+6295000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+6339000	indicazione	Bivio: tieni la sinistra.
+6339000	preavviso	Fra 200 metri, bivio: a destra.
+6368000	giusto	
+6384000	indicazione	Bivio: a destra. Sentiero E1.
+6390000	ora	Ora a destra.
+6411000	giusto	Sentiero E1.
+6442000	indicazione	Svolta a sinistra.
+6575000	preavviso	Fra 200 metri, bivio: tieni la destra.
+6626000	indicazione	Bivio: tieni la destra.
+6652000	giusto	
+6830000	preavviso	Fra 250 metri, bivio: a destra.
+6880000	indicazione	Bivio: a destra.
+6887000	ora	Ora a destra.
+6906000	giusto	
+6909000	indicazione	Bivio: dritto. Ignora il sentiero a sinistra.
+6937000	giusto	
+7084000	preavviso	Fra 250 metri, bivio: a sinistra.
+7131000	indicazione	Bivio: a sinistra.
+7140000	ora	Ora a sinistra.
+7161000	giusto	
+7252000	indicazione	Svolta a sinistra.
+7298000	indicazione	A destra, poi subito a sinistra.
+7317000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+7358000	indicazione	Bivio: tieni la sinistra.
+7388000	giusto	
+7391000	indicazione	Bivio: dritto. Ignora il sentiero a sinistra.
+7418000	giusto	
+7514000	indicazione	Svolta a destra.
+7514000	preavviso	Fra 150 metri, bivio: a destra.
+7536000	indicazione	Bivio: a destra.
+7544000	ora	Ora a destra.
+7562000	giusto	
+7807000	arrivo	Arrivo. Complimenti, gara finita!
