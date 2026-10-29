@@ -1,2 +1,3 @@
 orologio/config/privato/
 __pycache__/
+orologio/firmware/prove/schermi/*.json

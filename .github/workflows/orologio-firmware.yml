@@ -1,0 +1,53 @@
+# Orologio SRM: prova il motore della guida (C++ contro motore.js) e compila il firmware Meshtastic per il T-Watch Ultra.
+# Il firmware compilato si scarica dalla pagina dell'esecuzione, nella sezione «Artifacts».
+name: Firmware orologio SRM
+on:
+  push:
+    paths:
+      - 'orologio/firmware/**'
+      - 'guida/motore.js'
+      - 'guida/bivi-srm2026.json'
+      - '.github/workflows/orologio-firmware.yml'
+  workflow_dispatch:
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Motore C++ contro motore.js
+        run: sh orologio/firmware/prove/esegui.sh
+
+  firmware:
+    needs: prove
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Firmware Meshtastic (versione provata)
+        run: |
+          git clone --filter=blob:none https://github.com/meshtastic/firmware.git fw
+          git -C fw checkout 332b5b0a2c4fec2896de3c5fa63f46d5cd05ea98
+          git -C fw submodule update --init --recursive
+      - name: Strumenti
+        run: pip install -r fw/.github/actions/setup-base/requirements.txt
+      - name: Inserisce la Guida SRM
+        run: python3 orologio/firmware/meshtastic/integra.py fw
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio/.cache
+          key: pio-srm-${{ hashFiles('fw/**/*.ini') }}
+      - name: Compila per il T-Watch Ultra
+        run: cd fw && bash bin/build-esp32.sh t-watch-ultra-srm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-orologio-srm
+          path: |
+            fw/release/*.bin
+            fw/release/device-install.*
+            fw/release/device-update.*
