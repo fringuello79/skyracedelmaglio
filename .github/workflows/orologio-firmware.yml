@@ -58,7 +58,13 @@ jobs:
               [ -n "$righe" ] && echo "::error title=compilazione $parte::$righe"
             done
           fi
-          if [ $esito -ne 0 ]; then echo "::error title=coda::$(tail -n 25 build.log | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')"; fi
+          if [ $esito -ne 0 ]; then
+            n=$(grep -n "\*\*\* \[" build.log | head -n 1 | cut -d: -f1)
+            if [ -n "$n" ]; then
+              echo "::error title=prima dell'errore::$(sed -n "$((n>40?n-40:1)),$((n+2))p" build.log | grep -v "^Compiling\|^Archiving\|^Indexing" | cut -c1-300 | tail -n 30 | sed ':a;N;$!ba;s/\n/%0A/g')"
+            fi
+            echo "::error title=coda::$(tail -n 12 build.log | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')"
+          fi
           exit $esito
       - uses: actions/upload-artifact@v4
         with:
