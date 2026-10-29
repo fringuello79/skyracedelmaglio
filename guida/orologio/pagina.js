@@ -318,4 +318,4 @@ nuovaApp(); app.t0 = 0; nuovaRete();
 await document.fonts?.load?.("700 40px Oswald").catch(() => {});
 setInterval(() => { aggiornaAtleti(); aggiornaSala(); pulisciPacchetti(); }, 500);
 requestAnimationFrame(ciclo);
-window.SRMorologio = { get app() { return app; }, get gara() { return gara; }, get ora() { return ora; }, passoSecondo, nuovaRete };
+window.SRMorologio = { cartografia, get app() { return app; }, get gara() { return gara; }, get ora() { return ora; }, passoSecondo, nuovaRete };

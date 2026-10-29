@@ -59,7 +59,7 @@ export class MappaOrologio {
     return t?.ok ? t.img : null;
   }
 
-  // c: contesto 2D; area: {x, y, w, h}; v: {centro:[lat,lon], mpp, km, bivi, fix, direzione}
+  // c: contesto 2D; area: {x, y, w, h}; v: {centro:[lat,lon], mpp, km, bivi, pallino:[lat,lon], direzione}
   disegna(c, area, v, ridisegna) {
     const { x: ax, y: ay, w, h } = area;
     const lat = v.centro[0];
@@ -82,7 +82,11 @@ export class MappaOrologio {
     c.globalAlpha = 0.92;
     for (let tx = t0x; tx <= t1x; tx++) for (let ty = t0y; ty <= t1y; ty++) {
       const img = this._tessera(z, tx, ty, ridisegna);
-      if (img) c.drawImage(img, sx + (tx * 256 - cx) * s, sy + (ty * 256 - cy) * s, 256 * s + 0.5, 256 * s + 0.5);
+      if (!img) continue;
+      // bordi delle tessere su pixel interi: niente cuciture che tremolano
+      const x0 = Math.round(sx + (tx * 256 - cx) * s), x1 = Math.round(sx + ((tx + 1) * 256 - cx) * s);
+      const y0 = Math.round(sy + (ty * 256 - cy) * s), y1 = Math.round(sy + ((ty + 1) * 256 - cy) * s);
+      c.drawImage(img, x0, y0, x1 - x0, y1 - y0);
     }
     c.globalAlpha = 1;
     // percorso: fatto in grigio, da fare in arancio SRM con il bordo scuro
@@ -110,8 +114,9 @@ export class MappaOrologio {
       c.fillStyle = '#ffb020'; c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, v.mpp > 10 ? 4 : 7, 0, 7); c.fill(); c.stroke();
     }
     // posizione e direzione di marcia
-    if (v.fix) {
-      const [x, y] = P(v.fix.lat, v.fix.lon);
+    if (v.pallino) {
+      const [x, y] = P(v.pallino[0], v.pallino[1]);
+      this.ultimoPallino = [x, y];
       if (v.direzione != null) {
         c.save(); c.translate(x, y); c.rotate(rad(v.direzione)); c.fillStyle = 'rgba(77,163,255,.35)';
         c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, 42, rad(-90 - 28), rad(-90 + 28)); c.closePath(); c.fill(); c.restore();

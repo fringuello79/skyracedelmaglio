@@ -128,7 +128,13 @@ export class AppOrologio {
   // un secondo di simulazione: fix GPS (può mancare), ora di gara in ms, ora reale per i conti alla rovescia
   secondo(fix, ora, oraReale = performance.now()) {
     this.ora = ora;
-    if (fix) { this.fix = fix; this._daMotore(this.motore.posizione(fix)); }
+    if (fix) {
+      this.fix = fix; this._daMotore(this.motore.posizione(fix));
+      // media degli ultimi 5 secondi: serve al pallino quando si è fuori dal percorso
+      (this.bufFix ||= []).push(fix); if (this.bufFix.length > 5) this.bufFix.shift();
+      const n = this.bufFix.length;
+      this.fixMedio = [this.bufFix.reduce((a, q) => a + q.lat, 0) / n, this.bufFix.reduce((a, q) => a + q.lon, 0) / n];
+    }
     this._daMotore(this.motore.tick(ora));
     const st = this.motore.stato(); this.km = st.km;
     // fuori percorso: avviso anche alla base, una volta per episodio
@@ -167,12 +173,12 @@ export class AppOrologio {
     const st = this.motore.stato();
     const errore = st.fuori || (this.ultimoEvento?.tipo === 'indietro' && this.ora - this.ultimoEvento.t < 15000);
     const sos = this.pagina === 'sos' || this.sos.stato === 'conto';
-    if (this.visuale && !errore && !sos) { this._paginaVisuale(c, st); c.restore(); return; }
+    if (this.visuale && !errore && !sos) { this._paginaVisuale(c, st, oraReale); c.restore(); return; }
     this._barra(c);
     if (sos) this._paginaSos(c, oraReale);
     else if (errore) this._paginaErrore(c, st);
     else if (this.pagina === 'guida') this._paginaGuida(c, st);
-    else if (this.pagina === 'mappa') this._paginaMappa(c, st);
+    else if (this.pagina === 'mappa') this._paginaMappa(c, st, oraReale);
     else if (this.pagina === 'gara') this._paginaGara(c, st);
     // puntini delle pagine
     this.pagine.forEach((p, i) => { c.beginPath(); c.arc(W / 2 + (i - 1.5) * 18, H - 12, p === this.pagina ? 5 : 3.5, 0, 7); c.fillStyle = p === this.pagina ? BIANCO : '#4a4f4c'; c.fill(); });
@@ -180,10 +186,46 @@ export class AppOrologio {
   }
 
   // modalità visuale: carta con il percorso e la posizione, come la mappa della pagina; le indicazioni restano sopra
-  _paginaVisuale(c, st) {
+  // Posizione da disegnare, senza tremolio:
+  //  - sul percorso il pallino scorre sulla traccia al chilometro del motore (niente rumore del GPS laterale),
+  //    e il chilometro è ammorbidito nel tempo reale, così si muove fluido a qualsiasi velocità;
+  //  - fuori dal percorso si usa la media degli ultimi 5 secondi, ammorbidita;
+  //  - la direzione è quella della traccia (o di marcia se fuori), ruotata piano.
+  _vistaLiscia(st, oraReale) {
+    const v = this.vista || (this.vista = {});
+    const dt = v.tr == null ? 1 : Math.min(0.5, Math.max(0, (oraReale - v.tr) / 1000)); v.tr = oraReale; v.dt = dt;
+    const f = tau => 1 - Math.exp(-dt / tau);
+    let pt, dir, tau;
+    if (st.km != null && !st.fuori) {
+      if (v.km == null || v.modo !== 'traccia' || Math.abs(st.km - v.km) > 0.3) v.km = st.km;
+      else v.km += (st.km - v.km) * f(0.45);
+      const p = this.t.at(v.km); pt = [p[0], p[1]]; dir = this.t.direzioneDopo(v.km, 0.04); tau = 0.12; v.modo = 'traccia';
+    } else if (this.fixMedio) {
+      pt = this.fixMedio; dir = this.motore.direzione; tau = 0.6; v.modo = 'libero'; v.km = null;
+    } else return null;
+    const salto = v.pt && Math.abs(pt[0] - v.pt[0]) + Math.abs(pt[1] - v.pt[1]) > 0.003;   // ~300 m: si riparte
+    v.pt = !v.pt || salto ? pt : [v.pt[0] + (pt[0] - v.pt[0]) * f(tau), v.pt[1] + (pt[1] - v.pt[1]) * f(tau)];
+    if (dir != null) v.dir = v.dir == null || salto ? dir : (v.dir + norm(dir - v.dir) * f(0.9) + 360) % 360;
+    return v;
+  }
+
+  _paginaVisuale(c, st, oraReale = performance.now()) {
     const z = ZOOM[this.zoom];
-    const centro = z.mpp > 10 ? this.cartografia?.centroTraccia : this.fix ? [this.fix.lat, this.fix.lon] : st.km != null ? this.t.at(st.km) : this.t.at(0);
-    if (this.cartografia && centro) this.cartografia.disegna(c, { x: 0, y: 0, w: W, h: H }, { centro, mpp: z.mpp, km: st.km, bivi: this.motore.bivi, fix: this.fix, direzione: this.motore.direzione }, this.ridisegna);
+    const v = this._vistaLiscia(st, oraReale);
+    // la carta segue il pallino con calma, guardando un po' avanti nel senso di marcia
+    let centro;
+    if (z.mpp > 10) centro = this.cartografia?.centroTraccia;
+    else if (v) {
+      const avanti = 0.16 * H * z.mpp, d = rad(v.dir ?? 0), k = Math.cos(rad(v.pt[0]));
+      const meta = [v.pt[0] + Math.cos(d) * avanti / 110540, v.pt[1] + Math.sin(d) * avanti / (111320 * k)];
+      const ff = 1 - Math.exp(-v.dt / 0.9);
+      if (!v.cam || v.camZoom !== this.zoom || Math.abs(meta[0] - v.cam[0]) + Math.abs(meta[1] - v.cam[1]) > 0.004) v.cam = meta;
+      else v.cam = [v.cam[0] + (meta[0] - v.cam[0]) * ff, v.cam[1] + (meta[1] - v.cam[1]) * ff];
+      v.camZoom = this.zoom; centro = v.cam;
+    } else centro = st.km != null ? this.t.at(st.km) : this.t.at(0);
+    const kmDisegno = v?.modo === 'traccia' ? v.km : st.km;
+    if (this.cartografia && centro) this.cartografia.disegna(c, { x: 0, y: 0, w: W, h: H },
+      { centro, mpp: z.mpp, km: kmDisegno, bivi: this.motore.bivi, pallino: v?.pt, direzione: v?.dir }, this.ridisegna);
     // barra in alto su fondo scuro
     c.fillStyle = 'rgba(0,0,0,.72)'; c.fillRect(0, 0, W, 58);
     this._barra(c);
@@ -342,11 +384,17 @@ export class AppOrologio {
     this._sottotitolo(c, 380);
   }
 
-  _paginaMappa(c, st) {
+  _paginaMappa(c, st, oraReale = performance.now()) {
     if (st.km == null) { this._testoCentrato(c, 'Cerco il percorso…', 220, F(600, 40), TENUE); return; }
     // mappa «in avanti»: il percorso davanti va verso l'alto (dalla traccia, senza bussola)
-    const km = st.km, dir = this.t.direzioneDopo(km, 0.15);
-    const o = this.t.at(km), k = Math.cos(rad(o[0]));
+    const v = this._vistaLiscia(st, oraReale);
+    if (!v) return;
+    const km = v?.modo === 'traccia' ? v.km : st.km;
+    // rotazione ammorbidita: il percorso davanti verso l'alto, senza scatti
+    const dirT = this.t.direzioneDopo(km, 0.15);
+    v.rot = v.rot == null ? dirT : (v.rot + norm(dirT - v.rot) * (1 - Math.exp(-v.dt / 0.8)) + 360) % 360;
+    const dir = v.rot;
+    const o = v.pt ? [v.pt[0], v.pt[1]] : this.t.at(km), k = Math.cos(rad(o[0]));
     const sc = 0.30;             // px per metro (1 km ≈ 300 px)
     const cx = W / 2, cy = 330;
     const xy = (p) => {
@@ -363,7 +411,7 @@ export class AppOrologio {
       if (b.silenzioso || b.km < km || b.km > km + 1.3) continue;
       const [x, y] = xy(this.t.at(b.km)); c.fillStyle = AMBRA; c.beginPath(); c.arc(x, y, 9, 0, 7); c.fill();
     }
-    if (this.fix) { const [x, y] = xy([this.fix.lat, this.fix.lon]); c.fillStyle = '#4da3ff'; c.beginPath(); c.arc(x, y, 13, 0, 7); c.fill(); c.strokeStyle = BIANCO; c.lineWidth = 3; c.stroke(); }
+    if (v?.pt) { const [x, y] = xy(v.pt); c.fillStyle = '#4da3ff'; c.beginPath(); c.arc(x, y, 13, 0, 7); c.fill(); c.strokeStyle = BIANCO; c.lineWidth = 3; c.stroke(); }
     c.restore();
     c.font = T(700, 18); c.fillStyle = TENUE; c.textAlign = 'left'; c.fillText('100 m', 22, 446); c.fillStyle = TENUE; c.fillRect(22, 454, 30, 4);
     c.textAlign = 'right'; c.fillText(st.sentiero ? `Sentiero ${st.sentiero}` : '', W - 22, 446); c.textAlign = 'left';
