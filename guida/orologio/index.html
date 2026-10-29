@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Orologio SRM</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#153821">
+<link rel="icon" type="image/png" href="../../posizione/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Oswald:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="../../posizione/leaflet/leaflet.css">
+<style>
+:root {
+  --bosco: #153821; --sole: #FF8102; --carta: #fffdf7; --fondo: #f3efe2; --inchiostro: #1b241d; --tenue: #5c6559;
+  --linea: #ddd6c3; --rosso: #b3261e; --rosso-chiaro: #fde7e4; --verde: #1e7a3c; --verde-chiaro: #e3f3e6; --ambra: #a35d00;
+  --font-titolo: 'Oswald', 'Arial Narrow', sans-serif; --font-testo: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --carta: #18231b; --fondo: #101912; --inchiostro: #ece8dc; --tenue: #b5b9ad; --linea: #3b4b3f;
+    --rosso: #ffb4ab; --rosso-chiaro: #4a1714; --verde: #8fd8a2; --verde-chiaro: #163a22; --ambra: #ffc56b; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --carta: #18231b; --fondo: #101912; --inchiostro: #ece8dc; --tenue: #b5b9ad; --linea: #3b4b3f;
+  --rosso: #ffb4ab; --rosso-chiaro: #4a1714; --verde: #8fd8a2; --verde-chiaro: #163a22; --ambra: #ffc56b; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--fondo); color: var(--inchiostro); font: 16px/1.4 var(--font-testo); }
+.barra { background: var(--bosco); color: #f3efe2; padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 10px; }
+.barra img { width: 30px; height: 33px; object-fit: contain; }
+.barra h1 { margin: 0; font: 700 19px/1.05 var(--font-titolo); text-transform: uppercase; letter-spacing: .02em; }
+.barra p { margin: 0; font-size: 12.5px; opacity: .8; }
+main { max-width: 1180px; margin: 0 auto; padding: 14px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { main { grid-template-columns: 400px minmax(0, 1fr); align-items: start; } .colonna { display: grid; gap: 14px; } #col-orologio { position: sticky; top: 10px; } }
+.colonna { display: grid; gap: 14px; min-width: 0; }
+h2 { font: 700 19px/1.15 var(--font-titolo); margin: 0; text-transform: uppercase; letter-spacing: .02em; }
+h3 { font: 700 15px/1.2 var(--font-testo); margin: 4px 0 0; }
+.pannello { background: var(--carta); border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.tenue { color: var(--tenue); font-size: 14px; margin: 0; }
+p { margin: 0; }
+label { display: grid; gap: 4px; font-size: 14px; color: var(--tenue); }
+select, input[type=number] { font: 16px var(--font-testo); padding: 9px 10px; border-radius: 10px; border: 1px solid var(--linea); background: var(--fondo); color: var(--inchiostro); width: 100%; }
+.btn { appearance: none; border: 0; border-radius: 12px; background: var(--sole); color: #1b1200; font: 700 16px/1.1 var(--font-testo); padding: 12px 10px; cursor: pointer; min-height: 46px; width: 100%; touch-action: manipulation; }
+.btn.secondario { background: var(--fondo); color: var(--inchiostro); border: 1px solid var(--linea); }
+.btn.pericolo { background: #8f1d16; color: #fff; }
+.btn:focus-visible { outline: 3px solid var(--inchiostro); outline-offset: 2px; }
+.griglia2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.griglia3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.spunta { display: flex; gap: 8px; align-items: center; color: var(--inchiostro); font-size: 15px; }
+.spunta input { width: 20px; height: 20px; }
+
+/* orologio */
+.cassa { position: relative; margin: 4px auto 0; width: min(100%, 330px); aspect-ratio: 410 / 502; border-radius: 56px; background: #1c1f1d; padding: 22px;
+  box-shadow: inset 0 0 0 3px #2c312e, 0 8px 22px rgb(0 0 0 / .35); }
+.cassa::before, .cassa::after { content: ''; position: absolute; left: 50%; width: 46%; height: 18px; transform: translateX(-50%); background: #3d4a32; border-radius: 6px; }
+.cassa::before { top: -14px; } .cassa::after { bottom: -14px; }
+.cassa canvas { width: 100%; height: 100%; border-radius: 34px; display: block; background: #000; touch-action: none; cursor: pointer; }
+.cassa .tasto { position: absolute; right: -14px; top: 38%; width: 14px; height: 64px; border-radius: 0 8px 8px 0; background: #e0742a; border: 0; cursor: pointer; padding: 0; }
+.cassa.vibra { animation: vibra .09s linear 0s 6; }
+@keyframes vibra { 0% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } 100% { transform: translateX(0); } }
+.etichetta-vibra { text-align: center; font-size: 13px; color: var(--tenue); min-height: 18px; }
+.riga-stato { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; color: var(--tenue); }
+.riga-stato b { color: var(--inchiostro); font-variant-numeric: tabular-nums; }
+
+/* mappa */
+#mappa { height: min(62vh, 560px); border-radius: 12px; border: 1px solid var(--linea); }
+.legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--tenue); }
+.legenda i { display: inline-block; width: 14px; height: 6px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+.leaflet-container { font: 13px var(--font-testo); }
+.nodo-icona { background: #153821; color: #fff; border: 2px solid #fff; border-radius: 6px; font: 700 11px/1 var(--font-testo); padding: 3px 4px; white-space: nowrap; box-shadow: 0 1px 4px rgb(0 0 0 / .4); }
+.nodo-icona.base { background: #FF8102; color: #1b1200; }
+.nodo-icona.spento { background: #777; opacity: .75; }
+.nodo-icona.tx { box-shadow: 0 0 0 4px rgb(255 129 2 / .6); }
+.popup-nodo { display: grid; gap: 6px; min-width: 190px; }
+.popup-nodo button { font: 700 14px var(--font-testo); padding: 8px; border-radius: 8px; border: 0; background: #153821; color: #fff; cursor: pointer; }
+
+/* sala controllo */
+.carte { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.carta { background: var(--fondo); border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; }
+.carta .v { font: 700 26px/1.1 var(--font-titolo); font-variant-numeric: tabular-nums; }
+.carta .e { font-size: 13px; color: var(--tenue); }
+.carta.buono .v { color: var(--verde); } .carta.medio .v { color: var(--ambra); } .carta.cattivo .v { color: var(--rosso); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--linea); }
+th { color: var(--tenue); font-weight: 400; font-size: 13px; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.scorre { overflow-x: auto; }
+.allarmi { display: grid; gap: 6px; max-height: 220px; overflow: auto; }
+.allarme { border-left: 4px solid var(--rosso); background: var(--rosso-chiaro); padding: 6px 10px; border-radius: 6px; font-size: 14px; }
+.allarme.ok { border-color: var(--verde); background: var(--verde-chiaro); }
+.diario { display: grid; gap: 4px; max-height: 240px; overflow: auto; font-size: 14px; }
+.diario div { border-bottom: 1px dashed var(--linea); padding-bottom: 3px; }
+.diario time { color: var(--tenue); font-variant-numeric: tabular-nums; margin-right: 6px; }
+.esito { font-size: 14.5px; border-radius: 10px; padding: 10px 12px; background: var(--verde-chiaro); }
+.esito.cattivo { background: var(--rosso-chiaro); }
+details summary { cursor: pointer; font-weight: 700; }
+ul { margin: 4px 0 0; padding-left: 20px; } li { margin: 3px 0; }
+</style>
+</head>
+<body>
+<header class="barra">
+  <img src="../../posizione/logo-srm.png" alt="">
+  <div><h1>Orologio SRM · simulatore</h1><p>T-Watch Ultra: guida sul percorso e posizione sulla rete mesh</p></div>
+</header>
+<main>
+  <div class="colonna" id="col-orologio">
+    <section class="pannello">
+      <div class="cassa" id="cassa">
+        <canvas id="schermo" width="410" height="502" aria-label="Schermo dell'orologio"></canvas>
+        <button class="tasto" id="tasto" aria-label="Pulsante laterale: premi per cambiare pagina, tieni premuto 3 secondi per l'SOS"></button>
+      </div>
+      <div class="etichetta-vibra" id="etichetta-vibra"></div>
+      <div class="riga-stato" id="riga-stato"></div>
+      <div class="griglia2">
+        <button class="btn" id="b-via">▶ Avvia la gara</button>
+        <label>Velocità
+          <select id="sel-vel"><option value="1">tempo reale</option><option value="5">5 volte</option><option value="20" selected>20 volte</option><option value="60">60 volte</option></select></label>
+      </div>
+      <div class="griglia2">
+        <button class="btn secondario" id="b-polso">Alza il polso</button>
+        <button class="btn pericolo" id="b-pulsante">Pulsante · tieni 3 s = SOS</button>
+      </div>
+      <div class="griglia2">
+        <button class="btn secondario" id="b-sbaglia">Sbaglia al prossimo bivio</button>
+        <button class="btn secondario" id="b-fuori">Esci dal sentiero</button>
+      </div>
+      <p class="tenue">Tocca lo schermo per accenderlo o cambiare pagina (Guida · Mappa · Gara · SOS); scorri a destra o a sinistra. Lo schermo si spegne da solo e si riaccende ai bivi.</p>
+      <details>
+        <summary>Il tuo orologio</summary>
+        <div style="display:grid;gap:8px;margin-top:8px">
+          <div class="griglia2">
+            <label>Il tuo passo<select id="sel-passo"><option value="2.0">tranquillo</option><option value="2.8" selected>medio</option><option value="3.6">veloce</option></select></label>
+            <label>Parti dal km<input type="number" id="in-km" min="0" max="29.6" step="0.1" value="0"></label>
+          </div>
+          <div class="griglia2">
+            <label>Ora di gara<select id="sel-ora"><option value="0">9:00 partenza</option><option value="3600">10:00</option><option value="7200">11:00</option><option value="10800">12:00</option><option value="14400">13:00</option><option value="18000">14:00</option></select></label>
+            <label>Consumi<select id="sel-consumi"><option value="realistico">stima prudente</option><option value="ottimistico">stima ottimistica</option></select></label>
+          </div>
+          <button class="btn secondario" id="b-riparti">Riparti da qui</button>
+          <label class="spunta"><input type="checkbox" id="c-voce" checked> Voce (fino a 5 volte la velocità reale)</label>
+          <label class="spunta"><input type="checkbox" id="c-acceso"> Schermo sempre acceso (per confrontare la batteria)</label>
+        </div>
+      </details>
+    </section>
+    <section class="pannello">
+      <h2>Diario dell'orologio</h2>
+      <div class="diario" id="diario"><p class="tenue">Qui compaiono le frasi dette e gli avvisi.</p></div>
+    </section>
+  </div>
+
+  <div class="colonna">
+    <section class="pannello">
+      <h2>Mappa della rete</h2>
+      <div id="mappa"></div>
+      <div class="legenda">
+        <span><i style="background:#1e9e4a"></i>copertura buona</span><span><i style="background:#e0a400"></i>al limite</span><span><i style="background:#d33"></i>scoperto</span>
+        <span>● atleti: <b style="color:#1e9e4a">posizione recente</b> · <b style="color:#e0a400">più di 5 min</b> · <b style="color:#d33">più di 10 min</b></span>
+      </div>
+      <div class="griglia2">
+        <button class="btn secondario" id="b-aggiungi">Aggiungi un ripetitore</button>
+        <button class="btn secondario" id="b-centra">Centra su di me</button>
+      </div>
+      <p class="tenue" id="msg-mappa">Tocca un ripetitore per accenderlo o spegnerlo. Il percorso è colorato con la copertura dell'orologio verso la rete.</p>
+    </section>
+
+    <section class="pannello">
+      <h2>Sala controllo</h2>
+      <div class="carte" id="carte"></div>
+      <div id="esito" class="esito"></div>
+      <h3>Allarmi</h3>
+      <div class="allarmi" id="allarmi"><p class="tenue">Nessun allarme.</p></div>
+      <h3>Ripetitori</h3>
+      <div class="scorre"><table><thead><tr><th>Nodo</th><th>Quota</th><th class="n">Canale occupato</th><th class="n">Trasmissione</th></tr></thead><tbody id="tab-nodi"></tbody></table></div>
+    </section>
+
+    <section class="pannello">
+      <h2>Impostazioni della rete</h2>
+      <div class="griglia3">
+        <label>Modulazione<select id="sel-preset"><option>ShortFast</option><option>ShortSlow</option><option>MediumFast</option><option>MediumSlow</option><option>LongFast</option></select></label>
+        <label>Posizione ogni<select id="sel-int"><option value="60">1 min</option><option value="120" selected>2 min</option><option value="180">3 min</option><option value="300">5 min</option></select></label>
+        <label>Salti massimi<select id="sel-hop"><option>1</option><option selected>2</option><option>3</option></select></label>
+      </div>
+      <div class="griglia2">
+        <label>Ripetitori<select id="sel-gruppo"><option value="proposta">Proposta: 5 punti sul percorso</option><option value="cime">Idea iniziale: le 4 cime</option><option value="libero">Scelti a mano</option></select></label>
+        <label>Altri atleti<select id="sel-atleti"><option value="1">tutti i 146 della gara 2026</option><option value="0">nessuno (solo tu)</option></select></label>
+      </div>
+      <p class="tenue">Ogni cambio riparte con la rete nuova dall'ora attuale. Gli atleti corrono con i tempi veri della classifica 2026, più lenti in salita.</p>
+    </section>
+
+    <section class="pannello">
+      <h2>Come diventa l'orologio vero</h2>
+      <ul>
+        <li><b>Firmware</b>: si parte da Meshtastic (open source, C++) e si aggiunge un modulo «Guida SRM» con la stessa logica di questa pagina: traccia, 47 bivi, avvisi, pagine dello schermo.</li>
+        <li><b>Posizione sulla rete</b>: la manda Meshtastic da solo, ogni 2 minuti, più subito quando l'atleta esce dal percorso. La base la vede su un PC o un telefono collegato al nodo della segreteria.</li>
+        <li><b>SOS</b>: pulsante tenuto 3 secondi, 5 secondi per annullare, poi invio ripetuto ogni 10 secondi finché la base risponde «ricevuto».</li>
+        <li><b>Voce</b>: frasi registrate prima (non sintesi), suonate dall'altoparlante dell'orologio; vibrazioni diverse per preavviso, bivio, errore.</li>
+        <li><b>Schermo</b>: nero e spento quasi sempre, si accende da solo ai bivi e negli errori: è la cosa che fa durare la batteria.</li>
+      </ul>
+      <details>
+        <summary>Ipotesi del modello radio</summary>
+        <ul class="tenue">
+          <li>Terreno: modello digitale delle quote dell'Explorer (celle di circa 50 m). Perdita in spazio libero più diffrazione sulle creste (metodo di Deygout, ITU-R P.526).</li>
+          <li>Orologio: 22 dBm, antenna interna −4 dBi, 6 dB persi tra polso e corpo, 5 dB in più nel bosco sotto i 1.750 m. Ripetitori Heltec V4: 27 dBm (massimo consentito), stilo 2 dBi. Base: antenna collineare 5 dBi sul tetto.</li>
+          <li>Variazione casuale di ogni pacchetto: 4 dB. Collisione se due pacchetti si sovrappongono al ricevitore e il primo non è più forte di almeno 6 dB.</li>
+          <li>Regole Meshtastic: ascolto prima di trasmettere, i ripetitori ripetono sempre, gli orologi non ripetono (CLIENT_MUTE), 10% di tempo di trasmissione per apparato (limite europeo a 869,5 MHz).</li>
+          <li>Consumi dell'orologio: stime da verificare con la prova sul polso appena arriva.</li>
+        </ul>
+      </details>
+    </section>
+  </div>
+</main>
+<script src="../../posizione/leaflet/leaflet.js"></script>
+<script type="module" src="pagina.js"></script>
+</body>
+</html>
