@@ -27,6 +27,10 @@ Per caricarlo sull'orologio:
 2. collegare l'orologio con il cavo USB-C;
 3. premere «Installa sull'orologio».
 
+Se compare «Failed to initialize»: cavo collegato, tenere premuto BOOT (lato sinistro, accanto a PWR), premere e
+rilasciare RST (lato destro, sotto il gommino della USB), rilasciare BOOT, poi ripetere. Lo schermo resta nero finché
+non si preme RST a caricamento finito.
+
 Il file è anche in `orologio/installa/firmware.factory.bin`. Da riga di comando:
 `esptool.py write_flash 0x0 firmware.factory.bin`.
 
