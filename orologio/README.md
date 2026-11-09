@@ -39,7 +39,7 @@ Il file è anche in `orologio/installa/firmware.factory.bin`. Da riga di comando
 cd orologio/config
 pip install meshtastic
 python3 prepara.py --orologi 1-5                         # una volta: canale e profili in privato/
-meshtastic --configure privato/orologio-001.yaml          # orologio collegato via USB
+python3 configura.py privato/orologio-001.yaml          # orologio collegato via USB (su Windows: doppio clic su configura.bat)
 ```
 La cartella `privato/` contiene la chiave del canale: si conserva e non si pubblica.
 Tutti gli apparecchi della gara devono avere lo stesso canale, quindi `prepara.py` si lancia una volta sola.

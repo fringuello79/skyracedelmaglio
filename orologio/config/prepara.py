@@ -16,7 +16,7 @@ from pathlib import Path
 
 QUI = Path(__file__).resolve().parent
 PRIVATO = QUI / 'privato'
-RETE = QUI.parent.parent / 'guida' / 'orologio' / 'rete.json'
+RETE = QUI / 'rete.json' if (QUI / 'rete.json').exists() else QUI.parent.parent / 'guida' / 'orologio' / 'rete.json'
 
 # --- scelte della rete (dalla simulazione: guida/orologio) ---
 REGIONE = 'EU_868'           # 869,4-869,65 MHz, 10% di tempo di trasmissione, max 27 dBm
