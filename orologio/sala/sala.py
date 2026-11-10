@@ -53,7 +53,9 @@ class Sala:
         self.allarmi = []       # dizionari
         self.conferme = {}      # (pettorale, rif) -> ultimo invio
         self.lock = threading.Lock()
+        self.radio = {'collegata': False, 'pacchetti': 0, 'ultimo': None, 'nota': 'in attesa del nodo base'}
         DATI.mkdir(exist_ok=True)
+        self.f_pkt = open(DATI / 'pacchetti.csv', 'a', newline='', encoding='utf-8'); self.w_pkt = csv.writer(self.f_pkt)
         self.f_eventi = open(DATI / 'eventi.csv', 'a', newline='', encoding='utf-8')
         self.f_pos = open(DATI / 'posizioni.csv', 'a', newline='', encoding='utf-8')
         self.w_eventi = csv.writer(self.f_eventi); self.w_pos = csv.writer(self.f_pos)
@@ -84,6 +86,12 @@ class Sala:
             num = pkt.get('from'); dec = pkt.get('decoded', {}); porta = dec.get('portnum')
             n = self._nodo(num, nome)
             n['ultimoSentito'] = self.ora()
+            # registro di tutto quello che la base sente (anche i pacchetti che non sa decifrare: chiave diversa)
+            self.radio['pacchetti'] += 1; self.radio['ultimo'] = self.ora()
+            self.w_pkt.writerow([time.strftime('%Y-%m-%d %H:%M:%S'), f'!{num:08x}' if isinstance(num, int) else num, n.get('nome') or '',
+                                 porta or ('CIFRATO' if 'encrypted' in pkt else '?'), pkt.get('rxSnr', ''), pkt.get('rxRssi', ''),
+                                 n.get('salti', '') if 'hopStart' not in pkt else pkt['hopStart'] - pkt.get('hopLimit', 0)])
+            self.f_pkt.flush()
             if 'rxSnr' in pkt: n['snr'] = pkt['rxSnr']
             if 'hopStart' in pkt and 'hopLimit' in pkt: n['salti'] = pkt['hopStart'] - pkt['hopLimit']
             if porta == 'POSITION_APP':
@@ -159,7 +167,7 @@ class Sala:
         with self.lock:
             t = self.ora()
             return {'ora': t, 'nodi': [dict(v, eta=round(t - v['tPos']) if v.get('tPos') else None) for v in self.nodi.values()],
-                    'allarmi': self.allarmi}
+                    'allarmi': self.allarmi, 'radio': dict(self.radio)}
 
 
 # ---------- pagina web locale ----------
@@ -190,26 +198,83 @@ def avvia_web(sala, porta):
 
 # ---------- radio vera ----------
 def collega(args, sala):
+    """Tiene il collegamento con il nodo base: se cade (cavo, PC in sospensione) riprova da sola."""
     from pubsub import pub
-    import meshtastic.serial_interface, meshtastic.tcp_interface
-    iface = meshtastic.tcp_interface.TCPInterface(args.host) if args.host else meshtastic.serial_interface.SerialInterface(args.porta)
+    import meshtastic.serial_interface, meshtastic.tcp_interface, meshtastic.util
+    attuale = {'iface': None}
+    caduto = threading.Event()
 
     def nome_di(num):
-        u = (iface.nodesByNum or {}).get(num, {}).get('user', {})
+        i = attuale['iface']
+        u = ((i.nodesByNum if i else None) or {}).get(num, {}).get('user', {})
         return u.get('longName')
 
     def ricevuto(packet, interface):
         try:
             sala.ricevi(packet, nome_di(packet.get('from')))
         except Exception as e:          # un pacchetto strano non deve fermare la sala
-            print('pacchetto non letto:', e)
+            print('pacchetto non letto:', e, flush=True)
+
+    def perso(interface=None, **altro):
+        caduto.set()
+
+    def invia(testo):
+        i = attuale['iface']
+        if i is None:
+            print('  (non inviato, base scollegata):', testo, flush=True); return
+        i.sendText(testo, hopLimit=3)
+
+    def apri():
+        if args.host:
+            return meshtastic.tcp_interface.TCPInterface(args.host)
+        if not args.porta:
+            porte = meshtastic.util.findPorts(True)
+            if not porte:
+                raise RuntimeError('nessun nodo collegato via USB')
+            if len(porte) > 1:
+                raise RuntimeError(f'più apparecchi collegati ({", ".join(porte)}): lasciare solo la base')
+        return meshtastic.serial_interface.SerialInterface(args.porta)
+
+    def ciclo():
+        ultima_nota = None
+        while True:
+            try:
+                caduto.clear()
+                i = apri()
+                if getattr(i, 'nodesByNum', None) is None:
+                    raise RuntimeError('il nodo non risponde')
+                attuale['iface'] = i
+                mio = (i.getMyUser() or {}).get('longName')
+                ora = time.time(); visti = []
+                for num, d in (i.nodesByNum or {}).items():
+                    nome = d.get('user', {}).get('longName')
+                    sala._nodo(num, nome)
+                    if nome != mio:
+                        lh = d.get('lastHeard')
+                        visti.append(f"{nome or num} ({'mai' if not lh else str(round((ora - lh) / 60)) + ' min fa'}{', snr ' + str(d['snr']) if 'snr' in d else ''})")
+                sala.radio.update(collegata=True, nota=f'base: {mio}')
+                print(time.strftime('%H:%M:%S'), f'Collegato al nodo base «{mio}». In ascolto…', flush=True)
+                print('  nodi già noti alla base:', '; '.join(visti) if visti else 'nessuno', flush=True)
+                ultima_nota = None
+                caduto.wait()
+                print(time.strftime('%H:%M:%S'), 'Collegamento con la base caduto: riprovo.', flush=True)
+            except (Exception, SystemExit) as e:
+                nota = str(e) or type(e).__name__
+                if nota != ultima_nota:
+                    print(time.strftime('%H:%M:%S'), 'Base non collegata:', nota, flush=True); ultima_nota = nota
+                sala.radio.update(nota=nota)
+            sala.radio['collegata'] = False
+            i = attuale['iface']; attuale['iface'] = None
+            try:
+                if i: i.close()
+            except Exception:
+                pass
+            time.sleep(5)
 
     pub.subscribe(ricevuto, 'meshtastic.receive')
-    sala.invia = lambda testo: iface.sendText(testo, hopLimit=3)
-    for num, d in (iface.nodesByNum or {}).items():
-        sala._nodo(num, d.get('user', {}).get('longName'))
-    print('Collegato al nodo base. In ascolto…')
-    return iface
+    pub.subscribe(perso, 'meshtastic.connection.lost')
+    sala.invia = invia
+    threading.Thread(target=ciclo, daemon=True).start()
 
 
 # ---------- gara finta per provare la pagina ----------
@@ -266,11 +331,11 @@ def main():
         print('Modalità prova: atleti finti, il tempo scorre 60 volte più veloce.')
         prova(sala, percorso)
     else:
-        iface = collega(a, sala)
+        collega(a, sala)
         try:
             while True: time.sleep(1)
         except KeyboardInterrupt:
-            iface.close()
+            pass
 
 
 if __name__ == '__main__':

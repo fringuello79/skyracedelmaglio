@@ -68,7 +68,9 @@ async function aggiorna() {
   const atleti = s.nodi.filter(n => n.tipo === 'atleta').sort((a, b) => (a.pettorale ?? 1e9) - (b.pettorale ?? 1e9));
   const rip = s.nodi.filter(n => n.tipo === 'ripetitore');
   const recenti = atleti.filter(a => a.eta != null && a.eta <= 300).length;
-  $('riassunto').textContent = `${atleti.length} orologi · ${recenti} con posizione recente · ${new Date(s.ora * 1000).toLocaleTimeString('it-IT')}`;
+  const r = s.radio;
+  const base = !r ? '' : r.collegata ? ` · base collegata, ${r.pacchetti} pacchetti sentiti${r.ultimo ? ' (ultimo ' + eta(Math.round(s.ora - r.ultimo)) + ')' : ''}` : ` · BASE NON COLLEGATA (${r.nota || ''})`;
+  $('riassunto').textContent = `${atleti.length} orologi · ${recenti} con posizione recente${base} · ${new Date(s.ora * 1000).toLocaleTimeString('it-IT')}`;
   $('atleti').innerHTML = atleti.map(a => `<tr><td><b>${String(a.pettorale ?? '?').padStart(3, '0')}</b></td><td class="n">${a.km != null ? a.km.toFixed(1).replace('.', ',') : '—'}</td><td class="n ${classe(a.eta)}">${eta(a.eta)}</td><td>${a.stato && a.stato !== 'ok' ? `<span class="r">${a.stato}</span>` : 'ok'}</td></tr>`).join('');
   $('ripetitori').innerHTML = rip.map(r => `<tr><td>${(r.nome || '').replace('SRM rip. ', '')}</td><td class="n">${r.batteria != null ? r.batteria + '%' : '—'}</td><td class="n">${eta(r.ultimoSentito ? Math.round(s.ora - r.ultimoSentito) : null)}</td></tr>`).join('');
   const aperti = s.allarmi.filter(a => a.stato === 'aperto');
