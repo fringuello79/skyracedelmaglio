@@ -42,5 +42,18 @@ def test_sala():
     s.ricevi({'from': 9, 'decoded': {'portnum': 'TEXT_MESSAGE_APP', 'text': 'SRM OK P057 R4821'}}, 'SRM rip. Passo Le Forche')
     assert len(inviati) == 2                                    # le conferme ripetute non generano nulla
 
+def test_ascolto_radio():
+    """La strada vera dei pacchetti: libreria meshtastic -> pubsub -> sala. (Con le sole prove sopra non era coperta,
+    e la sala non riceveva niente: pubsub aveva perso le funzioni di ascolto.)"""
+    import gc, types
+    from pubsub import pub
+    s = sala.Sala(sala.Percorso())
+    sala.collega(types.SimpleNamespace(host=None, porta='/dev/non-esiste'), s)
+    gc.collect()
+    pub.sendMessage('meshtastic.receive.text', interface=None,
+                    packet={'from': 7, 'decoded': {'portnum': 'TEXT_MESSAGE_APP', 'text': 'SRM SOS P057 R4821 km12.4 42.15123,13.38211'}})
+    assert s.radio['pacchetti'] == 1 and len(s.allarmi) == 1
+
+
 if __name__ == '__main__':
-    test_protocollo(); test_sala(); print('prove superate')
+    test_protocollo(); test_sala(); test_ascolto_radio(); print('prove superate')

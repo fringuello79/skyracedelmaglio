@@ -271,6 +271,9 @@ def collega(args, sala):
                 pass
             time.sleep(5)
 
+    # pubsub tiene solo un riferimento debole a chi ascolta: senza questa riga le due funzioni spariscono
+    # appena finisce collega() e la sala non riceve più niente, senza nessun errore
+    sala._ascolto = (ricevuto, perso)
     pub.subscribe(ricevuto, 'meshtastic.receive')
     pub.subscribe(perso, 'meshtastic.connection.lost')
     sala.invia = invia
