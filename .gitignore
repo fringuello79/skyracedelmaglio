@@ -1,3 +1,4 @@
 orologio/config/privato/
 __pycache__/
 orologio/firmware/prove/schermi/*.json
+orologio/firmware/prove/schermi/registro.txt

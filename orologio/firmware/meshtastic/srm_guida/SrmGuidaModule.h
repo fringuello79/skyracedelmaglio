@@ -12,7 +12,7 @@ class SrmGuidaModule : public SinglePortModule, public Observable<const UIFrameE
 {
   public:
     SrmGuidaModule();
-    void coronaLunga(); // corona tenuta premuta: SOS (chiamata dal PMU, funziona anche a schermo spento)
+    void coronaLunga(); // un tasto laterale tenuto premuto: SOS (funziona anche a schermo spento)
 #if HAS_SCREEN
     virtual bool wantUIFrame() override { return true; }
     virtual void drawFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y) override;

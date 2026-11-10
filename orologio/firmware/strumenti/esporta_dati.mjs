@@ -70,3 +70,29 @@ const int N_BIVI = ${bivi.length};
 } // namespace srm
 `);
 console.log(`srm_dati.cpp: ${t.pts.length} punti, ${bivi.length} bivi, ${t.sentieri.length} sentieri`);
+
+// --- terreno per lo sfondo della mappa: quote ogni ~50 m (le stesse del simulatore radio) e cime principali ---
+const dj = JSON.parse(fs.readFileSync(path.join(R, 'guida/orologio/dem.json')));
+const db = fs.readFileSync(path.join(R, 'guida/orologio/dem.bin'));
+const quote = new Int16Array(db.buffer, db.byteOffset, db.length / 2);
+if (quote.length !== dj.nx * dj.ny) throw new Error('dem.bin non corrisponde a dem.json');
+const vj = JSON.parse(fs.readFileSync(path.join(R, 'guida/orologio/vette.json')));
+const righeQ = [];
+for (let i = 0; i < quote.length; i += 24) righeQ.push('    ' + Array.from(quote.slice(i, i + 24)).join(', ') + ',');
+const righeV = vj.map(v => `    {${C(v.n)}, ${Math.round(v.e)}, ${num(v.pos[0])}, ${num(v.pos[1])}},`);
+fs.writeFileSync(path.join(OUT, 'srm_terreno.cpp'), `// Generato da orologio/firmware/strumenti/esporta_dati.mjs: non modificare a mano.
+// Quote del terreno (${dj.nx} x ${dj.ny}, passo circa 50 m; ${dj.fonte}) e ${vj.length} cime.
+#include "srm_rilievo.h"
+namespace srm
+{
+static const int16_t QUOTE[] = {
+${righeQ.join('\n')}
+};
+const Terreno TERRENO = {QUOTE, ${dj.nx}, ${dj.ny}, ${num(dj.lat0)}, ${num(dj.lon0)}, ${num(dj.dlat)}, ${num(dj.dlon)}};
+const Vetta VETTE[] = {
+${righeV.join('\n')}
+};
+const int N_VETTE = ${vj.length};
+} // namespace srm
+`);
+console.log(`srm_terreno.cpp: ${dj.nx}x${dj.ny} quote, ${vj.length} cime`);

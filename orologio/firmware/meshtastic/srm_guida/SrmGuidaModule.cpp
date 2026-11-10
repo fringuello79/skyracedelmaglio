@@ -10,6 +10,7 @@
 #include "main.h"
 #include "mesh/MeshTypes.h"
 #include "srm_dati.h"
+#include "srm_rilievo.h"
 #include "srm_voce.h"
 #include <cstring>
 
@@ -52,6 +53,7 @@ SrmGuidaModule::SrmGuidaModule()
       traccia(srm::TRACCIA, srm::N_TRACCIA, srm::SENTIERI, srm::N_SENTIERI, srm::COMUNE, srm::N_COMUNE),
       app(traccia, srm::BIVI, srm::N_BIVI, pettoraleDaNome())
 {
+    app.terreno(&srm::TERRENO, srm::VETTE, srm::N_VETTE); // sfondo della mappa: rilievo e cime
     if (inputBroker)
         inputObserver.observe(inputBroker);
     setIntervalFromNow(3000);
@@ -59,13 +61,13 @@ SrmGuidaModule::SrmGuidaModule()
 
 void SrmGuidaModule::coronaLunga()
 {
-    app.tasto(srm::Tasto::CORONA_LUNGA, millis());
+    app.tasto(srm::Tasto::PULSANTE_LUNGO, millis());
     srm::Azioni a = app.prendiAzioni();
     esegui(a);
     portaAvanti();
 }
 
-// chiamata da Power.cpp quando il PMU segnala la pressione lunga della corona
+// chiamata da Power.cpp quando il PMU segnala che il tasto di accensione è tenuto premuto (2 secondi)
 void srmCoronaLunga()
 {
     if (srmGuidaModule)
@@ -296,12 +298,25 @@ bool SrmGuidaModule::interceptingKeyboardInput()
 
 int SrmGuidaModule::handleInputEvent(const InputEvent *event)
 {
+    // I due tasti laterali fanno la stessa cosa: pressione breve = pagina dopo, tenuto premuto = SOS.
+    // Quello di accensione arriva dal PMU (CANCEL qui, coronaLunga() da Power.cpp), l'altro da «UserButton».
+    bool laterale = event->source && strcmp(event->source, "UserButton") == 0;
+    if (laterale && (event->inputEvent == INPUT_BROKER_SELECT || event->inputEvent == INPUT_BROKER_SELECT_LONG)) {
+        coronaLunga(); // SOS: vale anche a schermo spento o su una pagina di Meshtastic
+        return 1;
+    }
     if (!interceptingKeyboardInput())
         return 0;
     srm::Tasto t;
+    int x = -1, y = -1;
+    if (!laterale && (event->touchX || event->touchY))
+        x = event->touchX, y = event->touchY;
     switch (event->inputEvent) {
     case INPUT_BROKER_USER_PRESS:
-        t = srm::Tasto::TOCCO;
+        t = laterale ? srm::Tasto::PULSANTE : srm::Tasto::TOCCO;
+        break;
+    case INPUT_BROKER_CANCEL:
+        t = srm::Tasto::PULSANTE;
         break;
     case INPUT_BROKER_LEFT:
         t = srm::Tasto::SINISTRA;
@@ -309,14 +324,9 @@ int SrmGuidaModule::handleInputEvent(const InputEvent *event)
     case INPUT_BROKER_RIGHT:
         t = srm::Tasto::DESTRA;
         break;
-    case INPUT_BROKER_CANCEL:
-        t = srm::Tasto::CORONA;
-        break;
     case INPUT_BROKER_SELECT_LONG:
-        t = event->kbchar == 'S' ? srm::Tasto::CORONA_LUNGA : srm::Tasto::PREMUTO_LUNGO;
-        break;
     case INPUT_BROKER_SELECT:
-        t = srm::Tasto::PREMUTO_LUNGO;
+        t = srm::Tasto::PREMUTO_LUNGO; // schermo tenuto premuto
         break;
     case INPUT_BROKER_UP:
         cediInputFino = millis() + 60000; // per un minuto si naviga nelle pagine di Meshtastic
@@ -324,7 +334,7 @@ int SrmGuidaModule::handleInputEvent(const InputEvent *event)
     default:
         return 0;
     }
-    app.tasto(t, millis());
+    app.tasto(t, millis(), x, y);
     srm::Azioni a = app.prendiAzioni();
     esegui(a);
     return 1;
@@ -374,6 +384,26 @@ class TelaOled : public srm::Tela
     void zona(int x, int y, int w, int h, uint16_t on, uint16_t off) override
     {
         graphics::registerTFTColorRegionDirect(x + ox, y + oy, w, h, on, off);
+    }
+
+    void sfondo(const uint8_t *idx, int w, int h, int scala, int y0, const uint16_t *tav, int n) override
+    {
+        // tavolozza nell'ordine di byte del pannello, preparata una volta sola
+        static uint16_t tavBe[256];
+        static const uint16_t *pronta = nullptr;
+        if (pronta != tav) {
+            for (int i = 0; i < n && i < 256; i++)
+                tavBe[i] = (uint16_t)((tav[i] >> 8) | (tav[i] << 8));
+            pronta = tav;
+        }
+        // impronta dell'immagine: quando cambia, lo schermo va ridisegnato tutto (i pixel accesi possono essere gli stessi)
+        uint32_t imp = 2166136261u;
+        for (int i = 0, tot = w * h; i < tot; i++)
+            imp = (imp ^ idx[i]) * 16777619u;
+        graphics::SrmSfondo &f = graphics::srmSfondo;
+        f.indici = idx, f.tavolozza = tavBe;
+        f.w = (int16_t)w, f.h = (int16_t)h, f.x0 = ox, f.y0 = (int16_t)(y0 + oy);
+        f.scala = (uint8_t)scala, f.impronta = imp ^ (uint32_t)(w * 31 + y0), f.attivo = true;
     }
 
   private:

@@ -2,6 +2,7 @@
 // Non conosce Meshtastic: riceve posizioni, tempo e tasti, restituisce azioni (vibra, suona, accendi, invia).
 #pragma once
 #include "srm_guida.h"
+#include "srm_rilievo.h"
 #include "srm_tela.h"
 #include <string>
 #include <vector>
@@ -9,7 +10,9 @@
 namespace srm
 {
 
-enum class Tasto { TOCCO, SINISTRA, DESTRA, SU, GIU, CORONA, CORONA_LUNGA, PREMUTO_LUNGO };
+// TOCCO e PREMUTO_LUNGO vengono dallo schermo (con il punto toccato); PULSANTE e PULSANTE_LUNGO da uno qualsiasi
+// dei due tasti laterali: fanno la stessa cosa, così non serve ricordare quale è quale.
+enum class Tasto { TOCCO, SINISTRA, DESTRA, SU, GIU, PULSANTE, PULSANTE_LUNGO, PREMUTO_LUNGO };
 enum class Vibra { NESSUNA, PREAVVISO, INDICAZIONE, ORA, ERRORE, TOCCO, SOS };
 enum class Suono { NESSUNO, PREAVVISO, BIVIO, ERRORE, POSITIVO, SOS };
 enum class Pagina { GUIDA, MAPPA, GARA, SOS };
@@ -30,16 +33,17 @@ class App
 
     // Un secondo: fix può essere nullptr (GPS senza posizione). oraLocale = secondi dalla mezzanotte, -1 se ignota.
     void secondo(const Fix *fix, int64_t ora, int32_t oraLocale = -1, int batteria = -1);
-    bool tasto(Tasto t, int64_t ora);
+    bool tasto(Tasto t, int64_t ora, int x = -1, int y = -1); // x, y = punto toccato sullo schermo, se c'è
+    void terreno(const Terreno *t, const Vetta *v, int n) { terra = t, vette = v, nVette = n; }
     void testoRicevuto(const char *s, int64_t ora);
     Azioni prendiAzioni();
-    bool tieniAcceso(int64_t ora) const { return visuale || ora < accesoFino; }
+    bool tieniAcceso(int64_t ora) const { return ora < accesoFino; }
     void disegna(Tela &t, int64_t ora);
 
     Motore motore;
     Pagina pagina = Pagina::GUIDA;
-    bool visuale = false;
-    int zoom = 0;
+    int zoom = 0;      // scala della pagina mappa: 800 m, 2 km, tutto il percorso
+    bool aiuto = true; // all'accensione: come si usa, finché non si tocca qualcosa
     int pettorale;
     int partenzaSec = 9 * 3600; // ora di partenza della gara (ora locale)
 
@@ -50,7 +54,15 @@ class App
 
   private:
     const Traccia &T;
-    double centro[2]; // centro della traccia, per la mappa intera
+    double centro[2];           // centro della traccia, per la mappa intera
+    double ampiezza[2] = {1, 1}; // larghezza e altezza della traccia in metri
+    const Terreno *terra = nullptr;
+    const Vetta *vette = nullptr;
+    int nVette = 0;
+    Rilievo rilievo;
+    double distTraccia = -1; // metri dal percorso quando la guida non è ancora agganciata
+    int ultimaW = 410, ultimaH = 502;
+    int64_t aiutoFino = 0, suggerimentoFino = 0;
     Azioni az;
     Fix fix{};
     bool haFix = false;
@@ -76,10 +88,12 @@ class App
     void barra(Tela &t);
     void paginaGuida(Tela &t, const Stato &st);
     void paginaErrore(Tela &t, const Stato &st);
-    void paginaMappa(Tela &t, const Stato &st);
+    void paginaMappa(Tela &t, const Stato &st, bool errore);
+    void paginaAiuto(Tela &t);
+    void linguette(Tela &t);
+    void vaiA(Pagina p);
     void paginaGara(Tela &t, const Stato &st);
     void paginaSos(Tela &t);
-    void paginaVisuale(Tela &t, const Stato &st);
     void sottotitoloDisegna(Tela &t, int y);
     void freccia(Tela &t, const Bivio *b, int cx, int cy, double k);
     void numeroGrande(Tela &t, int x, int y, int h, const char *s, Allinea a);

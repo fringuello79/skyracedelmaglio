@@ -31,7 +31,7 @@ def integra(fw):
     dest = fw / 'src/modules/srm'
     dest.mkdir(parents=True, exist_ok=True)
     sorgenti = [SRM / f for f in ['srm_guida.h', 'srm_guida.cpp', 'srm_app.h', 'srm_app.cpp', 'srm_tela.h', 'srm_dati.h', 'srm_dati.cpp',
-                                'srm_voce.h', 'srm_voce.cpp']]
+                                'srm_voce.h', 'srm_voce.cpp', 'srm_rilievo.h', 'srm_rilievo.cpp', 'srm_terreno.cpp']]
     sorgenti += sorted((QUI / 'srm_guida').iterdir())
     for f in sorgenti:
         testo = f.read_text()
@@ -77,6 +77,44 @@ def integra(fw):
                 '    std::unique_ptr<AudioFileSourcePROGMEM> rtttlFile = nullptr;\n#ifdef SRM_GUIDA\n'
                 '    std::unique_ptr<AudioGeneratorWAV> i2sWav = nullptr;\n    std::unique_ptr<AudioFileSourcePROGMEM> wavFile = nullptr;\n#endif',
                 'AudioGeneratorWAV> i2sWav')
+    # secondo tasto laterale (GPIO0): tenuto 2 secondi = SOS, come il tasto di accensione; non spegne più l'orologio
+    ib = fw / 'src/input/InputBroker.cpp'
+    sostituisci(ib, '        userConfig.longPressTime = 500;\n        userConfig.longLongPress = INPUT_BROKER_SHUTDOWN;\n',
+                '        userConfig.longPressTime = 500;\n        userConfig.longLongPress = INPUT_BROKER_SHUTDOWN;\n'
+                '#ifdef SRM_GUIDA\n        userConfig.longPressTime = 2000;\n        userConfig.longLongPress = INPUT_BROKER_NONE;\n#endif\n',
+                'userConfig.longPressTime = 2000;')
+    # sfondo a colori della mappa (rilievo): un'immagine a tavolozza sotto i pixel spenti, accanto alle zone colore
+    ch = fw / 'src/graphics/TFTColorRegions.h'
+    sostituisci(ch, 'void registerTFTColorRegionDirect(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t onColor, uint16_t offColor);\n',
+                'void registerTFTColorRegionDirect(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t onColor, uint16_t offColor);\n'
+                '#ifdef SRM_GUIDA\n'
+                '// Guida SRM: immagine di sfondo (indici in una tavolozza RGB565 gia\' nell\'ordine di byte del pannello)\n'
+                'struct SrmSfondo {\n    const uint8_t *indici;\n    const uint16_t *tavolozza;\n    int16_t w, h, x0, y0;\n    uint8_t scala;\n'
+                '    uint32_t impronta;\n    bool attivo;\n};\nextern SrmSfondo srmSfondo;\n'
+                'inline bool srmSfondoPixel(int16_t x, int16_t y, uint16_t &colore)\n{\n    if (!srmSfondo.attivo || y < srmSfondo.y0 || x < srmSfondo.x0)\n        return false;\n'
+                '    int r = (y - srmSfondo.y0) / srmSfondo.scala, c = (x - srmSfondo.x0) / srmSfondo.scala;\n'
+                '    if (r >= srmSfondo.h || c >= srmSfondo.w)\n        return false;\n'
+                '    colore = srmSfondo.tavolozza[srmSfondo.indici[r * srmSfondo.w + c]];\n    return true;\n}\n#endif\n', 'struct SrmSfondo')
+    cc = fw / 'src/graphics/TFTColorRegions.cpp'
+    sostituisci(cc, 'static uint8_t colorRegionCount = 0;\n',
+                'static uint8_t colorRegionCount = 0;\n#ifdef SRM_GUIDA\nSrmSfondo srmSfondo = {nullptr, nullptr, 0, 0, 0, 0, 1, 0, false};\n#endif\n', 'SrmSfondo srmSfondo =')
+    sostituisci(cc, 'uint16_t resolveTFTColorPixel(int16_t x, int16_t y, bool isset, uint16_t defaultOnColor, uint16_t defaultOffColor)\n{\n',
+                'uint16_t resolveTFTColorPixel(int16_t x, int16_t y, bool isset, uint16_t defaultOnColor, uint16_t defaultOffColor)\n{\n'
+                '#ifdef SRM_GUIDA\n    uint16_t srmColore;\n    if (!isset && srmSfondoPixel(x, y, srmColore))\n        return srmColore;\n#endif\n', 'srmSfondoPixel(x, y, srmColore)')
+    sostituisci(cc, '        hash = fnv1aAppendU16(hash, r.offColorBe);\n    }\n',
+                '        hash = fnv1aAppendU16(hash, r.offColorBe);\n    }\n#ifdef SRM_GUIDA\n    if (srmSfondo.attivo) {\n'
+                '        hash = fnv1aAppendU16(hash, static_cast<uint16_t>(srmSfondo.impronta));\n'
+                '        hash = fnv1aAppendU16(hash, static_cast<uint16_t>(srmSfondo.impronta >> 16));\n    }\n#endif\n', 'srmSfondo.impronta >> 16')
+    sostituisci(cc, '    colorRegionCount = 0;\n}\n\n// Per-row culling fast path',
+                '    colorRegionCount = 0;\n#ifdef SRM_GUIDA\n    srmSfondo.attivo = false;\n#endif\n}\n\n// Per-row culling fast path', 'srmSfondo.attivo = false;')
+    td = fw / 'src/graphics/TFTDisplay.cpp'
+    sostituisci(td, '                            chunkRow[xx] = isset ? r.onColorBe : r.offColorBe;\n                        }\n                    }\n                }\n',
+                '                            chunkRow[xx] = isset ? r.onColorBe : r.offColorBe;\n                        }\n                    }\n                }\n'
+                '#ifdef SRM_GUIDA\n                // Guida SRM: lo sfondo della mappa sotto i pixel spenti\n                if (graphics::srmSfondo.attivo) {\n'
+                '                    for (x = 0; x < displayWidth; x++) {\n                        uint16_t srmColore;\n'
+                '                        if ((buffer[x + y_byteIndex] & y_byteMask) == 0 &&\n'
+                '                            graphics::srmSfondoPixel(static_cast<int16_t>(x), static_cast<int16_t>(y), srmColore))\n'
+                '                            chunkRow[x] = srmColore;\n                    }\n                }\n#endif\n', 'Guida SRM: lo sfondo della mappa')
     # ambiente di compilazione
     v = fw / 'variants/esp32s3/t-watch-ultra/platformio.ini'
     if '[env:t-watch-ultra-srm]' not in v.read_text():

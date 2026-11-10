@@ -92,6 +92,8 @@ App::App(const Traccia &t, const Bivio *bivi, int nBivi, int pett, Opzioni o)
     }
     centro[0] = (a + b) / 2;
     centro[1] = (c + d) / 2;
+    ampiezza[0] = (d - c) * std::cos(rad(centro[0])) * 111320;
+    ampiezza[1] = (b - a) * 110540;
 }
 
 Azioni App::prendiAzioni()
@@ -152,10 +154,10 @@ void App::evento(const Evento &e)
                      k == "sos-ok";
     if (svegliaSi) {
         sveglia(k == "fuori" ? 20000 : k == "sos-ok" ? 60000 : 9000);
-        if (k != "sos" && k != "sos-ok")
-            pagina = Pagina::GUIDA;
-        else
+        if (k == "sos" || k == "sos-ok")
             pagina = Pagina::SOS;
+        else if (pagina != Pagina::MAPPA) // chi guarda la mappa ci resta: bivio ed errori compaiono lì sotto
+            pagina = Pagina::GUIDA;
     }
     std::string testo = e.testo;
     // sull'orologio non c'è il comando «Torna indietro» del telefono
@@ -203,8 +205,16 @@ void App::secondo(const Fix *f, int64_t ora, int32_t oraLocale, int batteria)
         tFix = ora;
         dalMotore(motore.posizione(*f));
     }
+    if (aiutoFino == 0) { // prima accensione: la pagina «come si usa» resta 25 secondi
+        aiutoFino = ora + 25000;
+        accesoFino = std::max(accesoFino, aiutoFino);
+    }
+    if (aiuto && ora > aiutoFino)
+        aiuto = false;
     dalMotore(motore.tick(ora));
     Stato st = motore.stato();
+    // finché la guida non è agganciata: quanto manca al percorso (per dirlo sullo schermo)
+    distTraccia = (!st.agganciato && haFix && ora - tFix < 10000) ? T.proietta(fix.lat, fix.lon, 0, T.kmTot).d : -1;
     // fuori percorso: lo sa anche la base, una volta per episodio
     if (st.fuori && !statoInviato) {
         statoInviato = true;
@@ -231,25 +241,51 @@ void App::secondo(const Fix *f, int64_t ora, int32_t oraLocale, int batteria)
         sveglia(2000);
 }
 
-bool App::tasto(Tasto k, int64_t ora)
+void App::vaiA(Pagina p)
+{
+    pagina = p;
+    // la mappa resta accesa due minuti dopo l'ultimo tocco, le altre pagine dieci secondi
+    sveglia(p == Pagina::MAPPA ? 120000 : 10000);
+    if (p == Pagina::MAPPA)
+        suggerimentoFino = oraMs + 6000;
+}
+
+bool App::tasto(Tasto k, int64_t ora, int x, int y)
 {
     oraMs = ora;
-    if (sos == StatoSos::CONTO && (k == Tasto::CORONA || k == Tasto::TOCCO || k == Tasto::PREMUTO_LUNGO)) {
-        sos = StatoSos::PRONTO;
-        az.diario.push_back("SOS annullato.");
-        sveglia(5000);
+    if (k == Tasto::SU || k == Tasto::GIU)
+        return false; // restano a Meshtastic
+    auto conferma = [&] {
+        if (az.vibra == Vibra::NESSUNA)
+            az.vibra = Vibra::TOCCO; // ogni comando accettato si sente al polso
+    };
+    if (aiuto && k != Tasto::PULSANTE_LUNGO) { // il primo tocco chiude «come si usa»
+        aiuto = false;
+        conferma();
+        sveglia(10000);
         return true;
     }
+    aiuto = false;
+    if (sos == StatoSos::CONTO && k != Tasto::PULSANTE_LUNGO) { // qualsiasi comando ferma il conto alla rovescia
+        sos = StatoSos::PRONTO;
+        az.diario.push_back("SOS annullato.");
+        conferma();
+        sveglia(8000);
+        return true;
+    }
+    auto avviaSos = [&] {
+        sos = StatoSos::CONTO;
+        fineConto = ora + 5000;
+        pagina = Pagina::SOS;
+        az.vibra = Vibra::ERRORE;
+        sveglia(30000);
+    };
     switch (k) {
-    case Tasto::CORONA_LUNGA:
-        if (sos == StatoSos::PRONTO) {
-            sos = StatoSos::CONTO;
-            fineConto = ora + 5000;
-            pagina = Pagina::SOS;
-            az.vibra = Vibra::ERRORE;
-            sveglia(30000);
-        } else if (sos == StatoSos::INVIATO || sos == StatoSos::CONFERMATO) {
-            // l'atleta ha risolto da solo: lo dice alla base
+    case Tasto::PULSANTE_LUNGO:
+        if (sos == StatoSos::PRONTO)
+            avviaSos();
+        else if (sos == StatoSos::INVIATO || sos == StatoSos::CONFERMATO) {
+            // l'atleta ha risolto da solo: lo dice alla base (solo con il tasto: un tocco per sbaglio non basta)
             invia("ANNULLA", true, false);
             sos = StatoSos::PRONTO;
             az.diario.push_back("SOS ritirato: avvisata la base.");
@@ -258,38 +294,35 @@ bool App::tasto(Tasto k, int64_t ora)
         }
         return true;
     case Tasto::PREMUTO_LUNGO:
-        if (pagina == Pagina::SOS && sos == StatoSos::PRONTO && !visuale) {
-            sos = StatoSos::CONTO;
-            fineConto = ora + 5000;
-            az.vibra = Vibra::ERRORE;
-            sveglia(30000);
-            return true;
-        }
+        if (pagina == Pagina::SOS && sos == StatoSos::PRONTO && (y < 0 || y < ultimaH - X(70)))
+            avviaSos();
         return true;
-    case Tasto::CORONA:
-        visuale = !visuale;
-        if (visuale)
-            zoom = 0;
-        else
-            accesoFino = ora + 4000;
-        az.diario.push_back(visuale ? "Modalità mappa accesa." : "Modalità mappa spenta.");
-        sveglia(4000);
+    case Tasto::PULSANTE:
+        vaiA((Pagina)(((int)pagina + 1) % 4));
+        conferma();
         return true;
     case Tasto::TOCCO:
-        if (visuale)
+        if (y >= 0 && y >= ultimaH - X(74)) { // le linguette in basso
+            int i = (x - X(28)) * 4 / std::max(1, ultimaW - X(56));
+            vaiA((Pagina)std::max(0, std::min(3, i)));
+        } else if (pagina == Pagina::MAPPA) {
             zoom = (zoom + 1) % 3;
-        else
-            pagina = (Pagina)(((int)pagina + 1) % 4);
-        sveglia(8000);
+            sveglia(120000);
+        } else if (pagina == Pagina::SOS) {
+            sottotitolo = "Per chiedere soccorso tieni premuto.";
+            sottotitoloFino = ora + 4000;
+            sveglia(15000);
+        } else
+            vaiA((Pagina)(((int)pagina + 1) % 4));
+        conferma();
         return true;
     case Tasto::SINISTRA:
     case Tasto::DESTRA:
-        visuale = false;
-        pagina = (Pagina)(((int)pagina + (k == Tasto::SINISTRA ? 1 : 3)) % 4);
-        sveglia(8000);
+        vaiA((Pagina)(((int)pagina + (k == Tasto::SINISTRA ? 1 : 3)) % 4));
+        conferma();
         return true;
     default:
-        return false; // su e giù restano a Meshtastic
+        return false;
     }
 }
 
@@ -463,103 +496,160 @@ void App::barra(Tela &t)
     }
 }
 
+// le quattro pagine, sempre scritte in basso: si toccano direttamente
+void App::linguette(Tela &t)
+{
+    static const char *NOMI[4] = {"GUIDA", "MAPPA", "GARA", "SOS"};
+    int W = t.larghezza(), H = t.altezza();
+    int y0 = H - X(70), x0 = X(28), larg = (W - X(56)) / 4, hBox = X(38), yBox = H - X(62);
+    int yT = yBox + (hBox - t.altezzaTesto(Dim::PICCOLO)) / 2;
+    t.nero(true);
+    t.rettangolo(0, y0, W, X(70), true);
+    t.nero(false);
+    t.rettangolo(X(20), y0, W - X(40), 1, true);
+    t.zona(0, y0, W, X(70), Colore::TENUE, Colore::NERO);
+    bool sosAttivo = sos != StatoSos::PRONTO;
+    for (int i = 0; i < 4; i++) {
+        int x = x0 + i * larg;
+        bool rosso = i == 3, piena = i == (int)pagina || (rosso && sosAttivo);
+        if (piena) {
+            t.rettangolo(x + 2, yBox, larg - 4, hBox, true);
+            t.nero(true);
+        }
+        t.testo(x + larg / 2, yT, NOMI[i], Dim::PICCOLO, Allinea::CENTRO);
+        t.nero(false);
+        if (piena || rosso)
+            t.zona(x + 2, yBox, larg - 4, hBox, rosso ? Colore::ROSSO : Colore::VERDE, Colore::NERO);
+    }
+}
+
 void App::sottotitoloDisegna(Tela &t, int y)
 {
     if (sottotitolo.empty() || oraMs > sottotitoloFino)
         return;
     testoCentrato(t, sottotitolo.c_str(), y, Dim::PICCOLO, t.larghezza() - X(70));
-    t.zona(0, y - 2, t.larghezza(), X(70), Colore::TENUE, Colore::NERO);
+    t.zona(0, y - 2, t.larghezza(), X(46), Colore::TENUE, Colore::NERO);
 }
 
 void App::disegna(Tela &t, int64_t ora)
 {
     oraMs = ora;
     s = t.larghezza() / 410.0;
+    ultimaW = t.larghezza();
+    ultimaH = t.altezza();
     t.pulisci();
     t.nero(false);
     Stato st = motore.stato();
     bool errore = st.fuori || (ultimoTipo == "indietro" && ora - ultimoT < 15000);
     bool inSos = pagina == Pagina::SOS || sos == StatoSos::CONTO;
-    if (visuale && !errore && !inSos) {
-        paginaVisuale(t, st);
-        return;
-    }
-    barra(t);
-    if (inSos)
+    if (aiuto && !inSos && !errore) {
+        barra(t);
+        paginaAiuto(t);
+    } else if (inSos) {
+        barra(t);
         paginaSos(t);
-    else if (errore)
-        paginaErrore(t, st);
-    else if (pagina == Pagina::GUIDA)
-        paginaGuida(t, st);
-    else if (pagina == Pagina::MAPPA)
-        paginaMappa(t, st);
-    else
-        paginaGara(t, st);
-    // puntini delle pagine
-    int W = t.larghezza(), H = t.altezza();
-    for (int i = 0; i < 4; i++)
-        t.cerchio(W / 2 + X((i - 1.5) * 18), H - X(14), i == (int)pagina ? X(5) : X(3), i == (int)pagina);
+    } else if (pagina == Pagina::MAPPA)
+        paginaMappa(t, st, errore); // la barra in alto la disegna lei, sopra la mappa
+    else {
+        barra(t);
+        if (errore)
+            paginaErrore(t, st);
+        else if (pagina == Pagina::GUIDA)
+            paginaGuida(t, st);
+        else
+            paginaGara(t, st);
+    }
+    linguette(t);
+}
+
+void App::paginaAiuto(Tela &t)
+{
+    int W = t.larghezza(), m = W - X(70);
+    t.testo(W / 2, X(64), "COME SI USA", Dim::MEDIO, Allinea::CENTRO);
+    t.zona(0, X(60), W, X(36), Colore::ARANCIO, Colore::NERO);
+    testoCentrato(t, "Tocca le scritte in basso per cambiare pagina", X(112), Dim::PICCOLO, m);
+    testoCentrato(t, "Un tasto laterale, uno qualsiasi: pagina dopo", X(176), Dim::PICCOLO, m);
+    testoCentrato(t, "Tasto tenuto 2 secondi: SOS", X(240), Dim::MEDIO, m);
+    t.zona(0, X(236), W, X(70), Colore::ROSSO, Colore::NERO);
+    testoCentrato(t, "A ogni comando l'orologio vibra.", X(320), Dim::PICCOLO, m);
+    testoCentrato(t, "Tocca per cominciare", X(380), Dim::PICCOLO, m);
+    t.zona(0, X(316), W, X(100), Colore::TENUE, Colore::NERO);
 }
 
 void App::paginaGuida(Tela &t, const Stato &st)
 {
-    int W = t.larghezza(), H = t.altezza();
-    char b[48];
+    int W = t.larghezza(), m = W - X(70);
+    char b[64];
     if (!st.agganciato) {
-        testoCentrato(t, "Cerco il percorso...", X(200), Dim::MEDIO, W - X(60));
-        sottotitoloDisegna(t, X(330));
+        // una sola pagina dice perché la guida non parte, e cosa fare
+        if (!(haFix && oraMs - tFix < 10000)) {
+            testoCentrato(t, "Aspetto il GPS", X(104), Dim::MEDIO, m);
+            t.zona(0, X(100), W, X(36), Colore::AMBRA, Colore::NERO);
+            testoCentrato(t, "Resta all'aperto, con il cielo libero. Serve qualche minuto.", X(160), Dim::PICCOLO, m);
+        } else {
+            testoCentrato(t, "Non sei sul percorso", X(104), Dim::MEDIO, m);
+            t.zona(0, X(100), W, X(36), Colore::AMBRA, Colore::NERO);
+            if (distTraccia >= 950)
+                snprintf(b, sizeof b, "Il percorso di gara dista %s km", kmParlati(distTraccia / 1000).c_str());
+            else
+                snprintf(b, sizeof b, "Il percorso di gara dista %d m", metriParlati(std::max(0.0, distTraccia)));
+            testoCentrato(t, b, X(160), Dim::PICCOLO, m);
+            testoCentrato(t, "La guida parte da sola quando ci arrivi.", X(214), Dim::PICCOLO, m);
+        }
+        testoCentrato(t, "Tocca MAPPA per vedere il percorso", X(310), Dim::PICCOLO, m);
+        t.zona(0, X(306), W, X(60), Colore::VERDE, Colore::NERO);
+        sottotitoloDisegna(t, X(376));
         return;
     }
     if (st.arrivato) {
-        testoCentrato(t, "ARRIVO!", X(190), Dim::MEDIO, W);
-        testoCentrato(t, "Forgia la tua medaglia", X(240), Dim::PICCOLO, W);
-        t.zona(0, X(180), W, X(90), Colore::VERDE, Colore::NERO);
+        testoCentrato(t, "ARRIVO!", X(170), Dim::MEDIO, W);
+        testoCentrato(t, "Forgia la tua medaglia", X(220), Dim::PICCOLO, W);
+        t.zona(0, X(160), W, X(90), Colore::VERDE, Colore::NERO);
         return;
     }
     const Prossimo &p = st.prossimo;
-    if (p.b && p.d <= 1000) {
+    bool bivio = p.b && p.d <= 1000;
+    if (bivio) {
         bool vicino = p.d <= 220;
-        int cx = W / 2, cy = X(200);
-        freccia(t, p.b, cx, cy, 0.9 * s);
-        t.zona(cx - X(150), cy - X(150), X(300), X(260), Colore::VERDE, Colore::NERO);
+        int cx = W / 2, cy = X(172);
+        freccia(t, p.b, cx, cy, 0.74 * s);
+        t.zona(cx - X(130), X(58), X(260), X(176), Colore::VERDE, Colore::NERO);
         if (p.d < 30)
-            testoCentrato(t, "ORA", X(310), Dim::MEDIO, W);
+            testoCentrato(t, "ORA", X(250), Dim::MEDIO, W);
         else {
             snprintf(b, sizeof b, "%d", metriParlati(p.d));
-            numeroGrande(t, W / 2 - X(14), X(296), X(64), b, Allinea::CENTRO);
-            int lw = 0;
-            (void)lw;
-            t.testo(W / 2 + X(64) * 55 / 100 * (int)std::strlen(b) / 2 + X(4), X(328), "m", Dim::MEDIO, Allinea::SINISTRA);
+            numeroGrande(t, W / 2 - X(14), X(240), X(54), b, Allinea::CENTRO);
+            t.testo(W / 2 + X(54) * 55 / 100 * (int)std::strlen(b) / 2 + X(4), X(266), "m", Dim::MEDIO, Allinea::SINISTRA);
         }
-        t.zona(0, X(290), W, X(76), vicino ? Colore::AMBRA : Colore::BIANCO, Colore::NERO);
-        testoCentrato(t, p.b->titolo, X(372), Dim::MEDIO, W - X(50));
+        t.zona(0, X(236), W, X(62), vicino ? Colore::AMBRA : Colore::BIANCO, Colore::NERO);
+        testoCentrato(t, p.b->titolo, X(302), Dim::MEDIO, W - X(50));
     } else {
-        freccia(t, nullptr, W / 2, X(190), 0.7 * s);
-        t.zona(W / 2 - X(80), X(80), X(160), X(200), Colore::VERDE, Colore::NERO);
-        testoCentrato(t, "Dritto", X(285), Dim::MEDIO, W);
+        freccia(t, nullptr, W / 2, X(168), 0.6 * s);
+        t.zona(W / 2 - X(70), X(58), X(140), X(160), Colore::VERDE, Colore::NERO);
+        testoCentrato(t, "Dritto", X(222), Dim::MEDIO, W);
         if (p.b)
             snprintf(b, sizeof b, "prossimo bivio fra %s km", kmParlati(p.d / 1000).c_str());
         else
             snprintf(b, sizeof b, "arrivo fra %s km", kmParlati(T.kmTot - st.km).c_str());
-        testoCentrato(t, b, X(322), Dim::PICCOLO, W - X(40));
+        testoCentrato(t, b, X(256), Dim::PICCOLO, W - X(40));
         if (st.sentiero && *st.sentiero) {
             snprintf(b, sizeof b, "Sentiero %s", st.sentiero);
-            testoCentrato(t, b, X(356), Dim::MEDIO, W);
-            t.zona(0, X(354), W, X(34), Colore::VERDE, Colore::NERO);
+            testoCentrato(t, b, X(284), Dim::MEDIO, W);
+            t.zona(0, X(282), W, X(34), Colore::VERDE, Colore::NERO);
         }
+        sottotitoloDisegna(t, X(322)); // col bivio vicino la frase è già scritta grande
     }
     // piede: chilometro, quota e avanzamento
     double q[3];
     T.at(st.km, q);
+    int yP = X(376);
+    t.rettangolo(X(40), yP, W - X(80), X(6), false);
+    t.rettangolo(X(40), yP, (int)((W - X(80)) * st.km / T.kmTot), X(6), true);
+    t.zona(X(40), yP - 2, W - X(80), X(10), Colore::VERDE, Colore::NERO);
     snprintf(b, sizeof b, "km %s / %s", kmParlati(st.km).c_str(), kmParlati(T.kmTot).c_str());
-    t.testo(X(50), H - X(62), b, Dim::PICCOLO, Allinea::SINISTRA);
-    snprintf(b, sizeof b, "%d m", (int)std::lround(q[2]));
-    t.testo(W - X(50), H - X(62), b, Dim::PICCOLO, Allinea::DESTRA);
-    t.rettangolo(X(50), H - X(74), W - X(100), X(6), false);
-    t.rettangolo(X(50), H - X(74), (int)((W - X(100)) * st.km / T.kmTot), X(6), true);
-    t.zona(X(50), H - X(76), W - X(100), X(10), Colore::VERDE, Colore::NERO);
-    if (!(p.b && p.d <= 1000))
-        sottotitoloDisegna(t, X(392)); // col bivio vicino la frase è già scritta grande
+    t.testo(X(40), yP + X(12), b, Dim::PICCOLO, Allinea::SINISTRA);
+    snprintf(b, sizeof b, "quota %d m", (int)std::lround(q[2]));
+    t.testo(W - X(40), yP + X(12), b, Dim::PICCOLO, Allinea::DESTRA);
 }
 
 void App::paginaErrore(Tela &t, const Stato &st)
@@ -567,7 +657,7 @@ void App::paginaErrore(Tela &t, const Stato &st)
     int W = t.larghezza();
     bool indietro = !st.fuori;
     const char *titolo = indietro ? "SENSO SBAGLIATO" : st.sbagliato ? "SENTIERO SBAGLIATO" : "FUORI PERCORSO";
-    t.testo(W / 2, X(70), titolo, Dim::MEDIO, Allinea::CENTRO);
+    t.testo(W / 2, X(66), titolo, Dim::MEDIO, Allinea::CENTRO);
     double ang = 180, d = st.dist;
     if (!indietro && haFix && st.agganciato && !st.sbagliato) {
         Traccia::Proiezione v = T.proietta(fix.lat, fix.lon, std::max(0.0, st.km - 0.3), st.km + 1.5);
@@ -578,10 +668,10 @@ void App::paginaErrore(Tela &t, const Stato &st)
         ang = motore.haDirezione() ? norm(b - motore.direzione()) : 0;
     }
     // freccia grande verso il percorso, rispetto al senso di marcia
-    double cx = W / 2, cy = X(215), a = rad(ang), c = std::cos(a), sn = std::sin(a);
+    double cx = W / 2, cy = X(190), a = rad(ang), c = std::cos(a), sn = std::sin(a), f = 0.85 * s;
     auto P = [&](double px, double py, int &ox, int &oy) {
-        ox = (int)(cx + (px * c - py * sn) * s);
-        oy = (int)(cy + (px * sn + py * c) * s);
+        ox = (int)(cx + (px * c - py * sn) * f);
+        oy = (int)(cy + (px * sn + py * c) * f);
     };
     int x0, y0, x1, y1, x2, y2, x3, y3;
     P(0, -95, x0, y0);
@@ -596,74 +686,230 @@ void App::paginaErrore(Tela &t, const Stato &st)
     t.triangolo(x0, y0, x2, y2, x3, y3);
     char b[24];
     if (indietro)
-        testoCentrato(t, "Girati", X(330), Dim::MEDIO, W);
+        testoCentrato(t, "Girati", X(290), Dim::MEDIO, W);
     else {
         snprintf(b, sizeof b, "%d", metriParlati(d));
-        numeroGrande(t, W / 2 - X(14), X(318), X(56), b, Allinea::CENTRO);
-        t.testo(W / 2 + X(56) * 55 / 100 * (int)std::strlen(b) / 2 + X(4), X(344), "m", Dim::MEDIO, Allinea::SINISTRA);
+        numeroGrande(t, W / 2 - X(14), X(280), X(50), b, Allinea::CENTRO);
+        t.testo(W / 2 + X(50) * 55 / 100 * (int)std::strlen(b) / 2 + X(4), X(302), "m", Dim::MEDIO, Allinea::SINISTRA);
     }
-    t.zona(0, X(56), W, X(330), Colore::BIANCO, Colore::ROSSO_SCURO);
+    t.zona(0, X(56), W, X(376), Colore::BIANCO, Colore::ROSSO_SCURO);
     t.zona(0, X(60), W, X(40), Colore::ROSSO, Colore::ROSSO_SCURO);
-    sottotitoloDisegna(t, X(400));
+    if (!sottotitolo.empty() && oraMs <= sottotitoloFino)
+        testoCentrato(t, sottotitolo.c_str(), X(344), Dim::PICCOLO, W - X(70));
 }
 
-void App::paginaMappa(Tela &t, const Stato &st)
+// mappa con il nord in alto: rilievo, percorso, bivi, cime e la propria posizione. Un tocco cambia la scala.
+void App::paginaMappa(Tela &t, const Stato &st, bool errore)
 {
+    static const double MPP[2] = {2, 5}; // metri per pixel alle prime due scale (su 410 pixel: 800 m e 2 km)
+    static const int SCALA = 2;          // un colore di sfondo ogni 2 x 2 pixel
     int W = t.larghezza(), H = t.altezza();
-    if (!st.agganciato) {
-        testoCentrato(t, "Cerco il percorso...", X(200), Dim::MEDIO, W - X(60));
-        return;
+    char b[64];
+    const Prossimo &p = st.prossimo;
+    bool vicino = !errore && st.agganciato && p.b && p.d <= 300 && !st.arrivato;
+    int yTop = X(56), yTab = H - X(70), hStr = vicino ? X(92) : X(38), yBasso = yTab - hStr;
+    int hM = yBasso - yTop, cx = W / 2, cy = yTop + hM / 2;
+    int z = haFix ? zoom : 2; // senza posizione si vede il percorso intero
+    double mpp, c[2];
+    if (z == 2) {
+        mpp = std::max(ampiezza[0] / (W - X(70)), ampiezza[1] / (hM - X(44)));
+        c[0] = centro[0], c[1] = centro[1];
+    } else {
+        mpp = MPP[z] / s;
+        c[0] = fix.lat, c[1] = fix.lon;
     }
-    // il percorso davanti verso l'alto (dalla traccia, senza bussola); 1 km circa 300 px
-    double km = st.km, dir = T.direzioneDopo(km, 0.15);
-    double o[3];
-    T.at(km, o);
-    double k = std::cos(rad(o[0])), sc = 0.30 * s, cx = W / 2, cy = X(330), r = rad(dir);
+    // il centro scatta sulla griglia dello sfondo: percorso e rilievo restano allineati
+    double k = std::cos(rad(centro[0])), pLat = SCALA * mpp / 110540, pLon = SCALA * mpp / (k * 111320);
+    c[0] = std::round(c[0] / pLat) * pLat;
+    c[1] = std::round(c[1] / pLon) * pLon;
     auto xy = [&](double la, double lo, double &px, double &py) {
-        double x = (lo - o[1]) * k * 111320, y = (la - o[0]) * 110540;
-        double xr = x * std::cos(r) - y * std::sin(r), yr = x * std::sin(r) + y * std::cos(r);
-        px = cx + xr * sc;
-        py = cy - yr * sc;
+        px = cx + (lo - c[1]) * k * 111320 / mpp;
+        py = cy - (la - c[0]) * 110540 / mpp;
     };
-    auto tratto = [&](double a, double b, double w) {
-        double q[3], px0 = 0, py0 = 0, px, py;
-        for (double x = a; x <= b + 1e-9; x += 0.01) {
-            T.at(x, q);
-            xy(q[0], q[1], px, py);
-            if (x > a)
-                lineaSpessa(t, px0, py0, px, py, w);
-            px0 = px;
-            py0 = py;
+    auto inVista = [&](double px, double py, int m) { return px >= m && px <= W - m && py >= yTop + m && py <= yBasso - m; };
+    if (terra) {
+        rilievo.calcola(*terra, c[0], c[1], mpp, cx, cy, yTop, W, hM, SCALA, z == 0 ? 50 : z == 1 ? 100 : 200);
+        t.sfondo(rilievo.buf.data(), rilievo.w, rilievo.h, SCALA, yTop, Rilievo::TAVOLOZZA, Rilievo::N_COLORI);
+    }
+    // percorso: sottile il tratto già fatto, spesso quello da fare
+    double km = st.agganciato ? st.km : -1, px0 = 0, py0 = 0, px, py;
+    double wFatto = 2 * s, wDaFare = (z == 2 ? 4 : 6) * s;
+    for (int i = 0; i < T.n; i++) {
+        xy(T.pts[i].lat, T.pts[i].lon, px, py);
+        if (i > 0) {
+            bool fuori = (px < -20 && px0 < -20) || (px > W + 20 && px0 > W + 20) || (py < yTop - 20 && py0 < yTop - 20) ||
+                         (py > yBasso + 20 && py0 > yBasso + 20);
+            if (!fuori)
+                lineaSpessa(t, px0, py0, px, py, T.pts[i].km <= km ? wFatto : wDaFare);
         }
-    };
-    tratto(std::max(0.0, km - 0.4), km, 3 * s);
-    tratto(km, std::min(T.kmTot, km + 1.3), 10 * s);
-    t.zona(0, X(60), W, X(380), Colore::VERDE, Colore::NERO);
-    for (int i = 0; i < motore.nBivi; i++) {
-        const Bivio &b = motore.bivi[i];
-        if (b.silenzioso || b.km < km || b.km > km + 1.3)
-            continue;
-        double px, py;
-        xy(b.lat, b.lon, px, py);
-        t.cerchio((int)px, (int)py, X(10), true);
-        t.zona((int)px - X(11), (int)py - X(11), X(22), X(22), Colore::AMBRA, Colore::NERO);
+        px0 = px, py0 = py;
     }
-    if (haFix) {
-        double px, py;
-        xy(fix.lat, fix.lon, px, py);
-        t.cerchio((int)px, (int)py, X(14), true);
+    t.zona(0, yTop, W, hM, Colore::ARANCIO, Colore::NERO);
+    // partenza e arrivo
+    xy(T.pts[0].lat, T.pts[0].lon, px, py);
+    if (inVista(px, py, 12)) {
+        t.cerchio((int)px, (int)py, X(9), true);
         t.nero(true);
-        t.cerchio((int)px, (int)py, X(8), true);
-        t.nero(false);
         t.cerchio((int)px, (int)py, X(5), true);
-        t.zona((int)px - X(15), (int)py - X(15), X(30), X(30), Colore::BLU, Colore::NERO);
+        t.nero(false);
+        t.zona((int)px - X(10), (int)py - X(10), X(20), X(20), Colore::VERDE, Colore::NERO);
     }
-    t.testo(X(50), H - X(64), "100 m", Dim::PICCOLO, Allinea::SINISTRA);
-    t.rettangolo(X(50), H - X(40), X(30), X(4), true);
-    if (st.sentiero && *st.sentiero) {
-        char b[32];
-        snprintf(b, sizeof b, "Sentiero %s", st.sentiero);
-        t.testo(W - X(50), H - X(64), b, Dim::PICCOLO, Allinea::DESTRA);
+    // bivi ancora da fare: ambra i prossimi, ad anello gli altri
+    int colorati = 0;
+    for (int i = 0; i < motore.nBivi; i++) {
+        const Bivio &v = motore.bivi[i];
+        if (v.silenzioso || v.km < km)
+            continue;
+        xy(v.lat, v.lon, px, py);
+        if (!inVista(px, py, 4))
+            continue;
+        int r = z == 2 ? X(4) : X(7);
+        t.cerchio((int)px, (int)py, r, true);
+        if (v.km <= std::max(0.0, km) + 3 && colorati < 10) {
+            t.zona((int)px - r - 1, (int)py - r - 1, 2 * r + 2, 2 * r + 2, Colore::AMBRA, Colore::NERO);
+            colorati++;
+        } else if (r > 4) {
+            t.nero(true);
+            t.cerchio((int)px, (int)py, r - 3, true);
+            t.nero(false);
+        }
+    }
+    // cime: le più alte fra quelle inquadrate, senza sovrapporre i nomi
+    struct Etichetta {
+        int x, y, w;
+    } messe[5];
+    int nMesse = 0, hT = t.altezzaTesto(Dim::PICCOLO);
+    for (int i = 0; i < nVette && nMesse < (z == 2 ? 3 : 5); i++) {
+        xy(vette[i].lat, vette[i].lon, px, py);
+        if (!inVista(px, py, 30))
+            continue;
+        if (z == 2)
+            snprintf(b, sizeof b, "%s", vette[i].nome);
+        else
+            snprintf(b, sizeof b, "%s %d", vette[i].nome, vette[i].quota);
+        // il nome va sotto la cima, oppure sopra o di fianco: dove non copre il percorso né un altro nome
+        int w = t.larghezzaTesto(b, Dim::PICCOLO), tx = 0, ty = -1;
+        for (int prova = 0; prova < 4 && ty < 0; prova++) {
+            int x = prova < 2 ? (int)px - w / 2 : prova == 2 ? (int)px + X(12) : (int)px - X(12) - w;
+            int y = prova == 0 ? (int)py + X(8) : prova == 1 ? (int)py - X(10) - hT : (int)py - hT / 2;
+            if (prova < 2)
+                x = std::max(X(24), std::min(W - X(24) - w, x));
+            bool libero = x >= X(20) && x + w <= W - X(20) && y >= yTop + X(4) && y + hT <= yBasso - X(4);
+            for (int j = 0; j < nMesse && libero; j++)
+                if (std::abs(y - messe[j].y) < hT + X(10) && x < messe[j].x + messe[j].w + 8 && messe[j].x < x + w + 8)
+                    libero = false;
+            for (int j = 0; j < T.n && libero; j++) {
+                double qx, qy;
+                xy(T.pts[j].lat, T.pts[j].lon, qx, qy);
+                if (qx > x - 8 && qx < x + w + 8 && qy > y - 6 && qy < y + hT + 6)
+                    libero = false;
+            }
+            if (libero)
+                tx = x, ty = y;
+        }
+        if (ty < 0 && i == 0 && py - X(10) - hT >= yTop + X(4)) // il Velino si scrive comunque, sopra la cima
+            tx = std::max(X(24), std::min(W - X(24) - w, (int)px - w / 2)), ty = (int)py - X(10) - hT;
+        if (ty < 0)
+            continue;
+        messe[nMesse++] = {tx, ty, w};
+        t.triangolo((int)px, (int)py - X(7), (int)px - X(7), (int)py + X(5), (int)px + X(7), (int)py + X(5));
+        t.testo(tx, ty, b, Dim::PICCOLO, Allinea::SINISTRA);
+        t.zona((int)px - X(8), (int)py - X(8), X(16), X(14), Colore::BIANCO, Colore::NERO);
+        t.zona(tx - 2, ty, w + 4, hT + 2, Colore::BIANCO, Colore::NERO);
+    }
+    // la propria posizione, con il verso di marcia
+    if (haFix) {
+        xy(fix.lat, fix.lon, px, py);
+        if (inVista(px, py, 0)) {
+            if (motore.haDirezione()) {
+                double a = rad(motore.direzione());
+                punta(t, px + std::sin(a) * 22 * s, py - std::cos(a) * 22 * s, motore.direzione(), 0.5 * s);
+            }
+            t.cerchio((int)px, (int)py, X(13), true);
+            t.nero(true);
+            t.cerchio((int)px, (int)py, X(8), true);
+            t.nero(false);
+            t.cerchio((int)px, (int)py, X(5), true);
+            t.zona((int)px - X(38), (int)py - X(38), X(76), X(76), Colore::BLU, Colore::NERO);
+        }
+    }
+    // scala grafica e nord
+    static const int METRI[] = {50, 100, 200, 500, 1000, 2000, 5000};
+    int metri = METRI[0];
+    for (int v : METRI)
+        if (v / mpp <= X(110))
+            metri = v;
+    int lung = (int)(metri / mpp), xs = X(30), ys = yBasso - X(12);
+    if (metri >= 1000)
+        snprintf(b, sizeof b, "%d km", metri / 1000);
+    else
+        snprintf(b, sizeof b, "%d m", metri);
+    t.nero(true);
+    t.rettangolo(xs - X(6), ys - X(30), std::max(lung, t.larghezzaTesto(b, Dim::PICCOLO)) + X(12), X(40), true);
+    t.nero(false);
+    t.rettangolo(xs, ys, lung, X(4), true);
+    t.rettangolo(xs, ys - X(5), 2, X(9), true);
+    t.rettangolo(xs + lung - 2, ys - X(5), 2, X(9), true);
+    t.testo(xs, ys - X(28), b, Dim::PICCOLO, Allinea::SINISTRA);
+    t.zona(xs - X(6), ys - X(30), std::max(lung, t.larghezzaTesto(b, Dim::PICCOLO)) + X(12), X(40), Colore::BIANCO, Colore::NERO);
+    int xn = W - X(40), yn = yTop + X(14);
+    t.triangolo(xn, yn - X(8), xn - X(7), yn + X(6), xn + X(7), yn + X(6));
+    t.testo(xn, yn + X(8), "N", Dim::PICCOLO, Allinea::CENTRO);
+    t.zona(xn - X(10), yn - X(10), X(20), X(22) + hT, Colore::BIANCO, Colore::NERO);
+    // suggerimento: sparisce da solo
+    const char *nota = !haFix ? "Aspetto il GPS: percorso intero" : oraMs < suggerimentoFino ? "Tocca la mappa: cambia scala" : nullptr;
+    if (nota) {
+        int w = t.larghezzaTesto(nota, Dim::PICCOLO);
+        t.nero(true);
+        t.rettangolo(X(26), yTop + X(6), w + X(12), hT + X(6), true);
+        t.nero(false);
+        t.testo(X(32), yTop + X(8), nota, Dim::PICCOLO, Allinea::SINISTRA);
+        t.zona(X(26), yTop + X(6), w + X(12), hT + X(6), haFix ? Colore::BIANCO : Colore::AMBRA, Colore::NERO);
+    }
+    // barra in alto e striscia in basso su fondo nero (coprono il percorso che esce dalla mappa)
+    t.nero(true);
+    t.rettangolo(0, 0, W, yTop, true);
+    t.rettangolo(0, yBasso, W, hStr, true);
+    t.nero(false);
+    barra(t);
+    int yS = yBasso + (hStr - hT) / 2;
+    if (errore) {
+        bool indietro = !st.fuori;
+        if (indietro)
+            snprintf(b, sizeof b, "SENSO SBAGLIATO: girati");
+        else
+            snprintf(b, sizeof b, "%s  %d m", st.sbagliato ? "SENTIERO SBAGLIATO" : "FUORI PERCORSO", metriParlati(st.dist));
+        t.testo(W / 2, yS, b, Dim::PICCOLO, Allinea::CENTRO);
+        t.zona(0, yBasso, W, hStr, Colore::BIANCO, Colore::ROSSO_SCURO);
+    } else if (vicino) {
+        freccia(t, p.b, X(72), yBasso + X(60), 0.3 * s);
+        t.zona(X(24), yBasso, X(96), hStr, Colore::VERDE, Colore::NERO);
+        if (p.d < 30)
+            snprintf(b, sizeof b, "ORA");
+        else
+            snprintf(b, sizeof b, "%d m", metriParlati(p.d));
+        t.testo(X(128), yBasso + X(8), b, Dim::MEDIO, Allinea::SINISTRA);
+        t.zona(X(124), yBasso, W - X(124), X(44), Colore::AMBRA, Colore::NERO);
+        t.testo(X(128), yBasso + X(52), p.b->titolo, Dim::PICCOLO, Allinea::SINISTRA);
+    } else if (st.agganciato) {
+        snprintf(b, sizeof b, "km %s", kmParlati(st.km).c_str());
+        t.testo(X(34), yS, b, Dim::PICCOLO, Allinea::SINISTRA);
+        if (!p.b)
+            snprintf(b, sizeof b, "verso l'arrivo");
+        else if (p.d >= 1000)
+            snprintf(b, sizeof b, "bivio fra %s km", kmParlati(p.d / 1000).c_str());
+        else
+            snprintf(b, sizeof b, "bivio fra %d m", metriParlati(p.d));
+        t.testo(W - X(34), yS, b, Dim::PICCOLO, Allinea::DESTRA);
+    } else {
+        if (haFix && distTraccia >= 950)
+            snprintf(b, sizeof b, "Percorso di gara a %s km", kmParlati(distTraccia / 1000).c_str());
+        else if (haFix && distTraccia >= 0)
+            snprintf(b, sizeof b, "Percorso di gara a %d m", metriParlati(distTraccia));
+        else
+            snprintf(b, sizeof b, "Posizione: aspetto il GPS");
+        t.testo(W / 2, yS, b, Dim::PICCOLO, Allinea::CENTRO);
+        t.zona(0, yBasso, W, hStr, Colore::TENUE, Colore::NERO);
     }
 }
 
@@ -674,23 +920,34 @@ void App::paginaGara(Tela &t, const Stato &st)
     int trascorsi = oraLoc >= 0 ? oraLoc - partenzaSec : -1;
     if (trascorsi >= 0) {
         snprintf(b, sizeof b, "%d:%02d", trascorsi / 3600, trascorsi / 60 % 60);
-        numeroGrande(t, W / 2, X(70), X(70), b, Allinea::CENTRO);
-        t.testo(W / 2, X(150), "tempo di gara", Dim::PICCOLO, Allinea::CENTRO);
-    }
-    if (!st.agganciato)
-        return;
-    snprintf(b, sizeof b, "km %s", kmParlati(st.km).c_str());
-    t.testo(W / 2, X(182), b, Dim::MEDIO, Allinea::CENTRO);
+        numeroGrande(t, W / 2, X(66), X(58), b, Allinea::CENTRO);
+        t.testo(W / 2, X(130), "tempo di gara", Dim::PICCOLO, Allinea::CENTRO);
+    } else if (oraLoc >= 0) {
+        int m = (partenzaSec - oraLoc) / 60;
+        snprintf(b, sizeof b, "Partenza fra %d h %02d min", m / 60, m % 60);
+        testoCentrato(t, b, X(84), Dim::PICCOLO, W - X(70));
+    } else
+        testoCentrato(t, "Ora non ancora disponibile", X(84), Dim::PICCOLO, W - X(70));
+    if (st.agganciato)
+        snprintf(b, sizeof b, "km %s di %s", kmParlati(st.km).c_str(), kmParlati(T.kmTot).c_str());
+    else
+        snprintf(b, sizeof b, "percorso %s km", kmParlati(T.kmTot).c_str());
+    t.testo(W / 2, X(158), b, Dim::MEDIO, Allinea::CENTRO);
     // profilo altimetrico con la posizione
-    int x0 = X(40), x1 = W - X(40), y0 = X(300), y1 = X(232);
-    double qmin = 700, qmax = 2400, q[3], px0 = 0, py0 = 0;
+    int x0 = X(40), x1 = W - X(40), y0 = X(262), y1 = X(200);
+    double qmin = 700, qmax = 2500, q[3], px0 = 0, py0 = 0;
     for (double k = 0; k <= T.kmTot; k += 0.2) {
         T.at(k, q);
         double x = x0 + (x1 - x0) * k / T.kmTot, y = y0 + (y1 - y0) * (q[2] - qmin) / (qmax - qmin);
         if (k > 0)
-            t.linea((int)px0, (int)py0, (int)x, (int)y);
+            lineaSpessa(t, px0, py0, x, y, 2);
         px0 = x;
         py0 = y;
+    }
+    t.zona(x0 - 2, y1 - 4, x1 - x0 + 4, y0 - y1 + 8, Colore::TENUE, Colore::NERO);
+    if (!st.agganciato) {
+        testoCentrato(t, "Tempi e cancelli compaiono quando sei sul percorso.", X(290), Dim::PICCOLO, W - X(70));
+        return;
     }
     T.at(st.km, q);
     int pxp = (int)(x0 + (x1 - x0) * st.km / T.kmTot), pyp = (int)(y0 + (y1 - y0) * (q[2] - qmin) / (qmax - qmin));
@@ -705,9 +962,9 @@ void App::paginaGara(Tela &t, const Stato &st)
     for (auto &c : cancelli) {
         if (c.km <= st.km + 0.05)
             continue;
-        t.testo(W / 2, X(322), c.nome, Dim::MEDIO, Allinea::CENTRO);
+        t.testo(W / 2, X(280), c.nome, Dim::MEDIO, Allinea::CENTRO);
         snprintf(b, sizeof b, "%s ore %d:%02d", c.km > 29 ? "tempo massimo" : "cancello", c.ora / 3600, c.ora / 60 % 60);
-        t.testo(W / 2, X(356), b, Dim::PICCOLO, Allinea::CENTRO);
+        t.testo(W / 2, X(314), b, Dim::PICCOLO, Allinea::CENTRO);
         if (trascorsi > 60 && st.km > 0.2) {
             double vel = st.km / trascorsi; // km al secondo
             int stima = oraLoc + (int)((c.km - st.km) / vel);
@@ -716,8 +973,8 @@ void App::paginaGara(Tela &t, const Stato &st)
                 snprintf(b, sizeof b, "margine %d min", margine);
             else
                 snprintf(b, sizeof b, "in ritardo di %d min", -margine);
-            t.testo(W / 2, X(388), b, Dim::MEDIO, Allinea::CENTRO);
-            t.zona(0, X(386), W, X(34), margine >= 20 ? Colore::VERDE : margine >= 0 ? Colore::AMBRA : Colore::ROSSO, Colore::NERO);
+            t.testo(W / 2, X(346), b, Dim::MEDIO, Allinea::CENTRO);
+            t.zona(0, X(344), W, X(34), margine >= 20 ? Colore::VERDE : margine >= 0 ? Colore::AMBRA : Colore::ROSSO, Colore::NERO);
         }
         break;
     }
@@ -725,142 +982,56 @@ void App::paginaGara(Tela &t, const Stato &st)
 
 void App::paginaSos(Tela &t)
 {
-    int W = t.larghezza();
+    int W = t.larghezza(), m = W - X(70);
     char b[64];
     switch (sos) {
     case StatoSos::PRONTO:
-        t.cerchio(W / 2, X(220), X(110), true);
+        // il pulsante: tutto il cerchio rosso si tiene premuto
+        t.cerchio(W / 2, X(196), X(104), true);
         t.nero(true);
-        t.testo(W / 2, X(206), "SOS", Dim::MEDIO, Allinea::CENTRO);
+        t.testo(W / 2, X(160), "SOS", Dim::MEDIO, Allinea::CENTRO);
+        t.testo(W / 2, X(200), "TIENI PREMUTO", Dim::PICCOLO, Allinea::CENTRO);
         t.nero(false);
-        t.zona(W / 2 - X(112), X(108), X(224), X(224), Colore::ROSSO_SCURO, Colore::NERO);
-        t.zona(W / 2 - X(40), X(200), X(80), X(36), Colore::BIANCO, Colore::ROSSO_SCURO);
-        testoCentrato(t, "Tieni premuta la corona per 3 secondi", X(350), Dim::PICCOLO, W - X(90));
+        t.zona(W / 2 - X(106), X(90), X(212), X(212), Colore::ROSSO, Colore::NERO);
+        if (!sottotitolo.empty() && oraMs <= sottotitoloFino) {
+            testoCentrato(t, sottotitolo.c_str(), X(330), Dim::MEDIO, m);
+            t.zona(0, X(326), W, X(64), Colore::AMBRA, Colore::NERO);
+        } else
+            testoCentrato(t, "Tieni premuto il cerchio rosso, oppure un tasto laterale per 2 secondi", X(318), Dim::PICCOLO, m);
         break;
     case StatoSos::CONTO: {
         int r = (int)std::max<int64_t>(0, (fineConto - oraMs + 999) / 1000);
-        t.cerchio(W / 2, X(220), X(110), true);
+        t.cerchio(W / 2, X(196), X(104), true);
         snprintf(b, sizeof b, "%d", r);
         t.nero(true);
-        numeroGrande(t, W / 2, X(180), X(80), b, Allinea::CENTRO);
+        numeroGrande(t, W / 2, X(150), X(80), b, Allinea::CENTRO);
         t.nero(false);
-        t.zona(W / 2 - X(112), X(108), X(224), X(224), Colore::ROSSO, Colore::NERO);
-        testoCentrato(t, "Invio fra poco. Premi la corona per annullare.", X(350), Dim::PICCOLO, W - X(90));
+        t.zona(W / 2 - X(106), X(90), X(212), X(212), Colore::ROSSO, Colore::NERO);
+        testoCentrato(t, "Sto per chiedere soccorso.", X(318), Dim::PICCOLO, m);
+        testoCentrato(t, "Tocca per ANNULLARE", X(348), Dim::MEDIO, m);
+        t.zona(0, X(344), W, X(40), Colore::AMBRA, Colore::NERO);
         break;
     }
     case StatoSos::INVIATO:
-        t.testo(W / 2, X(110), "SOS INVIATO", Dim::MEDIO, Allinea::CENTRO);
-        t.zona(0, X(106), W, X(36), Colore::ROSSO, Colore::NERO);
+        t.testo(W / 2, X(70), "SOS INVIATO", Dim::MEDIO, Allinea::CENTRO);
+        t.zona(0, X(66), W, X(36), Colore::ROSSO, Colore::NERO);
         snprintf(b, sizeof b, "Sto avvisando la base (invio %d)", tentativiSos);
-        testoCentrato(t, b, X(180), Dim::PICCOLO, W - X(90));
-        testoCentrato(t, "Resta dove sei. Copriti.", X(280), Dim::MEDIO, W - X(60));
-        t.zona(0, X(276), W, X(70), Colore::AMBRA, Colore::NERO);
+        testoCentrato(t, b, X(124), Dim::PICCOLO, m);
+        testoCentrato(t, "Resta dove sei. Copriti.", X(190), Dim::MEDIO, W - X(60));
+        t.zona(0, X(186), W, X(70), Colore::AMBRA, Colore::NERO);
+        testoCentrato(t, "Per ritirare l'SOS: un tasto laterale tenuto 2 secondi", X(330), Dim::PICCOLO, m);
+        t.zona(0, X(326), W, X(60), Colore::TENUE, Colore::NERO);
         break;
     case StatoSos::CONFERMATO:
-        t.testo(W / 2, X(110), "SOCCORSO AVVISATO", Dim::MEDIO, Allinea::CENTRO);
-        t.zona(0, X(106), W, X(36), Colore::VERDE, Colore::NERO);
+        t.testo(W / 2, X(70), "SOCCORSO AVVISATO", Dim::MEDIO, Allinea::CENTRO);
+        t.zona(0, X(66), W, X(36), Colore::VERDE, Colore::NERO);
         snprintf(b, sizeof b, "La base ha ricevuto la tua posizione (in %d s).", (int)((tConfermaSos - tInvioSos) / 1000));
-        testoCentrato(t, b, X(180), Dim::PICCOLO, W - X(90));
-        testoCentrato(t, "Resta dove sei. Copriti.", X(280), Dim::MEDIO, W - X(60));
-        t.zona(0, X(276), W, X(70), Colore::AMBRA, Colore::NERO);
-        testoCentrato(t, "Corona tenuta 3 s: annulla l'SOS", X(380), Dim::PICCOLO, W - X(90));
+        testoCentrato(t, b, X(124), Dim::PICCOLO, m);
+        testoCentrato(t, "Resta dove sei. Copriti.", X(190), Dim::MEDIO, W - X(60));
+        t.zona(0, X(186), W, X(70), Colore::AMBRA, Colore::NERO);
+        testoCentrato(t, "Per ritirare l'SOS: un tasto laterale tenuto 2 secondi", X(330), Dim::PICCOLO, m);
+        t.zona(0, X(326), W, X(60), Colore::TENUE, Colore::NERO);
         break;
-    }
-}
-
-// modalità mappa (corona): percorso intorno, nord in alto, con la posizione; il bivio vicino resta in basso
-void App::paginaVisuale(Tela &t, const Stato &st)
-{
-    int W = t.larghezza(), H = t.altezza();
-    static const double MPP[3] = {2, 5, 24};
-    static const char *NOME[3] = {"800 m", "2 km", "tutto"};
-    double mpp = MPP[zoom] / s;
-    double c[2];
-    if (zoom == 2) {
-        c[0] = centro[0];
-        c[1] = centro[1];
-    } else if (haFix) {
-        c[0] = fix.lat;
-        c[1] = fix.lon;
-    } else {
-        double q[3];
-        T.at(st.agganciato ? st.km : 0, q);
-        c[0] = q[0];
-        c[1] = q[1];
-    }
-    double k = std::cos(rad(c[0]));
-    auto xy = [&](double la, double lo, double &px, double &py) {
-        px = W / 2 + (lo - c[1]) * k * 111320 / mpp;
-        py = H / 2 - (la - c[0]) * 110540 / mpp;
-    };
-    double km = st.agganciato ? st.km : 0, passo = std::max(0.005, mpp * 3 / 1000), q[3], px0 = 0, py0 = 0, px, py;
-    for (double x = 0; x <= T.kmTot + 1e-9; x += passo) {
-        T.at(x, q);
-        xy(q[0], q[1], px, py);
-        if (x > 0)
-            lineaSpessa(t, px0, py0, px, py, x < km ? 2 * s : 6 * s);
-        px0 = px;
-        py0 = py;
-    }
-    t.zona(0, 0, W, H, Colore::ARANCIO, Colore::NERO);
-    for (int i = 0; i < motore.nBivi; i++) {
-        const Bivio &b = motore.bivi[i];
-        if (b.silenzioso || b.km < km || b.km > km + (zoom == 2 ? 30 : 3))
-            continue;
-        xy(b.lat, b.lon, px, py);
-        int r = zoom == 2 ? X(4) : X(8);
-        t.cerchio((int)px, (int)py, r, true);
-        t.zona((int)px - r - 1, (int)py - r - 1, 2 * r + 2, 2 * r + 2, Colore::AMBRA, Colore::NERO);
-    }
-    if (haFix) {
-        xy(fix.lat, fix.lon, px, py);
-        if (motore.haDirezione()) {
-            double a = rad(motore.direzione());
-            punta(t, px + std::sin(a) * 26 * s, py - std::cos(a) * 26 * s, motore.direzione(), 0.6 * s);
-        }
-        t.cerchio((int)px, (int)py, X(13), true);
-        t.nero(true);
-        t.cerchio((int)px, (int)py, X(7), true);
-        t.nero(false);
-        t.cerchio((int)px, (int)py, X(4), true);
-        t.zona((int)px - X(40), (int)py - X(40), X(80), X(80), Colore::BLU, Colore::NERO);
-    }
-    // barra in alto e indicazioni in basso su fondo nero
-    t.nero(true);
-    t.rettangolo(0, 0, W, X(56), true);
-    t.nero(false);
-    barra(t);
-    char b[48];
-    snprintf(b, sizeof b, "MAPPA %s", NOME[zoom]);
-    t.testo(X(60), X(64), b, Dim::PICCOLO, Allinea::SINISTRA);
-    t.zona(X(56), X(62), t.larghezzaTesto(b, Dim::PICCOLO) + X(8), X(24), Colore::BIANCO, Colore::NERO);
-    const Prossimo &p = st.prossimo;
-    bool vicino = p.b && p.d <= 300 && !st.arrivato;
-    int hB = vicino ? X(120) : X(80);
-    t.nero(true);
-    t.rettangolo(0, H - hB, W, hB, true);
-    t.nero(false);
-    if (vicino) {
-        freccia(t, p.b, X(80), H - X(62), 0.34 * s);
-        t.zona(X(30), H - hB, X(100), hB, Colore::VERDE, Colore::NERO);
-        if (p.d < 30)
-            t.testo(X(140), H - X(110), "ORA", Dim::MEDIO, Allinea::SINISTRA);
-        else {
-            snprintf(b, sizeof b, "%d m", metriParlati(p.d));
-            t.testo(X(140), H - X(110), b, Dim::MEDIO, Allinea::SINISTRA);
-        }
-        t.zona(X(136), H - hB, W - X(136), X(40), Colore::AMBRA, Colore::NERO);
-        t.testo(X(140), H - X(76), p.b->titolo, Dim::PICCOLO, Allinea::SINISTRA);
-    } else if (st.agganciato) {
-        snprintf(b, sizeof b, "km %s", kmParlati(st.km).c_str());
-        t.testo(X(60), H - X(72), b, Dim::MEDIO, Allinea::SINISTRA);
-        if (p.b)
-            snprintf(b, sizeof b, "bivio fra %d m", metriParlati(p.d));
-        else
-            snprintf(b, sizeof b, "verso l'arrivo");
-        if (p.b && p.d >= 1000)
-            snprintf(b, sizeof b, "bivio fra %s km", kmParlati(p.d / 1000).c_str());
-        t.testo(W - X(60), H - X(66), b, Dim::PICCOLO, Allinea::DESTRA);
     }
 }
 

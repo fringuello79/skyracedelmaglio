@@ -37,6 +37,12 @@ class Tela
     virtual int altezzaTesto(Dim d) = 0;
     // zona colorata: i pixel accesi dentro il rettangolo prendono 'acceso', quelli spenti 'spento' (RGB565)
     virtual void zona(int x, int y, int w, int h, uint16_t acceso, uint16_t spento) = 0;
+    // sfondo a colori sotto i pixel spenti (il rilievo della mappa): w x h indici nella tavolozza (RGB565), ognuno
+    // copre scala x scala pixel a partire dalla riga y0. I dati devono restare validi fino al disegno successivo.
+    virtual void sfondo(const uint8_t *indici, int w, int h, int scala, int y0, const uint16_t *tavolozza, int nColori)
+    {
+        (void)indici, (void)w, (void)h, (void)scala, (void)y0, (void)tavolozza, (void)nColori;
+    }
 };
 
 } // namespace srm
