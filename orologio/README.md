@@ -10,6 +10,7 @@ La simulazione da cui vengono le scelte (modulazione, ripetitori, intervalli) è
 | Cartella | Cosa c'è |
 |---|---|
 | `config/` | `prepara.py`: crea il canale SRM (chiave segreta) e i profili Meshtastic di orologi, ripetitori e base |
+| `controllo/` | **SRM Controllo**: il programma unico per Windows (apparecchi collegati, firmware, configurazione, sala) |
 | `sala/` | `sala.py`: programma della sala controllo (mappa, allarmi, conferma automatica degli SOS, registro) |
 | `firmware/srm/` | guida in C++ (stessa logica di `guida/motore.js`), app dell'orologio, dati di traccia e bivi |
 | `firmware/meshtastic/` | modulo per il firmware Meshtastic e `integra.py`, che lo inserisce e prepara la compilazione |
@@ -17,6 +18,20 @@ La simulazione da cui vengono le scelte (modulazione, ripetitori, intervalli) è
 | `firmware/voce/` | `frasi.tsv`: le 133 frasi che l'orologio può dire (registrazioni in `wav/`, se ci sono) |
 | `installa/` | pagina per caricare il firmware dal browser e firmware compilato |
 | `voce/` | pagina per ascoltare la voce sintetica e registrare le frasi con la propria voce |
+
+## Il programma: SRM Controllo
+Su Windows basta un doppio clic su `controllo/SRM Controllo.bat` (serve Python; la prima volta installa da solo
+`meshtastic`, `pyyaml` ed `esptool`). Si apre nel browser la pagina http://localhost:8080/ con:
+- gli apparecchi collegati via USB, riconosciuti da soli (orologio, base, ripetitore, altro Meshtastic);
+- **Carica il firmware**: scarica dal sito l'ultimo firmware SRM e lo scrive sull'orologio;
+- **Configura** come orologio (con il pettorale), come base o come ripetitore: prima salva in `config/privato/` la
+  configurazione che c'era, poi scrive quella nuova e la verifica;
+- **Sala controllo**: parte da sola quando la base è collegata; pacchetti sentiti, orologi, allarmi e la mappa.
+
+Senza finestra nera: si chiude con «Chiudi il programma». Il registro è in `controllo/registro-programma.txt`.
+Con `--rete` la mappa della sala si può guardare anche da altri apparecchi della rete locale; i comandi restano sul PC.
+
+I passi qui sotto sono gli stessi, fatti a mano.
 
 ## Quando arriva l'orologio
 

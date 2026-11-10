@@ -2,3 +2,7 @@ orologio/config/privato/
 __pycache__/
 orologio/firmware/prove/schermi/*.json
 orologio/firmware/prove/schermi/registro.txt
+orologio/sala/dati/pacchetti.csv
+orologio/controllo/firmware/
+orologio/controllo/registro-programma.txt
+orologio/controllo/errore.html

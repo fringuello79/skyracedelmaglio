@@ -1,6 +1,6 @@
 """Configura un orologio SRM collegato via USB e verifica che la configurazione sia rimasta.
 
-Uso: python configura.py privato/orologio-001.yaml
+Uso: python configura.py privato/orologio-001.yaml [porta]     (porta: es. COM7, se è collegato più di un apparecchio)
 
 Differenza da «meshtastic --configure»: tiene aperta la porta finché l'orologio ha salvato e si è riavviato
 (su Windows, chiudere subito la porta può far perdere le modifiche), poi si ricollega e controlla.
@@ -18,10 +18,13 @@ logging.basicConfig(filename=str(Path(__file__).with_name('registro-dettagli.txt
                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
 
+PORTA = None   # None = l'unico apparecchio collegato
+
+
 def connetti(tentativi=20):
     for t in range(tentativi):
         try:
-            i = meshtastic.serial_interface.SerialInterface(timeout=60)
+            i = meshtastic.serial_interface.SerialInterface(PORTA, timeout=60)
             if i.localNode is not None and i.localNode.localConfig is not None:
                 return i
             i.close()
@@ -119,7 +122,9 @@ def una_alla_volta(p):
 
 
 def main():
+    global PORTA
     f = Path(sys.argv[1] if len(sys.argv) > 1 else 'privato/orologio-001.yaml')
+    PORTA = sys.argv[2] if len(sys.argv) > 2 else None
     p = _profile_from_yaml(yaml.safe_load(f.read_text(encoding='utf-8')))
     voluto = atteso(p)
     print('Profilo:', f.name)

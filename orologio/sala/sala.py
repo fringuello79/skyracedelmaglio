@@ -197,53 +197,82 @@ def avvia_web(sala, porta):
 
 
 # ---------- radio vera ----------
-def collega(args, sala):
-    """Tiene il collegamento con il nodo base: se cade (cavo, PC in sospensione) riprova da sola."""
-    from pubsub import pub
-    import meshtastic.serial_interface, meshtastic.tcp_interface, meshtastic.util
-    attuale = {'iface': None}
-    caduto = threading.Event()
+class Radio:
+    """Collegamento con il nodo base. Se cade (cavo, PC in sospensione) riprova da solo.
+    ferma() libera la porta (per esempio per riconfigurare l'apparecchio), avvia() la riprende."""
 
-    def nome_di(num):
-        i = attuale['iface']
-        u = ((i.nodesByNum if i else None) or {}).get(num, {}).get('user', {})
-        return u.get('longName')
+    def __init__(self, sala, porta=None, host=None):
+        from pubsub import pub
+        self.sala, self.porta, self.host = sala, porta, host
+        self.iface = None
+        self.portaInUso = None
+        self.voluta = threading.Event()     # acceso = la radio deve restare collegata
+        self.caduto = threading.Event()
+        self.libera = threading.Event(); self.libera.set()   # acceso = la porta non è in uso
+        # pubsub tiene solo un riferimento debole a chi ascolta: l'oggetto Radio deve restare vivo (lo tiene la sala),
+        # altrimenti le funzioni di ascolto spariscono e la sala non riceve più niente, senza nessun errore
+        sala._radio = self
+        pub.subscribe(self._ricevuto, 'meshtastic.receive')
+        pub.subscribe(self._perso, 'meshtastic.connection.lost')
+        sala.invia = self._invia
+        threading.Thread(target=self._ciclo, daemon=True).start()
 
-    def ricevuto(packet, interface):
+    def avvia(self, porta=None):
+        if porta:
+            self.porta = porta
+        self.voluta.set()
+
+    def ferma(self, attesa=15):
+        self.voluta.clear(); self.caduto.set()
+        self.libera.wait(attesa)
+        self.sala.radio.update(collegata=False, nota='base scollegata dal programma')
+
+    def _nome(self, num):
+        i = self.iface
+        return ((i.nodesByNum if i else None) or {}).get(num, {}).get('user', {}).get('longName')
+
+    def _ricevuto(self, packet, interface):
+        if interface is not self.iface and interface is not None:
+            return                      # pacchetti di un altro collegamento (per esempio una configurazione in corso)
         try:
-            sala.ricevi(packet, nome_di(packet.get('from')))
+            self.sala.ricevi(packet, self._nome(packet.get('from')))
         except Exception as e:          # un pacchetto strano non deve fermare la sala
             print('pacchetto non letto:', e, flush=True)
 
-    def perso(interface=None, **altro):
-        caduto.set()
+    def _perso(self, interface=None, **altro):
+        if interface is None or interface is self.iface:
+            self.caduto.set()
 
-    def invia(testo):
-        i = attuale['iface']
+    def _invia(self, testo):
+        i = self.iface
         if i is None:
             print('  (non inviato, base scollegata):', testo, flush=True); return
         i.sendText(testo, hopLimit=3)
 
-    def apri():
-        if args.host:
-            return meshtastic.tcp_interface.TCPInterface(args.host)
-        if not args.porta:
+    def _apri(self):
+        import meshtastic.serial_interface, meshtastic.tcp_interface, meshtastic.util
+        if self.host:
+            return meshtastic.tcp_interface.TCPInterface(self.host)
+        if not self.porta:
             porte = meshtastic.util.findPorts(True)
             if not porte:
                 raise RuntimeError('nessun nodo collegato via USB')
             if len(porte) > 1:
                 raise RuntimeError(f'più apparecchi collegati ({", ".join(porte)}): lasciare solo la base')
-        return meshtastic.serial_interface.SerialInterface(args.porta)
+        return meshtastic.serial_interface.SerialInterface(self.porta)
 
-    def ciclo():
-        ultima_nota = None
+    def _ciclo(self):
+        sala = self.sala; ultima_nota = None
         while True:
+            if not self.voluta.is_set():
+                time.sleep(0.3); continue
+            self.libera.clear()
             try:
-                caduto.clear()
-                i = apri()
+                self.caduto.clear()
+                i = self._apri()
                 if getattr(i, 'nodesByNum', None) is None:
                     raise RuntimeError('il nodo non risponde')
-                attuale['iface'] = i
+                self.iface = i; self.portaInUso = getattr(i, 'devPath', None) or self.host
                 mio = (i.getMyUser() or {}).get('longName')
                 ora = time.time(); visti = []
                 for num, d in (i.nodesByNum or {}).items():
@@ -252,32 +281,33 @@ def collega(args, sala):
                     if nome != mio:
                         lh = d.get('lastHeard')
                         visti.append(f"{nome or num} ({'mai' if not lh else str(round((ora - lh) / 60)) + ' min fa'}{', snr ' + str(d['snr']) if 'snr' in d else ''})")
-                sala.radio.update(collegata=True, nota=f'base: {mio}')
+                sala.radio.update(collegata=True, nota=f'base: {mio}', nome=mio, porta=self.portaInUso)
                 print(time.strftime('%H:%M:%S'), f'Collegato al nodo base «{mio}». In ascolto…', flush=True)
                 print('  nodi già noti alla base:', '; '.join(visti) if visti else 'nessuno', flush=True)
                 ultima_nota = None
-                caduto.wait()
-                print(time.strftime('%H:%M:%S'), 'Collegamento con la base caduto: riprovo.', flush=True)
+                self.caduto.wait()
+                if self.voluta.is_set():
+                    print(time.strftime('%H:%M:%S'), 'Collegamento con la base caduto: riprovo.', flush=True)
             except (Exception, SystemExit) as e:
                 nota = str(e) or type(e).__name__
                 if nota != ultima_nota:
                     print(time.strftime('%H:%M:%S'), 'Base non collegata:', nota, flush=True); ultima_nota = nota
                 sala.radio.update(nota=nota)
             sala.radio['collegata'] = False
-            i = attuale['iface']; attuale['iface'] = None
+            i = self.iface; self.iface = None; self.portaInUso = None
             try:
                 if i: i.close()
             except Exception:
                 pass
-            time.sleep(5)
+            self.libera.set()
+            if self.voluta.is_set():
+                time.sleep(5)
 
-    # pubsub tiene solo un riferimento debole a chi ascolta: senza questa riga le due funzioni spariscono
-    # appena finisce collega() e la sala non riceve più niente, senza nessun errore
-    sala._ascolto = (ricevuto, perso)
-    pub.subscribe(ricevuto, 'meshtastic.receive')
-    pub.subscribe(perso, 'meshtastic.connection.lost')
-    sala.invia = invia
-    threading.Thread(target=ciclo, daemon=True).start()
+
+def collega(args, sala):
+    r = Radio(sala, getattr(args, 'porta', None), getattr(args, 'host', None))
+    r.avvia()
+    return r
 
 
 # ---------- gara finta per provare la pagina ----------
