@@ -47,8 +47,8 @@ def test_ascolto_radio():
     e la sala non riceveva niente: pubsub aveva perso le funzioni di ascolto.)"""
     import gc, types
     from pubsub import pub
-    s = sala.Sala(sala.Percorso())
-    sala.collega(types.SimpleNamespace(host=None, porta='/dev/non-esiste'), s)
+    s = S.Sala(S.Percorso())
+    S.collega(types.SimpleNamespace(host=None, porta='/dev/non-esiste'), s)
     gc.collect()
     pub.sendMessage('meshtastic.receive.text', interface=None,
                     packet={'from': 7, 'decoded': {'portnum': 'TEXT_MESSAGE_APP', 'text': 'SRM SOS P057 R4821 km12.4 42.15123,13.38211'}})
