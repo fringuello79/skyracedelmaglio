@@ -96,8 +96,10 @@ def integra(fw):
                 '    if (r >= srmSfondo.h || c >= srmSfondo.w)\n        return false;\n'
                 '    colore = srmSfondo.tavolozza[srmSfondo.indici[r * srmSfondo.w + c]];\n    return true;\n}\n#endif\n', 'struct SrmSfondo')
     cc = fw / 'src/graphics/TFTColorRegions.cpp'
-    sostituisci(cc, 'static uint8_t colorRegionCount = 0;\n',
-                'static uint8_t colorRegionCount = 0;\n#ifdef SRM_GUIDA\nSrmSfondo srmSfondo = {nullptr, nullptr, 0, 0, 0, 0, 1, 0, false};\n#endif\n', 'SrmSfondo srmSfondo =')
+    # (la definizione va fuori dallo spazio dei nomi anonimo in cima al file, altrimenti è un'altra variabile)
+    sostituisci(cc, 'uint32_t getTFTColorFrameSignature()\n{\n',
+                '#ifdef SRM_GUIDA\nSrmSfondo srmSfondo = {nullptr, nullptr, 0, 0, 0, 0, 1, 0, false};\n#endif\n\n'
+                'uint32_t getTFTColorFrameSignature()\n{\n', 'SrmSfondo srmSfondo =')
     sostituisci(cc, 'uint16_t resolveTFTColorPixel(int16_t x, int16_t y, bool isset, uint16_t defaultOnColor, uint16_t defaultOffColor)\n{\n',
                 'uint16_t resolveTFTColorPixel(int16_t x, int16_t y, bool isset, uint16_t defaultOnColor, uint16_t defaultOffColor)\n{\n'
                 '#ifdef SRM_GUIDA\n    uint16_t srmColore;\n    if (!isset && srmSfondoPixel(x, y, srmColore))\n        return srmColore;\n#endif\n', 'srmSfondoPixel(x, y, srmColore)')
