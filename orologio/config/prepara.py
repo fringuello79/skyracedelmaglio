@@ -89,6 +89,12 @@ def orologio(c, pettorale):
     })
 
 
+# Base e ripetitori non devono suonare a ogni messaggio (alcuni, come il T1000-E, hanno il cicalino acceso di fabbrica):
+# gli allarmi li dà la pagina della sala.
+SILENZIO = {'enabled': False, 'alert_message': False, 'alert_message_buzzer': False, 'alert_bell': False,
+            'alert_bell_buzzer': False, 'nag_timeout': 0}
+
+
 def ripetitore(c, n):
     """Ripetitore fisso (Heltec V4): ripete sempre, solo i pacchetti del canale SRM; manda la batteria alla base."""
     corto = {'forche': 'RFOR', 'controllo': 'RK27', 'fossa': 'RFOS', 'rosciolo': 'RROS', 'iaccio': 'RIAC',
@@ -108,6 +114,7 @@ def ripetitore(c, n):
         },
         'module_config': {
             'telemetry': {'device_telemetry_enabled': True, 'device_update_interval': 900},
+            'external_notification': SILENZIO,
         },
     })
 
@@ -127,6 +134,7 @@ def base(c, n):
         },
         'module_config': {
             'telemetry': {'device_telemetry_enabled': False, 'device_update_interval': 0},
+            'external_notification': SILENZIO,
         },
     })
 

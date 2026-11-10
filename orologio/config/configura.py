@@ -55,12 +55,13 @@ def stato(i):
         'ruolo': config_pb2.Config.DeviceConfig.Role.Name(lc.device.role),
         'canale': ch0.name if ch0 else None,
         'gps_ogni': lc.position.position_broadcast_secs,
+        'cicalino_messaggi': bool(n.moduleConfig.external_notification.enabled),
     }
 
 
 def atteso(p):
     c = p.config
-    return {
+    v = {
         'nome': p.long_name,
         'regione': config_pb2.Config.LoRaConfig.RegionCode.Name(c.lora.region),
         'preset': config_pb2.Config.LoRaConfig.ModemPreset.Name(c.lora.modem_preset),
@@ -68,6 +69,9 @@ def atteso(p):
         'canale': 'SRM',
         'gps_ogni': c.position.position_broadcast_secs,
     }
+    if p.module_config.HasField('external_notification'):       # solo se il profilo ne parla (base e ripetitori)
+        v['cicalino_messaggi'] = bool(p.module_config.external_notification.enabled)
+    return v
 
 
 def stampa(titolo, s):
