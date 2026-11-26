@@ -213,6 +213,13 @@ export async function avviaSRM3D(opt) {
   const rebuildGeo = () => { for (let j = 0, p = 0; j <= M; j++) for (let i = 0; i <= M; i++, p += 3) {
     const E = ce + wp(i / M * 2 - 1) * .999, N = cn + wp(j / M * 2 - 1) * .999; pos[p] = E; pos[p + 1] = yOf(elevAt(E, N)); pos[p + 2] = -N; } };
   rebuildGeo();
+  // quota della superficie disegnata (triangoli della maglia), per appoggiare tracciato e segnaposto senza parallasse
+  const iwp = x => { const a = Math.abs(x), g = Math.sign(x); return g * (a < hC ? a / hC * FR : FR + (a - hC) / (hO - hC) * (1 - FR)); };
+  const meshY = (x, z) => {
+    const fi = clamp((iwp((x - ce) / .999) + 1) / 2 * M, 0, M - 1e-4), fj = clamp((iwp((-z - cn) / .999) + 1) / 2 * M, 0, M - 1e-4);
+    const i = fi | 0, j = fj | 0, fu = fi - i, fv = fj - j, a = (j * (M + 1) + i) * 3 + 1, b = a + 3, c = a + (M + 1) * 3, d = c + 3;
+    return fu + fv <= 1 ? pos[a] + (pos[b] - pos[a]) * fu + (pos[c] - pos[a]) * fv : pos[d] + (pos[c] - pos[d]) * (1 - fu) + (pos[b] - pos[d]) * (1 - fv);
+  };
   const idx = new Uint32Array(M * M * 6);
   for (let j = 0, q = 0; j < M; j++) for (let i = 0; i < M; i++) { const a = j * (M + 1) + i, b = a + 1, c = a + M + 1, d = c + 1; idx.set([a, b, c, b, d, c], q); q += 6; }
   const tg = new THREE.BufferGeometry();
@@ -306,21 +313,30 @@ export async function avviaSRM3D(opt) {
     const f = clamp((k - route.km[j]) / (route.km[j + 1] - route.km[j] || 1), 0, 1);
     RE[i] = lerp(route.E[j], route.E[j + 1], f); RN[i] = lerp(route.N[j], route.N[j + 1], f); RL[i] = lerp(route.ele[j], route.ele[j + 1], f); }
   const routeMat = new THREE.ShaderMaterial({
-    uniforms: { uProg: { value: 0 }, uTime: G.uTime, uNight: G.uNight, uAll: { value: 0 } },
-    vertexShader: `varying float vU; void main(){ vU = uv.x; vec3 c = position - normal*7.;
-      float d = length((modelMatrix*vec4(c,1.)).xyz - cameraPosition); vec3 p = c + normal*max(1.1, d*.0013) + vec3(0.,1.5,0.);
+    uniforms: { uKm: { value: 0 }, uTot: { value: 30 }, uTime: G.uTime, uNight: G.uNight, uAll: { value: 0 } },
+    vertexShader: `attribute float aKm; varying float vKm; void main(){ vKm = aKm; vec3 c = position - normal*7.;
+      float d = length((modelMatrix*vec4(c,1.)).xyz - cameraPosition); vec3 p = c + normal*max(1.1, d*.0013) + vec3(0.,.6,0.);
       gl_Position = projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
-    fragmentShader: `uniform float uProg, uTime, uNight, uAll; varying float vU;
-      void main(){ float ahead = step(uProg, vU);
+    fragmentShader: `uniform float uKm, uTot, uTime, uNight, uAll; varying float vKm;
+      void main(){ float ahead = step(uKm, vKm);
         if (ahead > .5 && uAll < .01) discard;
-        float pulse = smoothstep(.02, 0., abs(fract(vU*8. - uTime*.06) - .5) - .47);
+        float pulse = smoothstep(.02, 0., abs(fract(vKm/uTot*8. - uTime*.06) - .5) - .47);
         vec3 c = vec3(1.9, .5, .04)*(1. + pulse*.6)*mix(1., .6, uNight);
         if (ahead > .5) c = vec3(.9,.85,.75)*.35*uAll;
         gl_FragColor = vec4(c, 1.); }` });
   let routeMesh = null;
   const buildRoute = () => {
-    const pts = []; for (let i = 0; i < NR; i += 2) pts.push(new THREE.Vector3(RE[i], heightAt(RE[i], -RN[i]) + 4, -RN[i]));
-    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), isMobile ? 1600 : 3000, 7, 5, false);
+    const pts = [], kms = []; for (let i = 0; i < NR; i += 2) { pts.push(new THREE.Vector3(RE[i], meshY(RE[i], -RN[i]) + 1.2, -RN[i])); kms.push(i * RS / 1000); }
+    const segs = isMobile ? 1600 : 3000, rad = 5;
+    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), segs, 7, rad, false);
+    // km di ogni anello del tubo (il tubo è campionato a lunghezza 3D costante, non a km)
+    const cum = [0]; for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + pts[k].distanceTo(pts[k - 1]));
+    const L = cum[cum.length - 1], aKm = new Float32Array(g.attributes.position.count);
+    for (let i = 0, k = 0; i <= segs; i++) { const sl = i / segs * L; while (k < cum.length - 2 && cum[k + 1] < sl) k++;
+      const f = clamp((sl - cum[k]) / (cum[k + 1] - cum[k] || 1), 0, 1), km = lerp(kms[k], kms[k + 1], f);
+      for (let r = 0; r <= rad; r++) aKm[i * (rad + 1) + r] = km; }
+    g.setAttribute('aKm', new THREE.BufferAttribute(aKm, 1));
+    routeMat.uniforms.uTot.value = TOT;
     if (routeMesh) { routeMesh.geometry.dispose(); routeMesh.geometry = g; }
     else { routeMesh = new THREE.Mesh(g, routeMat); routeMesh.frustumCulled = false; scene.add(routeMesh); }
   };
@@ -614,7 +630,7 @@ export async function avviaSRM3D(opt) {
       for (let k = -r; k <= r; k++) { const j = clamp(i + k, 0, n - 1); s += a[j * comp + c] * w[k + r]; ws += w[k + r]; } out[i * comp + c] = s / ws; }
     return out; };
   function buildRail() {
-    const P = new Float32Array(NR * 3); for (let i = 0; i < NR; i++) { P[i * 3] = RE[i]; P[i * 3 + 1] = heightAt(RE[i], -RN[i]) + 4; P[i * 3 + 2] = -RN[i]; }
+    const P = new Float32Array(NR * 3); for (let i = 0; i < NR; i++) { P[i * 3] = RE[i]; P[i * 3 + 1] = meshY(RE[i], -RN[i]) + 4; P[i * 3 + 2] = -RN[i]; }
     const S = gauss1(P, 25, 3), Lsm = gauss1(RL, 40);
     const C = new Float32Array(NRL * 3), T = new Float32Array(NRL * 3), F = new Float32Array(NRL), SIDE = new Float32Array(NRL), FW = new Float32Array(NRL * 2);
     for (let j = 0; j < NRL; j++) { const i = Math.min(NR - 1, Math.round(j * RAIL * 1000 / RS));
@@ -725,8 +741,8 @@ export async function avviaSRM3D(opt) {
     if (vw > 700) cam.setViewOffset(vw, vh, -.06 * vw * (1 - clamp(uCur, 0, 1)), 0, vw, vh); else cam.setViewOffset(vw, vh, 0, vh * .1, vw, vh);
     cam.lookAt(P0.t); cam.updateMatrixWorld();
     const time = reduce ? 0 : now / 1000;
-    routeMat.uniforms.uProg.value = info.prog; routeMat.uniforms.uAll.value = info.all;
-    const [rx, rn] = pointAtKm(info.km); runner.geometry.attributes.position.setXYZ(0, rx, heightAt(rx, -rn) + 14, -rn); runner.geometry.attributes.position.needsUpdate = true;
+    routeMat.uniforms.uKm.value = info.prog >= 1 ? TOT + 1 : info.km; routeMat.uniforms.uAll.value = info.all;
+    const [rx, rn] = pointAtKm(info.km); runner.geometry.attributes.position.setXYZ(0, rx, meshY(rx, -rn) + 4, -rn); runner.geometry.attributes.position.needsUpdate = true;
     runner.material.uniforms.uOn.value = info.run;
     if (scen && !reduce) { const wd = (scen.windDir + 180) * RAD, ws = clamp(scen.windKmh, 2, 60) / 3.6 * 6;
       windX -= Math.sin(wd) * ws * dt; windZ += Math.cos(wd) * ws * dt; U.uWind.value.set(windX, windZ); }
