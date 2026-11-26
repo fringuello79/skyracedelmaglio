@@ -1725,10 +1725,7 @@ import { avviaSRM3D, SCENARI } from './assets/3d/srm3d.js';
     $('#srm3d-det').innerHTML = live
       ? `Meteo dal vivo di <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> per Magliano (729 m) e la vetta (2.450 m), ogni 15 minuti. Sole e luna calcolati per l'ora esatta.`
       : `Meteo dal vivo non raggiungibile qui: scegli uno scenario. Sole e luna calcolati per l'ora esatta.`;
-    const d = s.dati || {};
-    $('#srm3d-det').innerHTML += d.foto === 'alta' || d.foto === 'contorno'
-      ? ` Immagini satellitari © Esri, Maxar, Earthstar Geographics; rilievo: Terrain Tiles (Mapzen/AWS)${d.foto === 'contorno' ? ' — dettaglio in arrivo…' : ''}.`
-      : ` Immagini satellitari non disponibili: terreno di base di SRM Explorer.`;
+    $('#srm3d-det').innerHTML += ` Rilievo Tinitaly 1.1 (INGV, CC BY 4.0); ortofoto PCN – Geoportale Nazionale; contorno: Sentinel-2 cloudless (EOX) e AWS Terrain Tiles.`;
   }
 }
 </script>

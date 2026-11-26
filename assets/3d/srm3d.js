@@ -134,31 +134,6 @@ const lon2tx = (lon, z) => (lon + 180) / 360 * 2 ** z;
 const lat2ty = (lat, z) => { const r = lat * RAD; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z; };
 const tx2lon = (x, z) => x / 2 ** z * 360 - 180;
 const ty2lat = (y, z) => { const n = Math.PI - 2 * Math.PI * y / 2 ** z; return Math.atan(Math.sinh(n)) / RAD; };
-const TERRARIUM = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
-const ESRI = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
-
-async function tile(url) {
-  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 12000);
-  try { const r = await fetch(url, { mode: 'cors', signal: ctl.signal }); if (!r.ok) throw new Error(r.status);
-    return await createImageBitmap(await r.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' }); }
-  finally { clearTimeout(to); }
-}
-// mosaico di tessere web-mercator che copre un riquadro lat/lon
-async function mosaico(urlFn, z, s, n, w, e, conc = 10) {
-  const x0 = Math.floor(lon2tx(w, z)), x1 = Math.floor(lon2tx(e, z)), y0 = Math.floor(lat2ty(n, z)), y1 = Math.floor(lat2ty(s, z));
-  const nx = x1 - x0 + 1, ny = y1 - y0 + 1;
-  const c = document.createElement('canvas'); c.width = nx * 256; c.height = ny * 256;
-  const g = c.getContext('2d', { willReadFrequently: true });
-  const jobs = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) jobs.push([x, y]);
-  let bad = 0, i = 0;
-  await Promise.all(Array.from({ length: conc }, async () => {
-    while (i < jobs.length) { const [x, y] = jobs[i++];
-      try { g.drawImage(await tile(urlFn(z, x, y)), (x - x0) * 256, (y - y0) * 256); } catch (err) { bad++; } }
-  }));
-  if (bad > jobs.length * .15) throw new Error('tessere mancanti ' + bad + '/' + jobs.length);
-  return { c, g, z, x0, y0, nx, ny, bad };
-}
-
 // ---------------------------------------------------------------- motore
 export async function avviaSRM3D(opt) {
   const { canvas, ancore, onProgress = () => {}, onMeteo = () => {}, onHud = () => {}, onDati = () => {} } = opt;
@@ -172,19 +147,22 @@ export async function avviaSRM3D(opt) {
 
   onProgress(.05);
   const [geo, route] = await Promise.all([fetch(BASE + 'geo.json').then(r => r.json()), fetch(BASE + 'route2.json').then(r => r.json())]);
-  const [cImg, oImg, aImg] = await Promise.all(['core_h.png', 'outer_h.png', 'core_alb.jpg'].map(f => pixels(BASE + f)));
+  const big = renderer.capabilities.maxTextureSize >= 4096 && !isMobile;
+  const bitmap = async f => { const r = await fetch(BASE + f); if (!r.ok) throw new Error('asset ' + f);
+    return createImageBitmap(await r.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' }); };
+  const [cImg, oImg, bAlbC, bAlbO] = await Promise.all([pixels(BASE + 'core_h.png'), pixels(BASE + 'outer_h.png'), bitmap(big ? geo.albC : geo.albC2), bitmap(geo.albO)]);
   onProgress(.5);
   const cosL = Math.cos(geo.lat0 * RAD);
   const ll2en = (lat, lon) => [R_T * cosL * (lon - geo.lon0) * RAD, R_T * (lat - geo.lat0) * RAD];
   const en2ll = (E, N) => [geo.lat0 + N / R_T / RAD, geo.lon0 + E / (R_T * cosL) / RAD];
 
   // ---- griglie di quota (metri s.l.m.), riga 0 = sud
-  const NG = 1024;
+  const NCg = geo.nc || 1024, NOg = geo.no || 1024;
   const CORE = geo.core, OUT = geo.outer;                     // [E0, N0, lato]
   const decodeH = img => { const a = new Float32Array(img.width * img.height);
     for (let i = 0; i < a.length; i++) a[i] = ((img.data[i * 4] << 8) | img.data[i * 4 + 1]) / geo.k - geo.off; return a; };
   let HC = decodeH(cImg), HO = decodeH(oImg);
-  const samp = (H, box, E, N) => {
+  const samp = (H, box, E, N) => { const NG = H === HC ? NCg : NOg;
     let u = (E - box[0]) / box[2] * NG - .5, v = (N - box[1]) / box[2] * NG - .5;
     u = clamp(u, 0, NG - 1.001); v = clamp(v, 0, NG - 1.001);
     const i = u | 0, j = v | 0, fu = u - i, fv = v - j, k = j * NG + i;
@@ -197,9 +175,9 @@ export async function avviaSRM3D(opt) {
   const heightAt = (x, z) => yOf(elevAt(x, -z));
 
   // ---- texture di quota (per le ombre) e normali (calcolate qui)
-  const mkHTex = H => { const a = new Float32Array(H.length); for (let i = 0; i < H.length; i++) a[i] = yOf(H[i]);
+  const mkHTex = H => { const NG = Math.round(Math.sqrt(H.length)), a = new Float32Array(H.length); for (let i = 0; i < H.length; i++) a[i] = yOf(H[i]);
     const t = new THREE.DataTexture(a, NG, NG, THREE.RedFormat, THREE.FloatType); t.needsUpdate = true; return t; };
-  const mkNTex = (H, box) => { const d = new Uint8Array(NG * NG * 4), cell = box[2] / NG;
+  const mkNTex = (H, box) => { const NG = Math.round(Math.sqrt(H.length)), d = new Uint8Array(NG * NG * 4), cell = box[2] / NG;
     for (let j = 0; j < NG; j++) for (let i = 0; i < NG; i++) {
       const k = j * NG + i, l = H[j * NG + Math.max(i - 1, 0)], r = H[j * NG + Math.min(i + 1, NG - 1)];
       const s = H[Math.max(j - 1, 0) * NG + i], n = H[Math.min(j + 1, NG - 1) * NG + i];
@@ -209,9 +187,9 @@ export async function avviaSRM3D(opt) {
     const t = new THREE.DataTexture(d, NG, NG, THREE.RGBAFormat); t.generateMipmaps = true;
     t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.anisotropy = 4; t.needsUpdate = true; return t; };
   let tHC = mkHTex(HC), tHO = mkHTex(HO), tNC = mkNTex(HC, CORE), tNO = mkNTex(HO, OUT);
-  const tAlbStatic = new THREE.DataTexture(aImg.data, aImg.width, aImg.height, THREE.RGBAFormat);
-  tAlbStatic.generateMipmaps = true; tAlbStatic.minFilter = THREE.LinearMipmapLinearFilter; tAlbStatic.magFilter = THREE.LinearFilter;
-  tAlbStatic.anisotropy = 8; tAlbStatic.needsUpdate = true;
+  const bmTex = bm => { const t = new THREE.Texture(bm); t.colorSpace = THREE.NoColorSpace; t.flipY = false; t.generateMipmaps = true;
+    t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.anisotropy = 8; t.needsUpdate = true; return t; };
+  const tAlbC = bmTex(bAlbC), tAlbO = bmTex(bAlbO);
   const tNoise = noise3D(64);
   onProgress(.7);
 
@@ -270,9 +248,9 @@ export async function avviaSRM3D(opt) {
 
   // ---- materiale del terreno
   const TU = { ...G, tNC: { value: tNC }, tNO: { value: tNO }, tShC: { value: rtShC.texture }, tShO: { value: rtShO.texture },
-    tAlbC: { value: tAlbStatic }, tAlbO: { value: tAlbStatic }, uHasO: { value: 0 }, uImg: { value: 0 },
+    tAlbC: { value: tAlbC }, tAlbO: { value: tAlbO }, uHasO: { value: 1 }, uImg: { value: 1 },
     uCore: { value: new THREE.Vector3(...CORE) }, uOut: { value: new THREE.Vector3(...OUT) },
-    uAlbC: { value: new THREE.Vector4(CORE[0], CORE[0] + CORE[2], CORE[1], CORE[1] + CORE[2]) }, uAlbO: { value: new THREE.Vector4(0, 1, 0, 1) } };
+    uAlbC: { value: new THREE.Vector4(CORE[0], CORE[0] + CORE[2], CORE[1], CORE[1] + CORE[2]) }, uAlbO: { value: new THREE.Vector4(OUT[0], OUT[0] + OUT[2], OUT[1], OUT[1] + OUT[2]) } };
   const terrainMat = new THREE.ShaderMaterial({ uniforms: TU,
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
     fragmentShader: `
@@ -302,19 +280,19 @@ export async function avviaSRM3D(opt) {
         c = mix(c, rock, clamp(smoothstep(.36, .6, slope + d2*.12) + smoothstep(2100., 2350., e)*.5, 0., 1.));
         if (uHasO > .5){
           vec2 ua = vec2((en.x-uAlbO.x)/(uAlbO.y-uAlbO.x), (uAlbO.w-en.y)/(uAlbO.w-uAlbO.z));
-          c = mix(c, pow(texture2D(tAlbO, ua).rgb, vec3(2.2))*.85, edge(ua, .01));
+          c = mix(c, pow(texture2D(tAlbO, ua).rgb, vec3(2.2))*.58, edge(ua, .01));
         }
         vec2 ub = vec2((en.x-uAlbC.x)/(uAlbC.y-uAlbC.x), (uAlbC.w-en.y)/(uAlbC.w-uAlbC.z));
         float wb = edge(ub, .03);
         vec3 a = pow(texture2D(tAlbC, ub).rgb, vec3(2.2));
         if (uImg < .5){ float l = dot(a, vec3(.3,.59,.11)); a = mix(vec3(l), a, .7)*(.62/(1.+l*1.6)); }
-        else a *= .85;
+        else { a *= .58; float l = dot(a, vec3(.3,.59,.11)); a = mix(vec3(l), a, 1.12); }
         c = mix(c, a, wb);
         float sn = smoothstep(uSnow-70., uSnow+140., e + (d1-.5)*260. + (d2-.5)*80.) * (1.-smoothstep(.45,.75,slope));
         c = mix(c, vec3(.80,.82,.86), sn);
         c *= mix(1., .65, uWet*(1.-sn));
         float ndl = max(dot(n, uSun), 0.);
-        vec3 Lc = uSunC*ndl*sh + uAmb*(.6+.4*n.y)*2.3 + uSunC*.05*(1.-n.y);
+        vec3 Lc = uSunC*ndl*sh + uAmb*(.6+.4*n.y)*1.8 + uSunC*.04*(1.-n.y);
         gl_FragColor = vec4(c*Lc, 1.);
       }` });
   scene.add(new THREE.Mesh(tg, terrainMat));
@@ -726,41 +704,7 @@ export async function avviaSRM3D(opt) {
         H.set(p.x, p.z, Math.max(200, cam.position.distanceTo(p) * .07), 1); H.born = now; break; } } }, { passive: true });
   addEventListener('scroll', () => { lastInput = performance.now(); }, { passive: true });
 
-  // ---------------------------------------------------------------- dati ad alta risoluzione (sul sito pubblicato)
-  const datiStato = { quote: 'base', foto: 'base' };
-  async function potenzia() {
-    const box = b => { const [s, w] = en2ll(b[0], b[1]), [n, e] = en2ll(b[0] + b[2], b[1] + b[2]); return [s, n, w, e]; };
-    const toGrid = (mo, b) => { const d = mo.g.getImageData(0, 0, mo.c.width, mo.c.height).data, W = mo.c.width, Hh = mo.c.height, out = new Float32Array(NG * NG);
-      const el = (x, y) => { const k = (y * W + x) * 4; return d[k] * 256 + d[k + 1] + d[k + 2] / 256 - 32768; };
-      for (let j = 0; j < NG; j++) { const N = b[1] + (j + .5) / NG * b[2], lat = geo.lat0 + N / R_T / RAD, py = (lat2ty(lat, mo.z) - mo.y0) * 256 - .5;
-        for (let i = 0; i < NG; i++) { const E = b[0] + (i + .5) / NG * b[2], lon = geo.lon0 + E / (R_T * cosL) / RAD, px = (lon2tx(lon, mo.z) - mo.x0) * 256 - .5;
-          const x = clamp(px, 0, W - 1.001), y = clamp(py, 0, Hh - 1.001), xi = x | 0, yi = y | 0, fx = x - xi, fy = y - yi;
-          out[j * NG + i] = el(xi, yi) * (1 - fx) * (1 - fy) + el(xi + 1, yi) * fx * (1 - fy) + el(xi, yi + 1) * (1 - fx) * fy + el(xi + 1, yi + 1) * fx * fy; } }
-      return out; };
-    const rectOf = mo => { const [S, W] = [ty2lat(mo.y0 + mo.ny, mo.z), tx2lon(mo.x0, mo.z)], [Nn, E] = [ty2lat(mo.y0, mo.z), tx2lon(mo.x0 + mo.nx, mo.z)];
-      const sw = ll2en(S, W), ne = ll2en(Nn, E); return new THREE.Vector4(sw[0], ne[0], sw[1], ne[1]); };
-    const canvasTex = c => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.NoColorSpace; t.generateMipmaps = true;
-      t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 8; t.flipY = false; t.needsUpdate = true; return t; };
-    // 1) quote reali (Terrain Tiles)
-    try {
-      const [bo, bc] = [box(OUT), box(CORE)];
-      const [mo, mc] = await Promise.all([mosaico(TERRARIUM, 11, ...bo), mosaico(TERRARIUM, 13, ...bc)]);
-      const ho = toGrid(mo, OUT), hc = toGrid(mc, CORE);
-      let ok = true; for (let i = 0; i < hc.length; i += 4099) if (!(hc[i] > 300 && hc[i] < 3000)) ok = false;
-      if (ok) { HO = ho; HC = hc; tHO = mkHTex(HO); tHC = mkHTex(HC); TU.tNC.value = mkNTex(HC, CORE); TU.tNO.value = mkNTex(HO, OUT);
-        rebuildGeo(); tg.attributes.position.needsUpdate = true; tg.computeBoundingSphere(); buildRoute(); placeLights(); buildRail(); buildPoses(); updateShadows(true);
-        datiStato.quote = 'alta'; notifica(); }
-    } catch (e) { console.info('SRM 3D: quote ad alta risoluzione non disponibili', e.message); }
-    // 2) foto satellitari (Esri World Imagery): contorno poi dettaglio sul percorso
-    try {
-      const zo = isMobile ? 11 : 12, mo = await mosaico(ESRI, zo, ...box(OUT));
-      TU.tAlbO.value = canvasTex(mo.c); TU.uAlbO.value.copy(rectOf(mo)); TU.uHasO.value = 1; datiStato.foto = 'contorno'; notifica();
-      let zc = isMobile ? 14 : 15; const bc = box(CORE);
-      while (zc > 12 && (Math.floor(lon2tx(bc[3], zc)) - Math.floor(lon2tx(bc[2], zc)) + 1) * 256 > Math.min(maxTex, 4096)) zc--;
-      const mc = await mosaico(ESRI, zc, ...bc);
-      TU.tAlbC.value = canvasTex(mc.c); TU.uAlbC.value.copy(rectOf(mc)); TU.uImg.value = 1; datiStato.foto = 'alta'; notifica();
-    } catch (e) { console.info('SRM 3D: immagini satellitari non disponibili', e.message); }
-  }
+  const datiStato = { quote: 'Tinitaly 10 m', foto: 'PCN' };
 
   // ---------------------------------------------------------------- ciclo
   let uCur = uTarget(), last = performance.now(), acc = 0, nAcc = 0, frame = 0, windX = 0, windZ = 0, hudKm = -1;
@@ -805,7 +749,6 @@ export async function avviaSRM3D(opt) {
   }
   onProgress(1);
   requestAnimationFrame(tick);
-  potenzia();
 
   return {
     simula(key) { simKey = key || null; if (simKey) { meteo = { fonte: 'sim', ...SCENARI[simKey] }; scen = interpreta(meteo); applicaMeteo(); aggiornaCielo(); notifica(); } else caricaMeteo().then(() => { aggiornaCielo(); notifica(); }); },
