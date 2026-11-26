@@ -1,0 +1,10 @@
+1000	aggancio	Sei sul percorso, al chilometro 15,5.
+83000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+116000	fuori	Fuori percorso! Percorso a 40 metri, alle tue spalle.
+146000	fuori	Ancora fuori. Percorso a 100 metri, alle tue spalle.
+176000	fuori	Ancora fuori. Percorso a 70 metri, davanti a te.
+197000	rientro	Di nuovo sul percorso.
+251000	indicazione	Bivio: tieni la sinistra.
+291000	giusto	
+630000	preavviso	Fra 200 metri, bivio: a sinistra.
+693000	indicazione	Bivio: a sinistra. Sentiero 1.

@@ -1,0 +1,104 @@
+# Orologio SRM: prova il motore della guida (C++ contro motore.js) e compila il firmware Meshtastic per il T-Watch Ultra.
+# Il firmware compilato si scarica dalla pagina dell'esecuzione, nella sezione «Artifacts».
+name: Firmware orologio SRM
+on:
+  push:
+    paths:
+      - 'orologio/firmware/**'
+      - 'guida/motore.js'
+      - 'guida/bivi-srm2026.json'
+      - '.github/workflows/orologio-firmware.yml'
+  workflow_dispatch:
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Motore C++ contro motore.js
+        run: sh orologio/firmware/prove/esegui.sh
+
+  firmware:
+    needs: prove
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Firmware Meshtastic (versione provata)
+        run: |
+          git clone --filter=blob:none https://github.com/meshtastic/firmware.git fw
+          git -C fw checkout 332b5b0a2c4fec2896de3c5fa63f46d5cd05ea98
+          git -C fw submodule update --init --recursive
+      - name: Voce delle frasi (registrazioni, oppure voce sintetica Piper)
+        shell: bash
+        run: |
+          pip install numpy
+          if ls orologio/firmware/voce/wav/*.wav >/dev/null 2>&1; then
+            python3 orologio/firmware/strumenti/voce_firmware.py --anteprima voce_anteprima
+          else
+            pip install piper-tts
+            python3 orologio/firmware/strumenti/voce_sintesi.py /tmp/voce_sintetica
+            python3 orologio/firmware/strumenti/voce_firmware.py --cartella /tmp/voce_sintetica --anteprima voce_anteprima
+          fi
+      - name: Inserisce la Guida SRM
+        run: python3 orologio/firmware/meshtastic/integra.py fw
+      - name: Compila per il T-Watch Ultra
+        shell: bash
+        run: |
+          cd fw
+          set +e
+          # stesso ambiente di compilazione usato da Meshtastic (immagine docker ufficiale)
+          docker run --rm -e MT_ENV=t-watch-ultra-srm -e MT_PLATFORM=esp32s3 -e MT_TARGET=build \
+            -e PLATFORMIO_BUILD_DIR=/workspace/.pio/build -v "$PWD":/workspace \
+            ghcr.io/meshtastic/gh-action-firmware:develop-esp32s3 > build.log 2>&1
+          esito=$?
+          tail -n 40 build.log
+          # errori come annotazioni (leggibili anche senza scaricare il registro)
+          grep -nE "error:|Error [0-9]|undefined reference|fatal" build.log | head -n 60 > errori.txt || true
+          if [ -s errori.txt ]; then
+            for parte in 0 1 2 3 4 5; do
+              righe=$(sed -n "$((parte*10+1)),$((parte*10+10))p" errori.txt | cut -c1-400 | sed ':a;N;$!ba;s/\n/%0A/g')
+              [ -n "$righe" ] && echo "::error title=compilazione $parte::$righe"
+            done
+          fi
+          if [ $esito -ne 0 ]; then
+            n=$(grep -n "\*\*\* \[" build.log | head -n 1 | cut -d: -f1)
+            if [ -n "$n" ]; then
+              echo "::error title=prima dell'errore::$(sed -n "$((n>40?n-40:1)),$((n+2))p" build.log | grep -v "^Compiling\|^Archiving\|^Indexing" | cut -c1-300 | tail -n 30 | sed ':a;N;$!ba;s/\n/%0A/g')"
+            fi
+            echo "::error title=coda::$(tail -n 12 build.log | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')"
+          fi
+          exit $esito
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-orologio-srm
+          path: |
+            fw/release/*.bin
+            fw/release/device-install.*
+            fw/release/device-update.*
+      - name: Pubblica il firmware sul sito (orologio/installa)
+        shell: bash
+        run: |
+          f=$(ls fw/release/firmware-t-watch-ultra-srm-*.factory.bin | grep -v update | head -n 1)
+          cp "$f" orologio/installa/firmware.factory.bin
+          printf '{"versione":"%s","commit":"%s","data":"%s"}\n' "$(basename "$f" .factory.bin)" "${GITHUB_SHA::7}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > orologio/installa/versione.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p orologio/voce/anteprima && rm -f orologio/voce/anteprima/*.wav && cp voce_anteprima/*.wav orologio/voce/anteprima/ 2>/dev/null || true
+          git add orologio/installa/firmware.factory.bin orologio/installa/versione.json orologio/voce/anteprima
+          git checkout -- orologio/firmware/srm/srm_voce.cpp   # generato qui: non si pubblica
+          git commit -m "Orologio SRM: firmware compilato (${GITHUB_SHA::7})" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && exit 0
+            sleep 10
+          done
+          exit 1

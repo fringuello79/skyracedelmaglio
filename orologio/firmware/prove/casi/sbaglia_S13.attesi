@@ -1,0 +1,16 @@
+1000	aggancio	Sei sul percorso, al chilometro 23,7.
+94000	preavviso	Fra 200 metri, bivio: tieni la sinistra.
+156000	indicazione	Bivio: tieni la sinistra.
+156000	preavviso	Fra 200 metri, bivio: a destra.
+194000	giusto	
+217000	indicazione	Bivio: a destra. Sentiero E1.
+227000	ora	Ora a destra.
+247000	sbagliato	Sentiero sbagliato! Torna indietro, 40 metri.
+277000	sbagliato	Torna indietro, 100 metri.
+307000	sbagliato	Torna indietro, 70 metri.
+327000	rientro	Di nuovo sul percorso.
+356000	giusto	Bene, ora sei sul percorso.
+403000	indicazione	Svolta a sinistra.
+610000	preavviso	Fra 200 metri, bivio: tieni la destra.
+672000	indicazione	Bivio: tieni la destra.
+709000	giusto	

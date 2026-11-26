@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SRM Controllo</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+:root { --bosco:#153821; --sole:#FF8102; --carta:#fffdf7; --fondo:#f3efe2; --inchiostro:#1b241d; --tenue:#5c6559; --linea:#ddd6c3;
+  --rosso:#b3261e; --rosso-chiaro:#fde7e4; --verde:#1e7a3c; --verde-chiaro:#e3f3e6; --ambra:#a35d00; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --carta:#18231b; --fondo:#101912; --inchiostro:#ece8dc; --tenue:#b5b9ad; --linea:#3b4b3f; --rosso:#ffb4ab; --rosso-chiaro:#4a1714; --verde:#8fd8a2; --verde-chiaro:#173a22; --ambra:#ffc56b; color-scheme: dark; } }
+:root[data-theme="dark"] { --carta:#18231b; --fondo:#101912; --inchiostro:#ece8dc; --tenue:#b5b9ad; --linea:#3b4b3f; --rosso:#ffb4ab; --rosso-chiaro:#4a1714; --verde:#8fd8a2; --verde-chiaro:#173a22; --ambra:#ffc56b; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--inchiostro); font: 16px/1.45 system-ui, sans-serif; }
+header { background: var(--bosco); color: #f3efe2; padding: 12px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: .03em; }
+header span { opacity: .85; font-size: 14px; flex: 1; }
+main { max-width: 980px; margin: 0 auto; padding: 14px 16px 40px; display: grid; gap: 14px; }
+section { background: var(--carta); border: 1px solid var(--linea); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+h2 { margin: 0 0 10px; font-size: 15px; text-transform: uppercase; letter-spacing: .03em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--tenue); font-size: 14px; }
+button, .bottone { font: 600 15px system-ui; padding: 9px 14px; border-radius: 10px; border: 0; background: var(--bosco); color: #fff; cursor: pointer; text-decoration: none; display: inline-block; }
+button.secondo { background: transparent; color: var(--inchiostro); border: 1px solid var(--linea); }
+button.forte, .bottone.forte { background: var(--sole); color: #1b1200; }
+button:disabled { opacity: .45; cursor: default; }
+header button { background: transparent; border: 1px solid #fff6; }
+.apparecchio { border: 1px solid var(--linea); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+.apparecchio h3 { margin: 0; font-size: 18px; }
+.apparecchio .chi { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.etichetta { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 99px; background: var(--verde-chiaro); color: var(--verde); }
+.etichetta.altro { background: transparent; border: 1px solid var(--linea); color: var(--tenue); }
+.etichetta.muto { background: var(--rosso-chiaro); color: var(--rosso); }
+.fatti { color: var(--tenue); font-size: 14px; margin: 4px 0 10px; }
+.azioni { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.azioni label { font-size: 14px; color: var(--tenue); }
+input[type=number], select { font: 16px system-ui; padding: 8px; border-radius: 8px; border: 1px solid var(--linea); background: var(--carta); color: var(--inchiostro); }
+input[type=number] { width: 84px; }
+.tenue { color: var(--tenue); font-size: 14px; }
+.stato { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.stato div { border: 1px solid var(--linea); border-radius: 10px; padding: 8px 10px; }
+.stato b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.stato span { font-size: 13px; color: var(--tenue); }
+.ok { color: var(--verde); } .no { color: var(--rosso); } .att { color: var(--ambra); }
+.allarme { border-left: 5px solid var(--rosso); background: var(--rosso-chiaro); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-weight: 600; }
+#lavoro { border-left: 5px solid var(--sole); }
+#lavoro.ok { border-left-color: var(--verde); } #lavoro.errore { border-left-color: var(--rosso); }
+#righe { font: 13px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; max-height: 260px; overflow: auto; background: var(--fondo); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+.gira { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--tenue); border-top-color: transparent; border-radius: 50%; animation: gira 1s linear infinite; vertical-align: -2px; }
+@keyframes gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .gira { animation: none; } }
+</style>
+</head>
+<body>
+<header><h1>SRM Controllo</h1><span id="riassunto">avvio…</span><button id="esci" title="Ferma il programma (sala compresa)">Chiudi il programma</button></header>
+<main>
+  <section id="lavoro" hidden><h2 id="lavoro-titolo"></h2><div id="lavoro-esito" class="tenue"></div><div id="righe"></div></section>
+
+  <section>
+    <h2>Sala controllo <small id="sala-nota"></small></h2>
+    <div id="allarmi"></div>
+    <div class="stato">
+      <div><b id="s-base">—</b><span>base della sala</span></div>
+      <div><b id="s-pacchetti">—</b><span>pacchetti sentiti</span></div>
+      <div><b id="s-orologi">—</b><span>orologi sentiti</span></div>
+      <div><b id="s-posizione">—</b><span>con posizione recente</span></div>
+    </div>
+    <div class="azioni"><a class="bottone forte" href="../sala/" target="sala">Apri la mappa della sala</a>
+      <span class="tenue">La sala parte da sola quando la base è collegata al PC.</span></div>
+  </section>
+
+  <section>
+    <h2>Apparecchi collegati via USB <button class="secondo" id="cerca">Cerca di nuovo</button><small id="cerca-nota"></small></h2>
+    <div id="apparecchi" class="tenue">Cerco…</div>
+    <p class="tenue" id="fw-nota"></p>
+  </section>
+
+  <section>
+    <h2>Promemoria</h2>
+    <ul class="tenue" style="margin:0;padding-left:20px">
+      <li>Collega un apparecchio alla volta quando lo configuri: è più difficile sbagliare.</li>
+      <li>Prima di cambiare una configurazione il programma salva quella di prima nella cartella <code>privato</code>.</li>
+      <li>La chiave del canale SRM resta su questo PC, nella cartella <code>privato</code>: conservane una copia.</li>
+      <li>Se l'orologio non accetta il firmware: tieni premuto BOOT, premi e rilascia RST, rilascia BOOT (schermo nero), poi «Cerca di nuovo».</li>
+    </ul>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const NOME_TIPO = { orologio: 'Orologio', base: 'Base della sala', ripetitore: 'Ripetitore', altro: 'Meshtastic non SRM', muto: 'Non risponde' };
+let ultimo = null, pettorali = {}, scelte = {};
+
+async function manda(percorso, dati) {
+  try {
+    const r = await (await fetch(percorso, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dati || {}) })).json();
+    if (r.ok === false && r.messaggio) alert(r.messaggio);
+  } catch { alert('Il programma non risponde.'); }
+  aggiorna();
+}
+
+function azioni(a, s) {
+  const occupato = s.lavoro.attivo, dis = occupato ? 'disabled' : '', p = esc(a.porta);
+  const fwSito = s.firmware.sito, daAggiornare = fwSito && a.srm !== fwSito.commit;   // a.srm: la compilazione caricata da questo programma
+  let h = '';
+  if (a.tipo === 'orologio' || (a.tipo === 'altro' && a.modello === 'T_WATCH_ULTRA') || a.tipo === 'muto') {
+    h += `<button ${dis} class="${daAggiornare || a.tipo === 'muto' ? 'forte' : 'secondo'}" data-fw="${p}">Carica il firmware${daAggiornare ? ' nuovo' : ''}</button>`;
+  }
+  if (a.risponde && a.modello === 'T_WATCH_ULTRA') {
+    const n = pettorali[a.porta] ?? ((a.nome || '').match(/SRM pettorale (\d+)/)?.[1] | 0 || 1);
+    h += `<label>pettorale <input type="number" min="1" max="999" value="${n}" data-pett="${p}"></label><button ${dis} data-orologio="${p}">Configura come orologio</button>`;
+  } else if (a.risponde) {
+    h += `<button ${dis} ${a.tipo === 'base' ? 'class="secondo"' : ''} data-base="${p}">${a.tipo === 'base' ? 'Riconfigura come base' : 'Configura come base della sala'}</button>`;
+    if (s.ripetitori.length) {
+      const sel = scelte[a.porta] ?? ((s.ripetitori.find(r => (a.nome || '').includes(r.nome)) || {}).id || s.ripetitori[0].id);
+      h += `<label>oppure ripetitore <select data-rip="${p}">${s.ripetitori.map(r => `<option value="${esc(r.id)}" ${r.id === sel ? 'selected' : ''}>${esc(r.nome)}</option>`).join('')}</select></label><button ${dis} class="secondo" data-ripetitore="${p}">Configura</button>`;
+    }
+  }
+  return h;
+}
+
+function disegna(s) {
+  // lavoro in corso o appena finito
+  const l = s.lavoro, sez = $('lavoro');
+  sez.hidden = !l.nome;
+  if (l.nome) {
+    sez.className = l.esito || '';
+    $('lavoro-titolo').innerHTML = (l.attivo && !l.esito ? '<span class="gira"></span> ' : '') + esc(l.nome);
+    $('lavoro-esito').innerHTML = l.esito === 'ok' ? '<b class="ok">Fatto e verificato.</b>' : l.esito === 'errore' ? '<b class="no">Non riuscito.</b> Il dettaglio è qui sotto.' : 'In corso: non staccare il cavo.';
+    const r = $('righe'), inFondo = r.scrollTop + r.clientHeight >= r.scrollHeight - 30;
+    r.textContent = l.righe.join('\n');
+    if (inFondo) r.scrollTop = r.scrollHeight;
+  }
+  // sala
+  const r = s.radio;
+  $('s-base').innerHTML = r.collegata ? '<span class="ok" style="font-size:inherit;color:var(--verde)">collegata</span>' : '<span style="font-size:inherit;color:var(--rosso)">assente</span>';
+  $('sala-nota').textContent = r.collegata ? (r.nome || '') + (r.porta ? ' su ' + r.porta : '') : (s.apparecchi.some(a => a.tipo === 'base') ? 'mi collego alla base…' : 'collega la base al PC');
+  $('s-pacchetti').textContent = r.pacchetti;
+  $('s-orologi').textContent = s.sala.orologi;
+  $('s-posizione').textContent = s.sala.con_posizione;
+  $('allarmi').innerHTML = s.sala.allarmi_aperti.map(a => `<div class="allarme">${esc(a.tipo)} · pettorale ${String(a.pettorale).padStart(3, '0')}${a.km != null ? ' · km ' + a.km : ''} — apri la mappa della sala</div>`).join('');
+  $('riassunto').textContent = `${s.apparecchi.length} apparecchi collegati · sala ${r.collegata ? 'in ascolto' : 'ferma'} · ${new Date(s.ora * 1000).toLocaleTimeString('it-IT')}`;
+  // apparecchi (non si ridisegnano mentre si scrive in un campo)
+  $('cerca').disabled = s.cercando || l.attivo;
+  $('cerca-nota').innerHTML = s.cercando ? '<span class="gira"></span> cerco (qualche secondo per apparecchio)…' : '';
+  const firma = JSON.stringify([s.apparecchi, l.attivo, s.firmware.sito, s.ripetitori.length]);
+  if (firma !== ultimo && !['INPUT', 'SELECT'].includes(document.activeElement?.tagName)) {
+    ultimo = firma;
+    $('apparecchi').className = '';
+    $('apparecchi').innerHTML = s.apparecchi.length ? s.apparecchi.map(a => `<div class="apparecchio">
+      <div class="chi"><h3>${esc(a.nome || a.descrizione || a.porta)}</h3><span class="etichetta ${a.tipo === 'altro' ? 'altro' : a.tipo === 'muto' ? 'muto' : ''}">${NOME_TIPO[a.tipo]}</span>${a.in_sala ? '<span class="etichetta">in uso dalla sala</span>' : ''}</div>
+      <div class="fatti">${[a.porta, a.modello, a.firmware && 'Meshtastic ' + a.firmware, a.canale && 'canale ' + a.canale, a.tipo === 'orologio' && s.firmware.sito && (a.srm === s.firmware.sito.commit ? 'firmware SRM aggiornato' : 'c\'è un firmware SRM più recente')].filter(Boolean).map(esc).join(' · ')}${a.nota ? '<br>' + esc(a.nota) : ''}${a.errore && !a.risponde ? '<br>' + esc(a.errore) : ''}</div>
+      <div class="azioni">${azioni(a, s)}</div></div>`).join('')
+      : (s.cercando ? 'Cerco…' : 'Nessun apparecchio collegato. Collega l\'orologio o la base con il cavo USB: lo trovo da solo.');
+    if (!s.apparecchi.length) $('apparecchi').className = 'tenue';
+  }
+  const f = s.firmware;
+  $('fw-nota').textContent = f.sito ? `Firmware più recente sul sito: ${f.sito.versione}, compilato il ${new Date(f.sito.data).toLocaleString('it-IT')}.` : (f.errore ? `Firmware: ${f.errore}.` + (f.locale ? ` Copia su questo PC: ${f.locale.versione}.` : '') : '');
+}
+
+async function aggiorna() {
+  try { disegna(await (await fetch('/api/stato', { cache: 'no-store' })).json()); }
+  catch { $('riassunto').textContent = 'il programma non risponde (è stato chiuso?)'; }
+}
+
+document.addEventListener('input', e => {
+  if (e.target.dataset.pett) pettorali[e.target.dataset.pett] = +e.target.value;
+  if (e.target.dataset.rip) scelte[e.target.dataset.rip] = e.target.value;
+});
+document.addEventListener('click', e => {
+  const d = e.target.dataset; if (!d) return;
+  const nome = porta => (document.querySelector(`[data-fw="${porta}"],[data-orologio="${porta}"],[data-base="${porta}"]`)?.closest('.apparecchio')?.querySelector('h3')?.textContent) || porta;
+  if (d.fw && confirm(`Carico il firmware SRM su «${nome(d.fw)}»?\nServono un paio di minuti. La configurazione resta quella di prima.`)) manda('/api/firmware', { porta: d.fw });
+  if (d.orologio) {
+    const n = +document.querySelector(`[data-pett="${d.orologio}"]`).value;
+    if (confirm(`Configuro «${nome(d.orologio)}» come orologio SRM, pettorale ${String(n).padStart(3, '0')}?`)) manda('/api/configura', { tipo: 'orologio', porta: d.orologio, pettorale: n });
+  }
+  if (d.base && confirm(`Configuro «${nome(d.base)}» come BASE della sala SRM?\nLa sua configurazione attuale (nome, canali, rete) viene sostituita; prima ne salvo una copia.`)) manda('/api/configura', { tipo: 'base', porta: d.base });
+  if (d.ripetitore) {
+    const sel = document.querySelector(`[data-rip="${d.ripetitore}"]`), id = sel.value, testo = sel.selectedOptions[0].textContent;
+    if (confirm(`Configuro «${nome(d.ripetitore)}» come RIPETITORE «${testo}»?\nLa sua configurazione attuale viene sostituita; prima ne salvo una copia.`)) manda('/api/configura', { tipo: 'ripetitore', porta: d.ripetitore, ripetitore: id });
+  }
+});
+$('cerca').onclick = () => manda('/api/cerca');
+$('esci').onclick = () => { if (confirm('Chiudo il programma? Anche la sala smette di ascoltare.')) manda('/api/esci'); };
+aggiorna(); setInterval(aggiorna, 1500);
+</script>
+</body>
+</html>

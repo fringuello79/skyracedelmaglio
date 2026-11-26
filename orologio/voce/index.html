@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voce dell'orologio SRM</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#153821">
+<link rel="icon" type="image/png" href="../../posizione/favicon.png">
+<style>
+:root { --bosco:#153821; --sole:#FF8102; --carta:#fffdf7; --fondo:#f3efe2; --inchiostro:#1b241d; --tenue:#5c6559; --linea:#ddd6c3; --rosso:#b3261e; --verde:#1e7a3c; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --carta:#18231b; --fondo:#101912; --inchiostro:#ece8dc; --tenue:#b5b9ad; --linea:#3b4b3f; --rosso:#ffb4ab; --verde:#8fd8a2; color-scheme: dark; } }
+:root[data-theme="dark"] { --carta:#18231b; --fondo:#101912; --inchiostro:#ece8dc; --tenue:#b5b9ad; --linea:#3b4b3f; --rosso:#ffb4ab; --verde:#8fd8a2; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--inchiostro); font: 16px/1.45 system-ui, sans-serif; }
+header { background: var(--bosco); color: #f3efe2; padding: 12px 16px; position: sticky; top: 0; z-index: 2; }
+header h1 { margin: 0; font-size: 19px; text-transform: uppercase; letter-spacing: .03em; }
+header p { margin: 2px 0 0; font-size: 14px; opacity: .85; }
+main { max-width: 760px; margin: 0 auto; padding: 14px 16px 40px; display: grid; gap: 12px; }
+section { background: var(--carta); border: 1px solid var(--linea); border-radius: 12px; padding: 12px 14px; }
+h2 { margin: 0 0 8px; font-size: 15px; text-transform: uppercase; letter-spacing: .03em; }
+.frase { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 10px 0; border-top: 1px solid var(--linea); align-items: center; }
+.frase:first-of-type { border-top: 0; }
+.frase .t { font-weight: 600; }
+.frase .q { color: var(--tenue); font-size: 13px; }
+.bottoni { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+button { font: 600 14px system-ui; border-radius: 10px; border: 1px solid var(--linea); background: var(--fondo); color: var(--inchiostro); padding: 8px 10px; min-height: 40px; cursor: pointer; touch-action: manipulation; }
+button.reg { background: #8f1d16; color: #fff; border: 0; }
+button.reg.on { background: var(--rosso); animation: pulsa 1s infinite; }
+button.grande { background: var(--sole); color: #1b1200; border: 0; font-size: 16px; padding: 12px 16px; }
+@keyframes pulsa { 50% { opacity: .6; } }
+.fatto { color: var(--verde); font-weight: 700; }
+.tenue { color: var(--tenue); font-size: 14px; margin: 0; }
+#stato { font-weight: 600; }
+</style>
+</head>
+<body>
+<header><h1>Voce dell'orologio SRM</h1><p id="stato">carico le frasi…</p></header>
+<main>
+  <section>
+    <h2>Come funziona</h2>
+    <p class="tenue">L'orologio dice frasi registrate prima, non sintetizzate al momento. Finché non ci sono registrazioni usa una voce sintetica (Piper, «Paola»), che puoi ascoltare qui con ▶.
+      Se vuoi una voce vera, registra le frasi: <b>Registra</b> per iniziare, di nuovo per fermare, poi <b>Ascolta</b>.
+      Parla con calma, come a un amico che corre, in un posto silenzioso. Le registrazioni restano in questo browser finché non le scarichi.</p>
+    <p style="margin:10px 0 0;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="grande" id="b-scarica">Scarica le registrazioni (zip)</button>
+      <button id="b-solo">Mostra solo quelle da fare</button>
+    </p>
+    <p class="tenue" style="margin-top:8px">Poi manda lo zip a Claude (o mettilo in <code>orologio/firmware/voce/wav/</code>): il firmware si ricompila da solo con la tua voce.</p>
+  </section>
+  <section><h2>Frasi generiche</h2><div id="generiche"></div></section>
+  <section><h2>Bivi del percorso</h2><div id="bivi"></div></section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let frasi = [], soloDaFare = false, registratore = null, inRegistrazione = null;
+// ---- archivio locale (IndexedDB): le registrazioni restano nel browser ----
+const db = new Promise((ok, ko) => { try { const r = indexedDB.open('srm-voce', 1); r.onupgradeneeded = () => r.result.createObjectStore('reg'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); } catch (e) { ko(e); } });
+const salva = async (k, v) => { try { const d = await db; await new Promise((ok, ko) => { const t = d.transaction('reg', 'readwrite'); t.objectStore('reg').put(v, k); t.oncomplete = ok; t.onerror = () => ko(t.error); }); } catch { /* senza archivio: resta in memoria */ } };
+const leggi = async k => { try { const d = await db; return await new Promise(ok => { const r = d.transaction('reg').objectStore('reg').get(k); r.onsuccess = () => ok(r.result || null); r.onerror = () => ok(null); }); } catch { return null; } };
+const memoria = new Map();
+
+async function carica() {
+  const testo = await (await fetch('../firmware/voce/frasi.tsv', { cache: 'no-store' })).text();
+  frasi = testo.trim().split('\n').slice(1).map(r => { const [nome, t, q] = r.split('\t'); return { nome, t, q }; });
+  for (const f of frasi) { const b = await leggi(f.nome); if (b) memoria.set(f.nome, b); }
+  disegna();
+}
+function disegna() {
+  const riga = f => {
+    const fatta = memoria.has(f.nome);
+    if (soloDaFare && fatta) return '';
+    return `<div class="frase" data-n="${f.nome}"><div><div class="t">${f.t}</div><div class="q">${f.q || ''} · <code>${f.nome}</code> ${fatta ? '<span class="fatto">✓ registrata</span>' : ''}</div></div>
+      <div class="bottoni"><button data-a="sint" title="voce sintetica">▶</button><button class="reg" data-a="reg">Registra</button>${fatta ? '<button data-a="ascolta">Ascolta</button>' : ''}</div></div>`;
+  };
+  $('generiche').innerHTML = frasi.filter(f => !/^(pre|ind|ora|ok)_/.test(f.nome)).map(riga).join('');
+  $('bivi').innerHTML = frasi.filter(f => /^(pre|ind|ora|ok)_/.test(f.nome)).map(riga).join('');
+  $('stato').textContent = `${memoria.size} registrate su ${frasi.length}`;
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const nome = b.closest('.frase').dataset.n, a = b.dataset.a;
+  if (a === 'sint') { const au = new Audio(`anteprima/${nome}.wav`); au.play().catch(() => { b.textContent = '—'; }); }
+  if (a === 'ascolta') { const blob = memoria.get(nome); if (blob) new Audio(URL.createObjectURL(blob)).play(); }
+  if (a === 'reg') {
+    if (registratore && inRegistrazione === nome) { registratore.stop(); return; }
+    if (registratore) registratore.stop();
+    try {
+      const flusso = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } });
+      const pezzi = []; registratore = new MediaRecorder(flusso); inRegistrazione = nome;
+      registratore.ondataavailable = ev => pezzi.push(ev.data);
+      registratore.onstop = async () => {
+        flusso.getTracks().forEach(t => t.stop());
+        const blob = new Blob(pezzi, { type: registratore.mimeType }); registratore = null; inRegistrazione = null;
+        memoria.set(nome, blob); await salva(nome, blob); disegna();
+      };
+      registratore.start(); b.classList.add('on'); b.textContent = 'Ferma';
+    } catch (err) { alert('Microfono non disponibile: ' + err.message); }
+  }
+});
+$('b-solo').onclick = () => { soloDaFare = !soloDaFare; $('b-solo').textContent = soloDaFare ? 'Mostra tutte' : 'Mostra solo quelle da fare'; disegna(); };
+
+// ---- esportazione: WAV 22050 Hz 16 bit mono dentro uno zip senza compressione ----
+async function inWav(blob) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const buf = await new Promise((ok, ko) => blob.arrayBuffer().then(ab => ctx.decodeAudioData(ab, ok, ko)));
+  const fr = 22050, n = Math.floor(buf.duration * fr), x = new Float32Array(n);
+  for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) x[i] += d[Math.min(d.length - 1, Math.floor(i * buf.sampleRate / fr))] / buf.numberOfChannels; }
+  ctx.close?.();
+  const out = new DataView(new ArrayBuffer(44 + n * 2)); const s = (o, t) => [...t].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+  s(0, 'RIFF'); out.setUint32(4, 36 + n * 2, true); s(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+  out.setUint32(24, fr, true); out.setUint32(28, fr * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); s(36, 'data'); out.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, x[i])) * 32767, true);
+  return new Uint8Array(out.buffer);
+}
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = d => { let c = 0xFFFFFFFF; for (let i = 0; i < d.length; i++) c = CRC[(c ^ d[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function zip(files) {
+  const parti = [], centrale = []; let off = 0;
+  for (const [nome, dati] of files) {
+    const n = new TextEncoder().encode(nome), crc = crc32(dati);
+    const h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint32(14, crc, true); h.setUint32(18, dati.length, true); h.setUint32(22, dati.length, true); h.setUint16(26, n.length, true);
+    parti.push(new Uint8Array(h.buffer), n, dati);
+    const c = new DataView(new ArrayBuffer(46)); c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint32(16, crc, true); c.setUint32(20, dati.length, true); c.setUint32(24, dati.length, true); c.setUint16(28, n.length, true); c.setUint32(42, off, true);
+    centrale.push(new Uint8Array(c.buffer), n); off += 30 + n.length + dati.length;
+  }
+  const dim = centrale.reduce((a, b) => a + b.length, 0);
+  const e = new DataView(new ArrayBuffer(22)); e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, dim, true); e.setUint32(16, off, true);
+  return new Blob([...parti, ...centrale, new Uint8Array(e.buffer)], { type: 'application/zip' });
+}
+$('b-scarica').onclick = async () => {
+  if (!memoria.size) { alert('Nessuna frase registrata.'); return; }
+  $('stato').textContent = 'preparo lo zip…';
+  const files = [];
+  for (const [nome, blob] of memoria) { try { files.push([`${nome}.wav`, await inWav(blob)]); } catch { /* registrazione illeggibile: si salta */ } }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(zip(files)); a.download = 'voce-orologio-srm.zip'; a.click();
+  $('stato').textContent = `${files.length} frasi nello zip`;
+};
+carica().catch(e => { $('stato').textContent = 'Frasi non trovate: ' + e.message; });
+</script>
+</body>
+</html>

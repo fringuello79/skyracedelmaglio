@@ -1,0 +1,61 @@
+{
+ "traccia": "srm2026",
+ "origine": "SRM Explorer (assets/explorer/assets/route.json, pois)",
+ "luoghi": [
+  {
+   "km": 0.35,
+   "nome": "Chiesa di S. Maria ad Nives",
+   "testo": "La moderna chiesa di Santa Maria ad Nives, con la torre cilindrica in cemento e la croce a traliccio, segna l'uscita dal paese: alla svolta il percorso lascia l'asfalto di Via della Ripa e comincia a salire."
+  },
+  {
+   "km": 8.2,
+   "nome": "S. Maria in Valle Porclaneta",
+   "testo": "Acqua e sali minerali; punto di recupero dei bastoncini. La chiesa di Santa Maria in Valle Porclaneta, gioiello romanico ai piedi del Velino, custodisce ambone e iconostasi lignea."
+  },
+  {
+   "km": 10.0,
+   "nome": "Passo Le Forche",
+   "testo": "Primo cancello orario: chi transita oltre le 10:45 deve interrompere la gara. Qui è presente una Squadra di Primo Soccorso."
+  },
+  {
+   "km": 12.6,
+   "nome": "Balcone sulla Val di Teve",
+   "testo": "Il crinale del Monte Rozza si affaccia sulla Val di Teve, la valle selvaggia nel cuore della Riserva Naturale Orientata Monte Velino."
+  },
+  {
+   "km": 14.71,
+   "nome": "Rifugio Capanna di Sevice",
+   "testo": "Unico ristoro completo del percorso, al rifugio Capanna di Sevice. Secondo cancello orario: passaggio entro le 12:45."
+  },
+  {
+   "km": 17.0,
+   "nome": "Punto più alto",
+   "testo": "La spalla del Monte Velino è il tetto della gara. La vetta (2.487 m, terza dell'Appennino) resta poco sopra, fuori dal tracciato."
+  },
+  {
+   "km": 21.0,
+   "nome": "Selletta",
+   "testo": "Da qui parte la lunga discesa tecnica: ghiaioni e fondo roccioso, il tratto che decide la gara."
+  },
+  {
+   "km": 21.14,
+   "nome": "Grotta dei Pastori",
+   "testo": "Sul lato sinistro scendendo, a quota 1.767 m, si apre la Grotta dei Pastori: un riparo naturale usato per generazioni dai pastori durante la monticazione sul Velino."
+  },
+  {
+   "km": 24.3,
+   "nome": "Fonte Canale",
+   "testo": "Fontanile alimentato da sorgente naturale nel territorio di Massa d'Albe. Disponibilità non garantita nei periodi di magra."
+  },
+  {
+   "km": 26.3,
+   "nome": "Massa d'Albe",
+   "testo": "Si costeggia Massa d'Albe, ai piedi del versante meridionale del Velino: nel suo territorio sorgono i resti della città romana di Alba Fucens."
+  },
+  {
+   "km": 27.0,
+   "nome": "Controllo passaggi",
+   "testo": "Postazione di controllo dell'Organizzazione sul rientro verso Magliano."
+  }
+ ]
+}

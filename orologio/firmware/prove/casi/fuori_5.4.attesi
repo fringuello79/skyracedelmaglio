@@ -1,0 +1,10 @@
+1000	aggancio	Sei sul percorso, al chilometro 5,1.
+115000	fuori	Fuori percorso! Percorso a 40 metri, alle tue spalle.
+145000	fuori	Ancora fuori. Percorso a 100 metri, alle tue spalle.
+175000	fuori	Ancora fuori. Percorso a 70 metri, davanti a te.
+198000	rientro	Di nuovo sul percorso.
+305000	preavviso	Fra 200 metri, bivio: a sinistra.
+369000	indicazione	Bivio: a sinistra.
+377000	ora	Ora a sinistra.
+408000	giusto	
+691000	preavviso	Fra 200 metri, bivio: a sinistra.

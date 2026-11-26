@@ -1,0 +1,134 @@
+file	testo	quando
+fra	Fra	inizio del preavviso: «Fra» + metri + resto della frase del bivio
+m100	100 metri,	distanza nel preavviso
+m150	150 metri,	distanza nel preavviso
+m200	200 metri,	distanza nel preavviso
+m250	250 metri,	distanza nel preavviso
+m300	300 metri,	distanza nel preavviso
+m350	350 metri,	distanza nel preavviso
+m400	400 metri,	distanza nel preavviso
+m450	450 metri,	distanza nel preavviso
+m500	500 metri,	distanza nel preavviso
+fuori	Fuori percorso!	uscita dal percorso
+ancora_fuori	Ancora fuori.	ripetuto ogni 30 secondi
+percorso_a	Percorso a	seguito da metri e lato
+d10	10 metri	distanza dal percorso
+d20	20 metri	distanza dal percorso
+d30	30 metri	distanza dal percorso
+d40	40 metri	distanza dal percorso
+d50	50 metri	distanza dal percorso
+d60	60 metri	distanza dal percorso
+d70	70 metri	distanza dal percorso
+d80	80 metri	distanza dal percorso
+d90	90 metri	distanza dal percorso
+d100	100 metri	distanza dal percorso
+d150	150 metri	distanza dal percorso
+d200	200 metri	distanza dal percorso
+d250	250 metri	distanza dal percorso
+d300	300 metri	distanza dal percorso
+d400	400 metri	distanza dal percorso
+d500	500 metri	distanza dal percorso
+lato_destra	alla tua destra.	dove si trova il percorso
+lato_sinistra	alla tua sinistra.	dove si trova il percorso
+lato_davanti	davanti a te.	dove si trova il percorso
+lato_spalle	alle tue spalle.	dove si trova il percorso
+torna_passi	Torna sui tuoi passi.	percorso lontano più di 300 m
+sbagliato	Sentiero sbagliato! Torna indietro.	dopo un bivio preso male
+torna_indietro	Torna indietro.	ripetuto
+rientro	Di nuovo sul percorso.	rientro
+bene	Bene, ora sei sul percorso.	bivio ripreso dopo l'errore
+contrario	Stai andando al contrario. Girati.	senso di marcia sbagliato
+gps_debole	Segnale GPS debole. Avviso di fuori percorso sospeso.	GPS assente per 1 minuto
+gps_ok	Segnale GPS tornato.	
+sul_percorso	Sei sul percorso.	aggancio e conferma ogni 10 minuti
+arrivo	Arrivo. Complimenti, gara finita!	
+sos_inviato	Richiesta di soccorso inviata.	
+sos_ok	Soccorso avvisato. Resta dove sei.	
+sos_annullato	SOS annullato.	
+pre_S01-A	bivio: tieni la sinistra.	km 1.04: dopo «Fra N metri,»
+ind_S01-A	Bivio: tieni la sinistra.	km 1.04: al bivio
+ind_V01	Svolta a sinistra.	km 1.12: al bivio
+ind_O01	Bivio: dritto. Ignora il sentiero a destra.	km 1.59: al bivio
+pre_S02-A	bivio: tieni la destra.	km 1.71: dopo «Fra N metri,»
+ind_S02-A	Bivio: tieni la destra.	km 1.71: al bivio
+ind_V02	A destra, poi subito a sinistra.	km 1.91: al bivio
+ind_V03	Svolta a destra.	km 2.11: al bivio
+pre_S03-A	bivio: tieni la sinistra.	km 2.60: dopo «Fra N metri,»
+ind_S03-A	Bivio: tieni la sinistra.	km 2.60: al bivio
+ind_O02	Bivio: dritto.	km 2.81: al bivio
+pre_S04	bivio: tieni la sinistra.	km 3.30: dopo «Fra N metri,»
+ind_S04	Bivio: tieni la sinistra.	km 3.30: al bivio
+pre_O03	bivio: a destra.	km 3.60: dopo «Fra N metri,»
+ind_O03	Bivio: a destra.	km 3.60: al bivio
+ora_O03	Ora a destra.	km 3.60: subito prima della svolta
+pre_S05	bivio: a sinistra, poi subito a destra.	km 3.96: dopo «Fra N metri,»
+ind_S05	Bivio: a sinistra, poi subito a destra.	km 3.96: al bivio
+pre_S06	bivio: a sinistra.	km 5.80: dopo «Fra N metri,»
+ind_S06	Bivio: a sinistra.	km 5.80: al bivio
+ora_S06	Ora a sinistra.	km 5.80: subito prima della svolta
+pre_S07	bivio: a sinistra.	km 6.77: dopo «Fra N metri,»
+ind_S07	Bivio: a sinistra.	km 6.77: al bivio
+ora_S07	Ora a sinistra.	km 6.77: subito prima della svolta
+ind_V04	Svolta a sinistra.	km 6.92: al bivio
+pre_S08	bivio: a destra.	km 8.15: dopo «Fra N metri,»
+ind_S08	Bivio: a destra. Sentiero 3.	km 8.15: al bivio
+ora_S08	Ora a destra.	km 8.15: subito prima della svolta
+ok_S08	Sentiero 3.	km 8.15: bivio superato
+pre_O04	bivio: a destra, poi subito a sinistra.	km 9.77: dopo «Fra N metri,»
+ind_O04	Bivio: a destra, poi subito a sinistra.	km 9.77: al bivio
+ind_N-3B-10	Inizia il sentiero 3B.	km 10.00: al bivio
+ind_V05	Stretta a destra, poi subito stretta a sinistra.	km 11.00: al bivio
+ind_T01	Tornanti: resta sul sentiero.	km 11.52: al bivio
+pre_O05	bivio: tieni la sinistra.	km 13.04: dopo «Fra N metri,»
+ind_O05	Bivio: tieni la sinistra.	km 13.04: al bivio
+pre_S09	bivio: tieni la destra.	km 14.20: dopo «Fra N metri,»
+ind_S09	Bivio: tieni la destra.	km 14.20: al bivio
+pre_O06	bivio: tieni la sinistra.	km 14.51: dopo «Fra N metri,»
+ind_O06	Bivio: tieni la sinistra. Sentiero 3.	km 14.51: al bivio
+ok_O06	Sentiero 3.	km 14.51: bivio superato
+pre_S10	bivio: tieni la destra.	km 15.30: dopo «Fra N metri,»
+ind_S10	Bivio: tieni la destra.	km 15.30: al bivio
+pre_O07	bivio: tieni la sinistra.	km 15.91: dopo «Fra N metri,»
+ind_O07	Bivio: tieni la sinistra.	km 15.91: al bivio
+pre_O08	bivio: a sinistra.	km 17.01: dopo «Fra N metri,»
+ind_O08	Bivio: a sinistra. Sentiero 1.	km 17.01: al bivio
+ora_O08	Ora a sinistra.	km 17.01: subito prima della svolta
+ok_O08	Sentiero 1.	km 17.01: bivio superato
+pre_S11	bivio: a sinistra.	km 18.30: dopo «Fra N metri,»
+ind_S11	Bivio: a sinistra.	km 18.30: al bivio
+ora_S11	Ora a sinistra.	km 18.30: subito prima della svolta
+ind_N-7-18.5	Inizia il sentiero 7.	km 18.50: al bivio
+ind_O09	Bivio: dritto. Ignora il sentiero a sinistra.	km 18.60: al bivio
+ind_V06	A destra, poi subito a sinistra.	km 19.49: al bivio
+ind_V07	A sinistra, poi subito a destra.	km 20.37: al bivio
+ind_T02	Tornanti: resta sul sentiero.	km 20.81: al bivio
+pre_S12	bivio: a sinistra.	km 21.00: dopo «Fra N metri,»
+ind_S12	Bivio: a sinistra.	km 21.00: al bivio
+ora_S12	Ora a sinistra.	km 21.00: subito prima della svolta
+ind_T03	Tornanti: resta sul sentiero.	km 21.72: al bivio
+ind_V08	A sinistra, poi subito stretta a destra.	km 22.99: al bivio
+pre_O10	bivio: tieni la sinistra.	km 24.13: dopo «Fra N metri,»
+ind_O10	Bivio: tieni la sinistra.	km 24.13: al bivio
+pre_S13	bivio: a destra.	km 24.29: dopo «Fra N metri,»
+ind_S13	Bivio: a destra. Sentiero E1.	km 24.29: al bivio
+ora_S13	Ora a destra.	km 24.29: subito prima della svolta
+ok_S13	Sentiero E1.	km 24.29: bivio superato
+ind_V09	Svolta a sinistra.	km 24.51: al bivio
+pre_O11	bivio: tieni la destra.	km 25.21: dopo «Fra N metri,»
+ind_O11	Bivio: tieni la destra.	km 25.21: al bivio
+pre_S14	bivio: a destra.	km 26.18: dopo «Fra N metri,»
+ind_S14	Bivio: a destra.	km 26.18: al bivio
+ora_S14	Ora a destra.	km 26.18: subito prima della svolta
+ind_O12	Bivio: dritto. Ignora il sentiero a sinistra.	km 26.29: al bivio
+pre_S03-R	bivio: a sinistra.	km 27.14: dopo «Fra N metri,»
+ind_S03-R	Bivio: a sinistra.	km 27.14: al bivio
+ora_S03-R	Ora a sinistra.	km 27.14: subito prima della svolta
+ind_V10	Svolta a sinistra.	km 27.59: al bivio
+ind_V11	A destra, poi subito a sinistra.	km 27.77: al bivio
+pre_S02-R	bivio: tieni la sinistra.	km 28.00: dopo «Fra N metri,»
+ind_S02-R	Bivio: tieni la sinistra.	km 28.00: al bivio
+ind_O13	Bivio: dritto. Ignora il sentiero a sinistra.	km 28.12: al bivio
+ind_V12	Svolta a destra.	km 28.58: al bivio
+pre_S01-R	bivio: a destra.	km 28.67: dopo «Fra N metri,»
+ind_S01-R	Bivio: a destra.	km 28.67: al bivio
+ora_S01-R	Ora a destra.	km 28.67: subito prima della svolta

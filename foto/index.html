@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le foto della gara · Skyrace del Maglio 2026</title>
+<meta name="description" content="Le foto della Skyrace del Maglio 2026 (domenica 18 ottobre, Magliano de' Marsi), divise per album e con ricerca per pettorale e nome. Libere da scaricare.">
+<meta name="theme-color" content="#0c1f14">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Le foto della Skyrace del Maglio 2026">
+<meta property="og:description" content="Cerca il tuo pettorale · domenica 18 ottobre 2026, Magliano de' Marsi">
+<meta property="og:url" content="https://www.skyracedelmaglio.it/foto/">
+<meta property="og:image" content="https://lh3.googleusercontent.com/d/1UMgPYQjhPG8nHBhU1N1zgUADD6Wy2hUo=w1200">
+<link rel="icon" type="image/png" href="logo-srm.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://lh3.googleusercontent.com">
+<link rel="preconnect" href="https://script.google.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Fraunces:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --forgia:#0c1f14;--bosco:#11301f;--bosco2:#0f2819;--felce:#4f9239;--brace:#f4951f;--brace-h:#ffae3d;
+  --ferro:#9aa6a0;--avorio:#f3efe2;--avorio-2:#cfd4c8;--line:rgba(243,239,226,.14);--line-2:rgba(243,239,226,.08);
+  --maxw:1280px;
+}
+*{box-sizing:border-box}
+html{background:var(--forgia)}
+body{margin:0;background:var(--forgia);color:var(--avorio);font:16px/1.55 Inter,system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit}
+img{display:block;max-width:100%}
+
+/* barra in alto, come Velino Live */
+.topbar{position:sticky;top:0;z-index:20;height:68px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:0 clamp(16px,4vw,64px);padding-top:env(safe-area-inset-top);border-bottom:1px solid var(--line);background:rgba(12,31,20,.92);backdrop-filter:blur(10px)}
+.brand{display:flex;gap:12px;align-items:center;min-width:0}
+.brand img{height:42px;width:42px;object-fit:contain;flex:none}
+.brand strong{display:block;font:700 18px/1 Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.brand em{display:block;font:italic 500 12.5px Fraunces,Georgia,serif;color:var(--ferro);margin-top:3px;white-space:nowrap}
+.back{font:500 13px Oswald,sans-serif;text-transform:uppercase;letter-spacing:.12em;border:1px solid var(--line);padding:10px 16px;border-radius:7px;white-space:nowrap;transition:.18s}
+.back:hover{border-color:var(--brace);color:var(--brace)}
+@media(max-width:520px){.brand em{display:none}.brand strong{font-size:16px}.back{padding:9px 12px;font-size:12px}}
+@media(max-width:440px){.brand div{display:none}}
+
+/* testata */
+.head{position:relative;isolation:isolate;overflow:hidden;padding:clamp(44px,8vw,96px) 0 clamp(30px,5vw,54px);
+  background:radial-gradient(120% 80% at 80% 0%,rgba(244,149,31,.14),transparent 55%),radial-gradient(90% 70% at 10% 100%,rgba(79,146,57,.14),transparent 60%),linear-gradient(180deg,#0d2316,#0a1a10)}
+.head::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.28;background:url('../assets/img/montagne.png') center 70%/cover no-repeat;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 55%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0%,#000 55%,transparent 100%)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,3vw,28px)}
+.eyebrow{font:italic 600 19px Fraunces,Georgia,serif;color:var(--brace);margin:0 0 14px;display:flex;align-items:center;gap:12px}
+.eyebrow::before{content:"";width:26px;height:2px;background:var(--brace)}
+h1{margin:0;font:400 clamp(44px,8vw,104px)/.92 Anton,Impact,sans-serif;letter-spacing:.02em;text-transform:uppercase}
+h1 span{color:var(--brace)}
+.lead{color:var(--avorio-2);font-size:clamp(16.5px,1.6vw,19px);max-width:640px;margin:18px 0 0}
+.lead b{color:var(--avorio);font-weight:600}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:22px;font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--ferro)}
+.meta b{color:var(--avorio);font-weight:700}
+.btn-ghost{font:600 14px Oswald,sans-serif;text-transform:uppercase;letter-spacing:.08em;padding:11px 18px;border-radius:8px;border:1px solid var(--line);display:inline-flex;align-items:center;gap:8px;transition:.18s}
+.btn-ghost:hover{border-color:var(--brace);color:var(--brace)}
+
+/* griglia */
+.galleria{list-style:none;margin:0;padding:clamp(18px,3vw,30px) 0 0;display:grid;gap:clamp(6px,1vw,12px);grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+@media(max-width:620px){.galleria{grid-template-columns:repeat(2,1fr)}}
+.galleria li{margin:0}
+.galleria button{display:block;width:100%;padding:0;border:0;border-radius:8px;overflow:hidden;cursor:zoom-in;background:var(--bosco2);
+  aspect-ratio:3/2;position:relative;box-shadow:0 0 0 1px var(--line-2)}
+.galleria img{width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.01);transition:opacity .45s ease,transform .5s ease}
+.galleria img.ok{opacity:1}
+.galleria button:hover img.ok{transform:scale(1.045)}
+.galleria button:focus-visible{outline:3px solid var(--brace);outline-offset:3px}
+.galleria button::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 65%,rgba(12,31,20,.5));opacity:0;transition:.25s}
+.galleria button:hover::after{opacity:1}
+.galleria .ko{display:grid;place-items:center;height:100%;font:500 11px 'JetBrains Mono',monospace;color:var(--ferro);letter-spacing:.1em}
+.avviso{margin:26px 0 0;padding:14px 18px;border:1px solid rgba(244,149,31,.45);border-radius:10px;color:var(--avorio-2)}
+.avviso[hidden]{display:none}
+
+/* note in fondo */
+.note{margin:clamp(34px,5vw,56px) 0 0;padding:22px 0 0;border-top:1px solid var(--line);display:grid;gap:12px 40px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));color:var(--avorio-2);font-size:15px}
+.note h2{margin:0 0 6px;font:600 14px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--avorio)}
+.note p{margin:0}
+.note a{color:var(--brace);border-bottom:1px solid rgba(244,149,31,.4)}
+footer{margin-top:40px;padding:22px 0 calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line-2);color:var(--ferro);font-size:13.5px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between}
+footer a:hover{color:var(--brace)}
+
+/* visualizzatore */
+.lb{position:fixed;inset:0;height:100vh;height:100dvh;z-index:100;background:#050c08;display:grid;grid-template-rows:auto minmax(0,1fr) auto;touch-action:pan-y}
+.lb[hidden]{display:none}
+.lb-top,.lb-bot{display:flex;align-items:center;gap:10px;padding:10px clamp(10px,2vw,22px)}
+.lb-top{padding-top:max(10px,env(safe-area-inset-top))}
+.lb-bot{padding-bottom:max(12px,env(safe-area-inset-bottom));justify-content:center;flex-wrap:wrap}
+.lb-cont{font:500 12px 'JetBrains Mono',monospace;letter-spacing:.14em;color:var(--ferro)}
+.lb-cont b{color:var(--avorio)}
+.lb-cred{font:italic 500 14px Fraunces,Georgia,serif;color:var(--avorio-2);margin-left:auto}
+.lb-x{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:none;cursor:pointer;display:grid;place-items:center;flex:none}
+.lb-x:hover{border-color:var(--brace)}
+.lb-stage{position:relative;min-height:0;overflow:hidden;touch-action:none}
+/* l'immagine riempie l'area disponibile e viene adattata senza tagli, verticale o orizzontale */
+/* il riquadro dell'immagine ha esattamente le sue proporzioni (calcolate in JS): così anche l'anteprima
+   dell'iPhone, che compare tenendo premuta la foto, non la deforma */
+.lb-stage img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:none;user-select:none;-webkit-user-drag:none;transition:opacity .25s,transform .28s cubic-bezier(.2,.8,.2,1);cursor:zoom-in;will-change:transform}
+.lb-stage img.zoom{transition:opacity .25s}
+@media(hover:none){.lb-stage img{cursor:auto}}
+.lb-aiuto{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font:500 11px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--ferro);background:rgba(5,12,8,.6);padding:4px 10px;border-radius:999px;pointer-events:none;opacity:.85;transition:opacity .4s}
+.lb-aiuto.via{opacity:0}
+.lb-stage img.carica{opacity:.35}
+.lb-spin{position:absolute;left:calc(50% - 17px);top:calc(50% - 17px);width:34px;height:34px;border-radius:50%;border:2px solid rgba(243,239,226,.18);border-top-color:var(--brace);animation:gira 1s linear infinite}
+.lb-spin[hidden]{display:none}
+@keyframes gira{to{transform:rotate(360deg)}}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;border:1px solid var(--line);
+  background:rgba(12,31,20,.7);cursor:pointer;display:grid;place-items:center}
+.lb-nav:hover{border-color:var(--brace);color:var(--brace)}
+.lb-prev{left:clamp(6px,2vw,24px)}.lb-next{right:clamp(6px,2vw,24px)}
+@media(hover:none){.lb-nav{display:none}}
+.azione{display:inline-flex;align-items:center;gap:8px;font:600 14px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;
+  padding:12px 20px;border-radius:8px;border:1px solid var(--line);background:none;cursor:pointer;transition:.18s}
+.azione:hover{border-color:var(--brace);color:var(--brace)}
+.azione.prima{background:var(--brace);border-color:var(--brace);color:#241200}
+.azione.prima:hover{background:var(--brace-h);color:#241200}
+.azione svg,.lb-x svg,.lb-nav svg{width:18px;height:18px}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:110;background:var(--bosco);
+  border:1px solid rgba(244,149,31,.5);padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s}
+.toast.vis{opacity:1}
+
+/* caricamento: il maglio che batte */
+.carica-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:56px 0 30px;color:var(--avorio-2)}
+.carica-box[hidden]{display:none}
+.maglio{width:84px;height:84px;overflow:visible}
+.maglio .testa-manico{transform-origin:22px 70px;animation:batti 1.05s cubic-bezier(.55,0,.35,1) infinite}
+.maglio .scintille{opacity:0;transform-origin:62px 70px;animation:sprizza 1.05s ease-out infinite}
+@keyframes batti{0%{transform:rotate(-58deg)}55%{transform:rotate(4deg)}62%{transform:rotate(-3deg)}100%{transform:rotate(-58deg)}}
+@keyframes sprizza{0%,50%{opacity:0;transform:scale(.4)}58%{opacity:1;transform:scale(1)}80%{opacity:0;transform:scale(1.35)}100%{opacity:0}}
+.carica-box p{margin:0;font:500 12px 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase}
+.carica-box small{font-size:13.5px;color:var(--ferro)}
+
+/* ricerca */
+.cerca-bar{position:sticky;top:68px;z-index:15;background:rgba(12,31,20,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line-2);padding:12px 0}
+.cerca-in{display:flex;gap:10px;align-items:center}
+.cerca-campo{position:relative;flex:1}
+.cerca-campo svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ferro);pointer-events:none}
+#cerca{width:100%;min-height:48px;background:var(--bosco2);border:1px solid var(--line);border-radius:10px;padding:10px 40px 10px 42px;font:16px Inter,system-ui,sans-serif;color:var(--avorio)}
+#cerca::placeholder{color:var(--ferro)}
+#cerca::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+#cerca:focus-visible{outline:3px solid var(--brace);outline-offset:2px}
+.cerca-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:8px;background:none;cursor:pointer;color:var(--ferro);display:grid;place-items:center}
+.cerca-x[hidden]{display:none}
+.cerca-x:hover{color:var(--avorio)}
+.cerca-esito{margin:10px 0 0;font-size:14.5px;color:var(--avorio-2);min-height:1.2em}
+.cerca-esito b{color:var(--avorio)}
+.cerca-esito .stato{display:block;font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:.08em;color:var(--ferro);margin-top:4px}
+.esempi{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.esempi button{border:1px solid var(--line);background:none;border-radius:999px;padding:4px 11px;font:500 12.5px Inter,sans-serif;color:var(--avorio-2);cursor:pointer}
+.esempi button:hover{border-color:var(--brace);color:var(--brace)}
+
+/* album */
+h2.sez{margin:clamp(26px,4vw,40px) 0 14px;font:700 clamp(20px,2.6vw,28px)/1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.03em}
+h2.sez em{font-style:normal;color:var(--brace)}
+.album{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;list-style:none;margin:0;padding:0}
+@media(max-width:620px){.album{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.album li{flex:0 0 72%;scroll-snap-align:start}}
+.album button{position:relative;display:block;width:100%;aspect-ratio:16/10;border:0;padding:0;border-radius:12px;overflow:hidden;cursor:pointer;background:var(--bosco2);box-shadow:0 0 0 1px var(--line-2);text-align:left}
+.album img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
+.album button:hover img{transform:scale(1.04)}
+.album .didas{position:absolute;inset:auto 0 0 0;padding:28px 14px 12px;background:linear-gradient(180deg,transparent,rgba(8,20,12,.9))}
+.album .didas b{display:block;font:600 16px/1.2 Oswald,sans-serif;letter-spacing:.03em;text-transform:uppercase}
+.album .didas small{font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--avorio-2)}
+.album button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--brace)}
+.album button:focus-visible{outline:3px solid var(--brace);outline-offset:3px}
+.album .tutte{display:grid;place-items:center;background:linear-gradient(135deg,var(--bosco),var(--bosco2))}
+.album .tutte .didas{position:static;background:none;padding:0;text-align:center}
+.galleria .pett{position:absolute;left:8px;top:8px;display:flex;gap:4px;flex-wrap:wrap;pointer-events:none}
+.galleria .pett span{font:700 11px 'JetBrains Mono',monospace;background:rgba(12,31,20,.82);border:1px solid rgba(244,149,31,.55);color:var(--avorio);padding:2px 6px;border-radius:5px}
+.lb-pett{font:500 12px 'JetBrains Mono',monospace;color:var(--brace)}
+
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="../" class="brand"><img src="logo-srm.png" alt="" width="42" height="42"><div><strong>Skyrace del Maglio</strong><em>Dove il ferro incontra il cielo</em></div></a>
+  <a class="back" href="../">← Torna al sito</a>
+</header>
+
+<main>
+  <section class="head">
+    <div class="wrap">
+      <p class="eyebrow">Domenica 18 ottobre 2026</p>
+      <h1>Le foto <span>della gara</span></h1>
+      <p class="lead">Gli scatti dei fotografi della Skyrace del Maglio 2026, divisi per album. Cerca il tuo <b>pettorale</b> o il tuo <b>nome</b>, oppure quello che c'è nella foto. Toccala per vederla grande, scaricarla o condividerla.</p>
+      <div class="meta"><span><b id="conta">—</b> foto</span><span><b id="nAlbum">—</b> album</span><span>Magliano de' Marsi</span></div>
+      <a class="btn-ghost" href="../classifica/" style="margin-top:22px">🏆 Classifica 2026</a>
+    </div>
+  </section>
+
+  <div class="cerca-bar" role="search">
+    <div class="wrap">
+      <div class="cerca-in">
+        <label class="cerca-campo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          <input type="search" id="cerca" placeholder="Pettorale, nome o cosa c'è nella foto (es. 169, Pelosi, arrivo)" aria-label="Cerca nelle foto: pettorale, nome o cosa c'è nella foto" autocomplete="off" enterkeyhint="search">
+          <button type="button" class="cerca-x" id="cercaX" aria-label="Cancella la ricerca" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+        </label>
+      </div>
+      <p class="cerca-esito" id="esito" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <p class="avviso" id="avviso" hidden></p>
+
+    <div class="carica-box" id="carica" role="status">
+      <svg class="maglio" viewBox="0 0 84 84" aria-hidden="true">
+        <rect x="8" y="72" width="70" height="7" rx="2" fill="#5b6b60"/>
+        <path d="M14 72h56l-5-9H19z" fill="#3c4a40"/>
+        <g class="scintille" fill="#f4951f"><circle cx="54" cy="60" r="2.2"/><circle cx="70" cy="58" r="1.8"/><circle cx="62" cy="52" r="2"/><circle cx="76" cy="64" r="1.5"/><circle cx="48" cy="64" r="1.5"/></g>
+        <g class="testa-manico">
+          <rect x="19" y="20" width="6" height="52" rx="3" fill="#a9612f"/>
+          <rect x="8" y="12" width="28" height="15" rx="3" fill="#9aa6a0"/>
+          <rect x="8" y="12" width="28" height="4" rx="2" fill="#cfd4c8"/>
+        </g>
+      </svg>
+      <p>Foto in caricamento…</p>
+      <small>Un attimo: stiamo battendo il ferro.</small>
+    </div>
+
+    <section id="secAlbum" hidden>
+      <h2 class="sez">Gli <em>album</em></h2>
+      <ul class="album" id="album" aria-label="Album fotografici"></ul>
+    </section>
+
+    <h2 class="sez" id="titoloGriglia" hidden></h2>
+    <ul class="galleria" id="galleria" aria-label="Foto della Skyrace del Maglio 2026"></ul>
+
+    <div class="note">
+      <div>
+        <h2>Libere da scaricare</h2>
+        <p>Le foto si possono scaricare e usare liberamente. Se le pubblichi sui social, cita il fotografo indicato nel nome dell'album (lo vedi anche in alto quando apri la foto).</p>
+      </div>
+      <div>
+        <h2>Come funziona la ricerca</h2>
+        <p>Pettorali e contenuto delle foto sono riconosciuti in automatico: se il numero è coperto o poco leggibile la foto può sfuggire, quindi sfoglia anche gli album.</p>
+      </div>
+      <div>
+        <h2>Ti riconosci e preferisci di no?</h2>
+        <p>Scrivici a <a href="mailto:usasportingclub@gmail.com?subject=Foto%20SRM%202026">usasportingclub@gmail.com</a> indicando il numero della foto (lo trovi in alto quando la apri): la togliamo.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Skyrace del Maglio · A.S.D. USA Sporting Club Avezzano · Foto dei fotografi indicati negli album</span>
+    <a href="../">www.skyracedelmaglio.it</a>
+  </div>
+</footer>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Foto ingrandita">
+  <div class="lb-top">
+    <span class="lb-cont" id="lbCont"></span>
+    <span class="lb-cred" id="lbCred"></span>
+    <button class="lb-x" id="lbX" aria-label="Chiudi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+  </div>
+  <div class="lb-stage" id="lbStage">
+    <img id="lbImg" alt="">
+    <span class="lb-spin" id="lbSpin" hidden></span>
+    <span class="lb-aiuto" id="lbAiuto"></span>
+    <button class="lb-nav lb-prev" id="lbPrev" aria-label="Foto precedente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="lb-nav lb-next" id="lbNext" aria-label="Foto successiva"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="lb-bot">
+    <a class="azione prima" id="lbScarica" href="#" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Scarica</a>
+    <button class="azione" id="lbCondividi"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="19" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4" stroke="currentColor" stroke-width="2"/></svg>Condividi</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  'use strict';
+  /* L'elenco di album e foto arriva dalla web app Google Apps Script dell'account del club
+     (codice in apps-script-elenco.gs), che legge la cartella Drive e l'indice dei pettorali.
+     Se non risponde si usa elenco.json. Le immagini sono ridimensionate da Google: miniatura ~640 px, grande ~2000 px. */
+  var FONTE_LIVE = 'https://script.google.com/macros/s/AKfycbw07sNjNBh9YbAFbFejL9vm-8fsqlIK1pN1h9PP-UcQjkSRwS8W8kKjKjyb0fWkzIsF/exec';
+  var ALBUM_PREDEFINITO = 'Michele Stoduto – Gara';   // per elenchi senza album
+  var DNF = [11, 32, 38, 55, 69, 143, 145, 150];       // partiti e non classificati: pettorali comunque validi
+  var MINI = 640, GRANDE = 2048, CHIAVE_CACHE = 'srm-foto-elenco-v2';
+  function urlImg(id, w){ return 'https://lh3.googleusercontent.com/d/' + id + '=w' + w; }
+  function urlRiserva(id, w){ return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + w; }
+  function urlScarica(id){ return 'https://drive.google.com/uc?export=download&id=' + id; }
+
+  var $ = function(id){ return document.getElementById(id); };
+  var gal = $('galleria'), lb = $('lb'), lbImg = $('lbImg'), lbSpin = $('lbSpin');
+  var ALBUM = [], FOTO = [], VISTE = [], ATLETI = [], VALIDI = null;
+  var stato = {album: -1, q: ''}, cur = -1, ultimoFocus = null, firma = '';
+
+  function avviso(t){ var a = $('avviso'); a.textContent = t; a.hidden = !t; }
+  function toast(t){ var el = $('toast'); el.textContent = t; el.classList.add('vis'); clearTimeout(toast._t); toast._t = setTimeout(function(){ el.classList.remove('vis'); }, 2200); }
+  function conta(){ try { if (window.goatcounter && goatcounter.count) goatcounter.count.apply(goatcounter, arguments); } catch(e){} }
+  function esc(t){ return String(t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function norm(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  /* il nome dell'album contiene il fotografo (es. «Villaggio gara - Michele Stoduto»): lo si mostra per intero come credito */
+  function fotografo(nomeAlbum){ return String(nomeAlbum).replace(/\s+-\s+/g, ' – '); }
+  function leggiCache(){ try { return JSON.parse(localStorage.getItem(CHIAVE_CACHE) || 'null'); } catch(e){ return null; } }
+  function scriviCache(d){ try { localStorage.setItem(CHIAVE_CACHE, JSON.stringify(d)); } catch(e){} }
+
+  function caricaImg(img, id, w, ok){
+    img.onerror = function(){
+      if (!img.dataset.riserva){ img.dataset.riserva = '1'; img.src = urlRiserva(id, w); return; }
+      img.onerror = null; if (ok) ok(false);
+    };
+    img.onload = function(){ img.classList.add('ok'); if (ok) ok(true); };
+    img.src = urlImg(id, w);
+  }
+
+  /* --- dati --- */
+  function prepara(d){
+    var album = d.album && d.album.length ? d.album : [{nome: ALBUM_PREDEFINITO}];
+    ALBUM = album.map(function(a, i){ return {nome: a.nome, cover: a.cover, n: 0, i: i}; });
+    FOTO = (d.foto || []).map(function(f){
+      var a = ALBUM[f.a || 0] || ALBUM[0]; a.n++;
+      var p = (f.p || []).filter(function(x){ return !VALIDI || VALIDI[x]; });
+      return {id: f.id, n: f.n, a: a.i, p: p, t: norm(f.t), i: !!f.i};
+    });
+    ALBUM.forEach(function(a){ if (!a.cover){ var f = FOTO.filter(function(x){ return x.a === a.i; })[0]; a.cover = f && f.id; } });
+    $('conta').textContent = FOTO.length; $('nAlbum').textContent = ALBUM.length;
+    disegnaAlbum(); applica();
+  }
+
+  function disegnaAlbum(){
+    $('secAlbum').hidden = ALBUM.length < 2 || !!stato.q;
+    var h = '';
+    if (ALBUM.length > 1) h += '<li><button type="button" class="tutte" data-a="-1" aria-pressed="' + (stato.album < 0) + '"><span class="didas"><b>Tutti gli album</b><small>' + FOTO.length + ' foto</small></span></button></li>';
+    ALBUM.forEach(function(a){
+      h += '<li><button type="button" data-a="' + a.i + '" aria-pressed="' + (stato.album === a.i) + '">' +
+        (a.cover ? '<img src="' + urlImg(a.cover, MINI) + '" alt="" loading="lazy">' : '') +
+        '<span class="didas"><b>' + esc(fotografo(a.nome)) + '</b><small>' + a.n + ' foto</small></span></button></li>';
+    });
+    $('album').innerHTML = h;
+  }
+
+  /* --- ricerca --- */
+  function cerca(q){
+    var s = norm(q);
+    if (!s) return null;
+    var res = {pett: [], atleti: [], perTesto: false};
+    if (/^\d{1,3}$/.test(s)){
+      res.pett = [+s];
+      ATLETI.forEach(function(a){ if (a.b === +s) res.atleti.push(a); });
+    } else {
+      var parole = s.split(' ');
+      ATLETI.forEach(function(a){
+        var nome = norm(a.n + ' ' + a.c);
+        var tutte = parole.every(function(p){ return (' ' + nome).indexOf(' ' + p) >= 0; });
+        if (tutte){ res.atleti.push(a); res.pett.push(a.b); }
+      });
+      res.perTesto = true; res.parole = parole;
+    }
+    return res;
+  }
+  function corrisponde(f, r){
+    for (var i = 0; i < r.pett.length; i++) if (f.p.indexOf(r.pett[i]) >= 0) return true;
+    if (r.perTesto && f.t){
+      var t = ' ' + f.t;
+      return r.parole.every(function(p){ return t.indexOf(' ' + p) >= 0; });
+    }
+    return false;
+  }
+
+  function applica(){
+    var r = cerca(stato.q);
+    VISTE = FOTO.filter(function(f){
+      if (stato.album >= 0 && f.a !== stato.album) return false;
+      return r ? corrisponde(f, r) : true;
+    });
+    var analizzate = FOTO.filter(function(f){ return f.i; }).length;
+    var e = '';
+    if (r){
+      var chi = r.atleti.slice(0, 3).map(function(a){ return '<b>' + esc(a.n + ' ' + a.c) + '</b> (' + a.b + ')'; }).join(', ');
+      if (r.atleti.length > 3) chi += ' e altri ' + (r.atleti.length - 3);
+      if (/^\d+$/.test(norm(stato.q)) && !r.atleti.length) chi = 'pettorale <b>' + esc(norm(stato.q)) + '</b>';
+      e = (VISTE.length ? '<b>' + VISTE.length + '</b> foto' : 'Nessuna foto trovata') + (chi ? ' · ' + chi : '') +
+          (stato.album >= 0 ? ' · nell\'album «' + esc(ALBUM[stato.album].nome) + '»' : '');
+      if (!VISTE.length) e += ' — prova a sfogliare gli album: il pettorale potrebbe non essere leggibile.';
+    }
+    if (FOTO.length && analizzate < FOTO.length)
+      e += '<span class="stato">Riconoscimento automatico in corso: ' + analizzate + ' foto analizzate su ' + FOTO.length + '. Le altre arrivano a breve.</span>';
+    $('esito').innerHTML = e;
+    $('cercaX').hidden = !stato.q;
+    $('secAlbum').hidden = ALBUM.length < 2 || !!r;
+    var t = $('titoloGriglia');
+    t.hidden = ALBUM.length < 2 && !r;
+    t.innerHTML = r ? 'Risultati <em>della ricerca</em>' : (stato.album >= 0 ? esc(fotografo(ALBUM[stato.album].nome)) : 'Tutte <em>le foto</em>');
+    Array.prototype.forEach.call($('album').querySelectorAll('button'), function(b){ b.setAttribute('aria-pressed', String(+b.dataset.a === stato.album)); });
+    disegnaGriglia();
+    var url = location.pathname + (stato.q ? '?q=' + encodeURIComponent(stato.q) : '') + (stato.album >= 0 ? (stato.q ? '&' : '?') + 'album=' + stato.album : '');
+    history.replaceState(null, '', url + location.hash);
+  }
+
+  function disegnaGriglia(){
+    gal.innerHTML = '';
+    var frag = document.createDocumentFragment(), falliti = 0;
+    VISTE.forEach(function(f, i){
+      var li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Apri la foto ' + (i + 1) + ' di ' + VISTE.length + (f.p.length ? ', pettorali ' + f.p.join(', ') : ''));
+      var img = document.createElement('img');
+      img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.width = 640; img.height = 427;
+      caricaImg(img, f.id, MINI, function(ok){
+        if (ok) return;
+        falliti++; b.innerHTML = '<span class="ko">' + esc(f.n) + '</span>';
+        if (falliti >= 6) avviso('Alcune foto non si caricano in questo momento. Riprova tra poco.');
+      });
+      b.appendChild(img);
+      if (stato.q && f.p.length){
+        var tag = document.createElement('span'); tag.className = 'pett';
+        tag.innerHTML = f.p.slice(0, 4).map(function(x){ return '<span>' + x + '</span>'; }).join('');
+        b.appendChild(tag);
+      }
+      b.addEventListener('click', function(){ apri(i); });
+      li.appendChild(b); frag.appendChild(li);
+    });
+    gal.appendChild(frag);
+  }
+
+  /* --- visualizzatore --- */
+  /* dimensioni dell'immagine ingrandita: tutta visibile, senza tagli né deformazioni */
+  function adatta(){
+    zoomVia(true);
+    var w = lbImg.naturalWidth, h = lbImg.naturalHeight; if (!w || !h || lb.hidden) return;
+    var st = $('lbStage').getBoundingClientRect(), tocco = matchMedia('(hover: none)').matches;
+    var px = tocco ? 0 : Math.min(88, Math.max(4, innerWidth * .05)), py = tocco ? 0 : Math.min(14, Math.max(4, innerWidth * .012));
+    var k = Math.min((st.width - 2 * px) / w, (st.height - 2 * py) / h);
+    lbImg.style.width = Math.round(w * k) + 'px'; lbImg.style.height = Math.round(h * k) + 'px';
+  }
+  addEventListener('resize', adatta); addEventListener('orientationchange', function(){ setTimeout(adatta, 250); });
+
+  /* iPhone/iPad: «Salva» apre il menu di condivisione con l'immagine, da cui si sceglie «Salva immagine» (va nelle Foto) */
+  var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var FILES = {};
+  function preparaFile(f){
+    if (FILES[f.id] || !window.File || !navigator.canShare) return;
+    FILES[f.id] = fetch(urlImg(f.id, GRANDE)).then(function(r){ if (!r.ok) throw 0; return r.blob(); })
+      .then(function(b){ var file = new File([b], 'SRM2026_' + f.n + '.jpg', {type: b.type || 'image/jpeg'}); FILES[f.id] = file; return file; })
+      .catch(function(){ delete FILES[f.id]; return null; });
+  }
+
+  function mostra(i){
+    cur = (i + VISTE.length) % VISTE.length;
+    var f = VISTE[cur], alb = ALBUM[f.a];
+    $('lbCont').innerHTML = '<b>' + (cur + 1) + '</b> / ' + VISTE.length + ' · ' + esc(f.n) + (f.p.length ? ' <span class="lb-pett">· pett. ' + f.p.join(', ') + '</span>' : '');
+    $('lbCred').textContent = fotografo(alb.nome);
+    $('lbScarica').href = urlScarica(f.id);
+    $('lbScarica').setAttribute('download', 'SRM2026_' + f.n + '.jpg');
+    lbImg.classList.add('carica'); lbSpin.hidden = false;
+    lbImg.alt = 'Foto ' + (cur + 1) + ' di ' + VISTE.length + ', Skyrace del Maglio 2026';
+    delete lbImg.dataset.riserva;
+    var richiesta = cur;
+    caricaImg(lbImg, f.id, GRANDE, function(){ adatta(); if (richiesta === cur){ lbImg.classList.remove('carica'); lbSpin.hidden = true; } });
+    if (IOS) preparaFile(f);
+    if (location.hash !== '#' + f.n) history.replaceState(null, '', location.pathname + location.search + '#' + f.n);
+    [cur + 1, cur - 1].forEach(function(k){ var p = VISTE[(k + VISTE.length) % VISTE.length]; (new Image()).src = urlImg(p.id, GRANDE); });
+  }
+  function apri(i){ ultimoFocus = document.activeElement; lb.hidden = false; document.body.style.overflow = 'hidden'; mostra(i); $('lbX').focus(); aiuto(); }
+  function chiudi(){
+    zoomVia(true);
+    lb.hidden = true; document.body.style.overflow = ''; lbImg.removeAttribute('src');
+    history.replaceState(null, '', location.pathname + location.search);
+    var btn = gal.querySelectorAll('button')[cur];
+    if (btn){ btn.scrollIntoView({block: 'nearest'}); btn.focus(); } else if (ultimoFocus) ultimoFocus.focus();
+  }
+  $('lbX').addEventListener('click', chiudi);
+  $('lbPrev').addEventListener('click', function(){ mostra(cur - 1); });
+  $('lbNext').addEventListener('click', function(){ mostra(cur + 1); });
+  $('lbStage').addEventListener('click', function(e){ if (e.target === this) chiudi(); });
+  $('lbScarica').addEventListener('click', function(e){
+    var f = VISTE[cur], file = FILES[f.id];
+    conta({path: 'foto/scarica/' + f.n, title: 'Scarica foto', event: true});
+    if (IOS && file instanceof File && navigator.canShare && navigator.canShare({files: [file]})){
+      e.preventDefault();
+      navigator.share({files: [file]}).catch(function(){});
+    }
+  });
+  $('lbCondividi').addEventListener('click', function(){
+    var f = VISTE[cur], url = location.origin + location.pathname + '#' + f.n;
+    conta({path: 'foto/condividi/' + f.n, title: 'Condividi foto', event: true});
+    if (navigator.share) navigator.share({title: 'Skyrace del Maglio 2026 · ' + fotografo(ALBUM[f.a].nome), url: url}).catch(function(){});
+    else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function(){ toast('Link copiato'); }, function(){ prompt('Copia il link', url); });
+    else prompt('Copia il link', url);
+  });
+  document.addEventListener('keydown', function(e){
+    if (lb.hidden) return;
+    if (e.key === 'Escape') chiudi();
+    else if (e.key === 'ArrowRight') mostra(cur + 1);
+    else if (e.key === 'ArrowLeft') mostra(cur - 1);
+    else if (e.key === 'Tab'){
+      var foc = Array.prototype.filter.call(lb.querySelectorAll('button,a[href]'), function(el){ return el.offsetParent !== null; });
+      var p = foc[0], u = foc[foc.length - 1];
+      if (e.shiftKey && document.activeElement === p){ e.preventDefault(); u.focus(); }
+      else if (!e.shiftKey && document.activeElement === u){ e.preventDefault(); p.focus(); }
+    }
+  });
+  /* --- zoom: due dita sul telefono, tieni premuto il mouse sul PC; lasciando torna alla dimensione normale --- */
+  var Z = {z: 1, x: 0, y: 0};
+  function zoomApplica(){
+    lbImg.style.transform = 'translate(-50%,-50%) translate(' + Z.x + 'px,' + Z.y + 'px) scale(' + Z.z + ')';
+  }
+  function zoomVia(subito){
+    if (Z.z === 1 && !Z.x && !Z.y) return;
+    Z.z = 1; Z.x = 0; Z.y = 0;
+    if (subito) lbImg.classList.add('zoom'); else lbImg.classList.remove('zoom');
+    zoomApplica();
+  }
+  function centro(){ var r = $('lbStage').getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }
+  function limita(){
+    // la foto ingrandita non si stacca dai bordi
+    var r = $('lbStage').getBoundingClientRect(), w = lbImg.offsetWidth * Z.z, h = lbImg.offsetHeight * Z.z;
+    var mx = Math.max(0, (w - r.width) / 2), my = Math.max(0, (h - r.height) / 2);
+    Z.x = Math.max(-mx, Math.min(mx, Z.x)); Z.y = Math.max(-my, Math.min(my, Z.y));
+  }
+  var aiutoVisto = false;
+  function aiuto(){
+    var a = $('lbAiuto'); if (aiutoVisto){ a.classList.add('via'); return; }
+    a.textContent = matchMedia('(hover: none)').matches ? 'Allarga con due dita per lo zoom' : 'Tieni premuto sulla foto per lo zoom';
+    a.classList.remove('via'); clearTimeout(aiuto._t); aiuto._t = setTimeout(function(){ a.classList.add('via'); }, 2600);
+  }
+
+  // PC: lente che segue il mouse finché il tasto è premuto
+  var lente = false;
+  function lenteMuovi(e){
+    var c = centro(); Z.z = 2.6;
+    Z.x = -(e.clientX - c.x) * (Z.z - 1); Z.y = -(e.clientY - c.y) * (Z.z - 1);
+    limita(); zoomApplica();
+  }
+  lbImg.addEventListener('dragstart', function(e){ e.preventDefault(); });
+  lbImg.addEventListener('mousedown', function(e){
+    if (e.button !== 0) return; e.preventDefault();
+    lente = true; aiutoVisto = true; $('lbAiuto').classList.add('via');
+    lbImg.classList.add('zoom'); lenteMuovi(e);
+  });
+  addEventListener('mousemove', function(e){ if (lente) lenteMuovi(e); });
+  addEventListener('mouseup', function(){ if (lente){ lente = false; zoomVia(false); } });
+  addEventListener('blur', function(){ if (lente){ lente = false; zoomVia(true); } });
+
+  // telefono: pizzico con due dita, trascinamento, scorrimento per cambiare foto
+  var x0 = null, y0 = null, pz = null, trascina = null, pizzicato = false;
+  function dist(t){ return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+  function medio(t){ return {x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2}; }
+  $('lbStage').addEventListener('touchstart', function(e){
+    var t = e.touches;
+    if (t.length === 2){
+      var c = centro(), m = medio(t);
+      pz = {d: dist(t), z: Z.z, x: Z.x, y: Z.y, mx: m.x - c.x, my: m.y - c.y};
+      pizzicato = true; x0 = null; trascina = null; lbImg.classList.add('zoom');
+      aiutoVisto = true; $('lbAiuto').classList.add('via');
+    } else if (t.length === 1){
+      if (Z.z > 1){ trascina = {sx: t[0].clientX, sy: t[0].clientY, x: Z.x, y: Z.y}; x0 = null; }
+      else if (!pizzicato){ x0 = t[0].clientX; y0 = t[0].clientY; }
+    }
+  }, {passive: true});
+  $('lbStage').addEventListener('touchmove', function(e){
+    var t = e.touches;
+    if (t.length === 2 && pz){
+      e.preventDefault();
+      var c = centro(), m = medio(t), mx = m.x - c.x, my = m.y - c.y;
+      Z.z = Math.max(1, Math.min(5, pz.z * dist(t) / pz.d));
+      // il punto tra le dita resta sotto le dita
+      Z.x = mx - (pz.mx - pz.x) * Z.z / pz.z; Z.y = my - (pz.my - pz.y) * Z.z / pz.z;
+      limita(); zoomApplica();
+    } else if (t.length === 1 && trascina){
+      e.preventDefault();
+      Z.x = trascina.x + t[0].clientX - trascina.sx; Z.y = trascina.y + t[0].clientY - trascina.sy;
+      limita(); zoomApplica();
+    }
+  }, {passive: false});
+  $('lbStage').addEventListener('touchend', function(e){
+    if (e.touches.length === 0){
+      if (pizzicato || trascina){ pz = null; trascina = null; pizzicato = false; x0 = null; zoomVia(false); return; }
+      if (x0 === null) return;
+      var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) mostra(cur + (dx < 0 ? 1 : -1));
+      else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) chiudi();
+    } else if (e.touches.length === 1 && pz){
+      // tolto un dito: si continua a spostare la foto con l'altro
+      pz = null; trascina = {sx: e.touches[0].clientX, sy: e.touches[0].clientY, x: Z.x, y: Z.y};
+    }
+  }, {passive: true});
+  $('lbStage').addEventListener('touchcancel', function(){ pz = null; trascina = null; pizzicato = false; x0 = null; zoomVia(false); }, {passive: true});
+
+  /* --- comandi --- */
+  var attesa;
+  $('cerca').addEventListener('input', function(){
+    var v = this.value; clearTimeout(attesa);
+    attesa = setTimeout(function(){ stato.q = v.trim(); applica(); if (stato.q) conta({path: 'foto/cerca', title: 'Ricerca foto', event: true}); }, 220);
+  });
+  $('cercaX').addEventListener('click', function(){ $('cerca').value = ''; stato.q = ''; applica(); $('cerca').focus(); });
+  $('album').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    stato.album = +b.dataset.a; applica();
+    $('titoloGriglia').scrollIntoView({behavior: 'smooth', block: 'start'});
+  });
+
+  function daHash(){
+    var n = decodeURIComponent(location.hash.slice(1)); if (!n) return;
+    for (var i = 0; i < VISTE.length; i++) if (VISTE[i].n === n){ apri(i); return; }
+    for (var j = 0; j < FOTO.length; j++) if (FOTO[j].n === n){ stato.q = ''; stato.album = -1; $('cerca').value = ''; applica(); apri(VISTE.indexOf(FOTO[j])); return; }
+  }
+
+  /* --- avvio --- */
+  if (IOS){ var bs = $('lbScarica'); bs.lastChild.textContent = 'Salva'; bs.setAttribute('title', 'Salva la foto nella galleria'); }
+  var par = new URLSearchParams(location.search);
+  stato.q = par.get('q') || ''; $('cerca').value = stato.q;
+  if (par.get('album') !== null && /^\d+$/.test(par.get('album'))) stato.album = +par.get('album');
+
+  function leggi(url, ms){
+    return Promise.race([
+      fetch(url, {cache: 'no-cache'}).then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); }),
+      new Promise(function(_, no){ setTimeout(function(){ no(new Error('timeout')); }, ms); })
+    ]);
+  }
+  var classifica = leggi('../classifica/classifica-2026.json', 15000).then(function(d){
+    ATLETI = d.atleti.map(function(a){ return {b: a.b, c: a.c, n: a.n}; });
+    VALIDI = {}; ATLETI.forEach(function(a){ VALIDI[a.b] = 1; }); DNF.forEach(function(b){ VALIDI[b] = 1; });
+  }).catch(function(){ ATLETI = []; VALIDI = null; });
+
+  var mostrato = false;
+  function usa(d){
+    var f = JSON.stringify([d.album, (d.foto || []).length, d.aggiornato]);
+    if (mostrato && f === firma) return;
+    firma = f; $('carica').hidden = true; prepara(d);
+    if (!mostrato){ mostrato = true; daHash(); }
+  }
+  var cache = leggiCache();
+  classifica.then(function(){
+    if (cache && cache.foto && cache.foto.length) usa(cache);
+    var vivo = leggi(FONTE_LIVE, 25000).then(function(d){ if (!d || !d.foto || !d.foto.length) throw new Error('vuoto'); scriviCache(d); return d; });
+    return vivo.catch(function(){ return mostrato ? null : leggi('elenco.json', 15000); });
+  }).then(function(d){ if (d) usa(d); })
+    .catch(function(){ if (!mostrato){ $('carica').hidden = true; avviso('Non riesco a caricare le foto in questo momento. Ricarica la pagina tra poco.'); } });
+})();
+</script>
+<script data-goatcounter="https://skyracedelmaglio.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
